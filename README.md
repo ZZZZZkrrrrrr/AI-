@@ -1,4 +1,4 @@
-# AI n8n libTV Workflow
+# AI-n8n-libTV
 
 本仓库是一套本地 AI 带货视频工作流，包含：
 
@@ -126,3 +126,4 @@ ai_ugc_database\ai_ugc_product.sqlite
 ```text
 ecommerce_ugc_video_system\ai_prompt_video_studio\DELIVERY_2026-05-29.md
 ```
+# AI-n8n-libTV
