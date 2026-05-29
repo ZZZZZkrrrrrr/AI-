@@ -1,0 +1,30 @@
+services:
+  ai-ugc-postgres:
+    image: postgres:16-alpine
+    container_name: ai-ugc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ai_ugc
+      POSTGRES_USER: ai_ugc
+      POSTGRES_PASSWORD: ${AI_UGC_POSTGRES_PASSWORD:-ai_ugc_local_dev}
+      TZ: Asia/Shanghai
+    ports:
+      - "5433:5432"
+    volumes:
+      - ai_ugc_postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - n8n-local-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_ugc -d ai_ugc"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  n8n-local-net:
+    external: true
+
+volumes:
+  ai_ugc_postgres_data:
+
