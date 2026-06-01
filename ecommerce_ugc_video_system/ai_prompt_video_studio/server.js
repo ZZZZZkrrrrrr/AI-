@@ -13,6 +13,7 @@ const WORKFLOW_DIR = path.resolve(ROOT, "..", "..");
 const DIST_DIR = path.join(ROOT, "dist");
 const PUBLIC_DIR = existsSync(DIST_DIR) ? DIST_DIR : path.join(ROOT, "public");
 const OUTPUT_DIR = path.join(WORKFLOW_DIR, "outputs", "libtv");
+const STITCH_OUTPUT_DIR = path.join(WORKFLOW_DIR, "outputs", "stitched");
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
 
 loadDotEnv(path.join(ROOT, ".env"));
@@ -55,6 +56,7 @@ const config = {
   libtvDbPath: process.env.LIBTV_DB_PATH || path.join(WORKFLOW_DIR, "ai_ugc_database", "ai_ugc_product.sqlite"),
   runStorageDir: process.env.RUN_STORAGE_DIR || path.join(ROOT, "runs"),
   pythonExe: process.env.PYTHON_EXE || "py",
+  ffmpegExe: process.env.FFMPEG_EXE || "ffmpeg",
   libtvDefaultDryRun: coerceBool(process.env.LIBTV_DEFAULT_DRY_RUN, true)
 };
 
@@ -69,7 +71,8 @@ const mimeTypes = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
-  ".webp": "image/webp"
+  ".webp": "image/webp",
+  ".mp4": "video/mp4"
 };
 
 const corsHeaders = {
@@ -156,6 +159,13 @@ function createRun(kind, payload, job) {
     subscribers: new Set(),
     abortController: new AbortController(),
     cancelled: false,
+    tokenUsage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      calls: 0,
+      items: []
+    },
     result: null,
     error: null
   };
@@ -208,6 +218,52 @@ function isRunCancelled(error, run) {
   return error?.name === "RunCancelledError" || Boolean(run?.cancelled || run?.abortController?.signal?.aborted);
 }
 
+function tokenNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function extractTokenUsage(response) {
+  const usage = response?.usage || response?.meta?.usage || response?.output?.usage || {};
+  const promptTokens = tokenNumber(usage.prompt_tokens ?? usage.input_tokens ?? usage.inputTokens);
+  const completionTokens = tokenNumber(usage.completion_tokens ?? usage.output_tokens ?? usage.outputTokens);
+  const totalTokens = tokenNumber(usage.total_tokens ?? usage.totalTokens) || promptTokens + completionTokens;
+  if (!promptTokens && !completionTokens && !totalTokens) return null;
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    raw: usage
+  };
+}
+
+function addRunTokenUsage(run, usage, meta = {}) {
+  if (!run || !usage) return null;
+  const current = {
+    phase: meta.phase || "",
+    model: meta.model || "",
+    provider: meta.provider || "",
+    promptTokens: tokenNumber(usage.promptTokens),
+    completionTokens: tokenNumber(usage.completionTokens),
+    totalTokens: tokenNumber(usage.totalTokens),
+    raw: usage.raw || undefined
+  };
+  run.tokenUsage.promptTokens += current.promptTokens;
+  run.tokenUsage.completionTokens += current.completionTokens;
+  run.tokenUsage.totalTokens += current.totalTokens;
+  run.tokenUsage.calls += 1;
+  run.tokenUsage.items.push(current);
+  return {
+    current,
+    total: {
+      promptTokens: run.tokenUsage.promptTokens,
+      completionTokens: run.tokenUsage.completionTokens,
+      totalTokens: run.tokenUsage.totalTokens,
+      calls: run.tokenUsage.calls
+    }
+  };
+}
+
 function subscribeToRun(req, res, run) {
   res.writeHead(200, {
     ...corsHeaders,
@@ -256,9 +312,16 @@ async function runFinalPromptJob(run, payload) {
     });
 
     let imageAnalysis = "";
+    let imageTokenUsage = null;
     emit(run, { type: "status", phase: "图片识别", message: "开始整理产品图片信息。" });
     if (config.qianwenVlKey && normalized.images.length) {
-      imageAnalysis = await analyzeImagesWithQianwen(normalized, run.abortController.signal);
+      const analyzed = await analyzeImagesWithQianwen(normalized, run.abortController.signal);
+      imageAnalysis = analyzed.text;
+      imageTokenUsage = addRunTokenUsage(run, analyzed.usage, {
+        phase: "图片识别",
+        model: analyzed.model,
+        provider: "qianwen-vl"
+      });
     } else {
       imageAnalysis = buildLocalImageSummary(normalized.images);
       emit(run, {
@@ -272,7 +335,8 @@ async function runFinalPromptJob(run, payload) {
       type: "image_analysis",
       phase: "图片识别",
       message: "产品图片信息已整理。",
-      output: imageAnalysis
+      output: imageAnalysis,
+      tokenUsage: imageTokenUsage
     });
 
     const categoryWasManual = Boolean(normalized.productCategory);
@@ -321,13 +385,17 @@ async function runFinalPromptJob(run, payload) {
       categorySource: categoryWasManual ? "manual" : "image_analysis",
       steps,
       finalPrompt: packaged.finalPrompt,
-      promptPackage: packaged
+      promptPackage: packaged,
+      tokenUsage: run.tokenUsage
     };
     emit(run, {
       type: "completed",
       phase: "完成",
       message: "最终完整提示词已生成。",
-      result: run.result
+      result: run.result,
+      tokenUsage: {
+        total: run.tokenUsage
+      }
     });
   } catch (error) {
     if (isRunCancelled(error, run)) {
@@ -493,6 +561,7 @@ function boundedNumber(value, fallback, min, max) {
 }
 
 async function analyzeImagesWithQianwen(payload, signal) {
+  const model = getVisionModel(payload);
   const imageContent = payload.images.slice(0, 3).map((image) => ({
     type: "image_url",
     image_url: { url: image.dataUrl }
@@ -500,7 +569,7 @@ async function analyzeImagesWithQianwen(payload, signal) {
   const response = await callChatCompletion({
     url: `${config.qianwenBaseUrl.replace(/\/$/, "")}/chat/completions`,
     apiKey: config.qianwenVlKey,
-    model: getVisionModel(payload),
+    model,
     messages: [
       {
         role: "system",
@@ -522,7 +591,11 @@ async function analyzeImagesWithQianwen(payload, signal) {
     temperature: 0.2,
     signal
   });
-  return extractAssistantText(response);
+  return {
+    text: extractAssistantText(response),
+    usage: extractTokenUsage(response),
+    model
+  };
 }
 
 function buildLocalImageSummary(images) {
@@ -620,6 +693,19 @@ async function runDoubaoDynamicSteps(payload, imageAnalysis, run, sopSteps) {
     signal: run.abortController.signal
   });
   ensureRunActive(run);
+  const tokenUsage = addRunTokenUsage(run, extractTokenUsage(response), {
+    phase: "步骤生成",
+    model: analysisConfig.model,
+    provider: analysisConfig.provider
+  });
+  if (tokenUsage) {
+    emit(run, {
+      type: "token_usage",
+      phase: "步骤生成",
+      message: "步骤生成模型调用已完成。",
+      tokenUsage
+    });
+  }
   const text = extractAssistantText(response);
   const stepOutputs = parseBatchStepOutputs(text, sopSteps);
   for (const item of stepOutputs) {
@@ -838,6 +924,19 @@ async function packageFinalPromptWithDoubao(payload, imageAnalysis, steps, run) 
     signal: run?.abortController?.signal
   });
   ensureRunActive(run);
+  const tokenUsage = addRunTokenUsage(run, extractTokenUsage(response), {
+    phase: "最终封装",
+    model: analysisConfig.model,
+    provider: analysisConfig.provider
+  });
+  if (tokenUsage) {
+    emit(run, {
+      type: "token_usage",
+      phase: "最终封装",
+      message: "最终封装模型调用已完成。",
+      tokenUsage
+    });
+  }
   const text = extractAssistantText(response);
   return parsePackagedPrompt(text, payload, imageAnalysis, fallbackPrompt);
 }
@@ -1053,6 +1152,196 @@ async function submitLibTVVideo(payload, run = null) {
   };
 }
 
+async function runStitchJob(run, payload) {
+  try {
+    emit(run, { type: "status", phase: "准备拼接", message: "正在校验视频列表和拼接参数。" });
+    const result = await stitchVideos(payload, run);
+    run.status = "completed";
+    run.result = result;
+    emit(run, {
+      type: "completed",
+      phase: "拼接完成",
+      message: `已生成 ${result.outputs.length} 个拼接视频。`,
+      result
+    });
+  } catch (error) {
+    run.status = "failed";
+    run.error = error.message;
+    emit(run, {
+      type: "failed",
+      phase: "拼接失败",
+      message: error.message
+    });
+  }
+}
+
+async function stitchVideos(payload, run = null) {
+  const normalized = normalizeStitchPayload(payload);
+  const runCode = `STITCH-${formatDatePart(new Date())}-${formatTimePart(new Date())}-${randomUUID().slice(0, 8)}`;
+  const runDir = path.join(config.runStorageDir, "stitch", safeFilePart(runCode));
+  await mkdir(runDir, { recursive: true });
+  await mkdir(STITCH_OUTPUT_DIR, { recursive: true });
+
+  const groups = chunkArray(normalized.videos, normalized.groupSize).filter((group) => group.length >= 2);
+  if (!groups.length) throw new Error("至少需要 2 个视频才能拼接。");
+
+  const outputs = [];
+  for (let index = 0; index < groups.length; index += 1) {
+    const groupNo = index + 1;
+    const group = groups[index];
+    emit(run, {
+      type: "status",
+      phase: `准备第 ${groupNo} 组`,
+      message: `正在准备第 ${groupNo} 组 ${group.length} 个视频素材。`
+    });
+    const inputFiles = [];
+    for (let videoIndex = 0; videoIndex < group.length; videoIndex += 1) {
+      inputFiles.push(await materializeStitchInput(group[videoIndex], runDir, groupNo, videoIndex + 1));
+    }
+
+    const listPath = path.join(runDir, `concat-${String(groupNo).padStart(2, "0")}.txt`);
+    await writeFile(listPath, inputFiles.map((filePath) => `file '${escapeFfmpegConcatPath(filePath)}'`).join("\n"), "utf8");
+
+    const outputName = `${runCode}-${String(groupNo).padStart(2, "0")}.mp4`;
+    const outputPath = path.join(STITCH_OUTPUT_DIR, outputName);
+    emit(run, {
+      type: "status",
+      phase: `合成第 ${groupNo} 组`,
+      message: "正在调用 ffmpeg 合成视频。"
+    });
+    const ffmpegResult = await runFfmpegConcat(listPath, outputPath);
+    const fileStat = await stat(outputPath);
+    const output = {
+      groupNo,
+      name: outputName,
+      path: outputPath,
+      url: `/api/output-file?kind=stitched&name=${encodeURIComponent(outputName)}`,
+      size: fileStat.size,
+      updatedAt: fileStat.mtime.toISOString(),
+      inputs: group.map((video) => ({
+        name: video.name,
+        taskCode: video.taskCode,
+        source: video.source,
+        url: video.url
+      })),
+      ffmpegMode: ffmpegResult.mode
+    };
+    outputs.push(output);
+    emit(run, {
+      type: "group_completed",
+      phase: `第 ${groupNo} 组完成`,
+      message: `第 ${groupNo} 组已生成：${outputName}`,
+      result: output
+    });
+  }
+
+  return {
+    ok: true,
+    runCode,
+    runDir,
+    groupSize: normalized.groupSize,
+    inputCount: normalized.videos.length,
+    outputs
+  };
+}
+
+function normalizeStitchPayload(payload = {}) {
+  const videos = Array.isArray(payload.videos)
+    ? payload.videos.map((video, index) => ({
+        id: String(video.id || `video-${index + 1}`),
+        name: String(video.name || `视频 ${index + 1}`),
+        source: String(video.source || ""),
+        taskCode: String(video.taskCode || ""),
+        url: String(video.url || "").trim()
+      })).filter((video) => video.url)
+    : [];
+  if (videos.length < 2) throw new Error("请至少选择 2 个视频进行拼接。");
+  return {
+    videos: videos.slice(0, 50),
+    groupSize: boundedNumber(payload.groupSize, 2, 2, 20)
+  };
+}
+
+async function materializeStitchInput(video, runDir, groupNo, videoNo) {
+  const source = video.url;
+  if (/^https?:\/\//i.test(source)) {
+    const ext = path.extname(new URL(source).pathname).toLowerCase() || ".mp4";
+    const filePath = path.join(runDir, `g${groupNo}-input-${String(videoNo).padStart(2, "0")}${ext === ".mp4" ? ext : ".mp4"}`);
+    await downloadVideoFile(source, filePath);
+    return filePath;
+  }
+
+  const filePath = path.resolve(source);
+  const allowed = [OUTPUT_DIR, STITCH_OUTPUT_DIR, config.runStorageDir].some((dir) => isPathInside(filePath, dir));
+  if (!allowed) throw new Error(`视频路径不在允许目录内：${source}`);
+  const fileStat = await stat(filePath);
+  if (!fileStat.isFile()) throw new Error(`视频文件不存在：${source}`);
+  return filePath;
+}
+
+async function downloadVideoFile(url, filePath) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`下载视频失败：HTTP ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    await writeFile(filePath, buffer);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function runFfmpegConcat(listPath, outputPath) {
+  const commonArgs = ["-hide_banner", "-y", "-f", "concat", "-safe", "0", "-i", listPath];
+  try {
+    await runProcess(config.ffmpegExe, [...commonArgs, "-c", "copy", "-movflags", "+faststart", outputPath], {
+      cwd: WORKFLOW_DIR
+    });
+    return { mode: "copy" };
+  } catch (copyError) {
+    await runProcess(
+      config.ffmpegExe,
+      [...commonArgs, "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-movflags", "+faststart", outputPath],
+      { cwd: WORKFLOW_DIR }
+    );
+    return { mode: "transcode", copyError: copyError.message };
+  }
+}
+
+function chunkArray(items, size) {
+  const output = [];
+  for (let index = 0; index < items.length; index += size) {
+    output.push(items.slice(index, index + size));
+  }
+  return output;
+}
+
+function escapeFfmpegConcatPath(filePath) {
+  return filePath.replace(/\\/g, "/").replace(/'/g, "'\\''");
+}
+
+function isPathInside(filePath, dir) {
+  const relative = path.relative(path.resolve(dir), path.resolve(filePath));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function formatDatePart(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("");
+}
+
+function formatTimePart(date) {
+  return [
+    String(date.getHours()).padStart(2, "0"),
+    String(date.getMinutes()).padStart(2, "0"),
+    String(date.getSeconds()).padStart(2, "0")
+  ].join("");
+}
+
 async function recoverLibTVResultFromDatabase(saved, originalError) {
   const deadline = Date.now() + 180000;
   let lastSnapshot = null;
@@ -1158,21 +1447,56 @@ print(json.dumps([dict(row) for row in rows], ensure_ascii=False))
 }
 
 async function listOutputFiles() {
-  if (!existsSync(OUTPUT_DIR)) return [];
-  const entries = await readdir(OUTPUT_DIR, { withFileTypes: true });
   const files = [];
-  for (const entry of entries) {
-    if (!entry.isFile()) continue;
-    const filePath = path.join(OUTPUT_DIR, entry.name);
-    const fileStat = await stat(filePath);
-    files.push({
-      name: entry.name,
-      path: filePath,
-      size: fileStat.size,
-      updatedAt: fileStat.mtime.toISOString()
-    });
+  for (const [kind, dir] of [
+    ["libtv", OUTPUT_DIR],
+    ["stitched", STITCH_OUTPUT_DIR]
+  ]) {
+    if (!existsSync(dir)) continue;
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const filePath = path.join(dir, entry.name);
+      const fileStat = await stat(filePath);
+      files.push({
+        name: entry.name,
+        kind,
+        path: filePath,
+        url: `/api/output-file?kind=${encodeURIComponent(kind)}&name=${encodeURIComponent(entry.name)}`,
+        size: fileStat.size,
+        updatedAt: fileStat.mtime.toISOString()
+      });
+    }
   }
   return files.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+}
+
+function outputDirByKind(kind) {
+  if (kind === "libtv") return OUTPUT_DIR;
+  if (kind === "stitched") return STITCH_OUTPUT_DIR;
+  return null;
+}
+
+async function serveOutputFile(res, kind, name) {
+  const dir = outputDirByKind(kind);
+  if (!dir || !name) return textResponse(res, 404, "Not found");
+  const filePath = path.normalize(path.join(dir, path.basename(name)));
+  const relative = path.relative(dir, filePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return textResponse(res, 403, "Forbidden");
+  try {
+    const fileStat = await stat(filePath);
+    if (!fileStat.isFile()) return textResponse(res, 404, "Not found");
+    const ext = path.extname(filePath).toLowerCase();
+    const content = await readFile(filePath);
+    res.writeHead(200, {
+      "content-type": mimeTypes[ext] || "application/octet-stream",
+      "content-length": content.length,
+      "cache-control": "no-store"
+    });
+    res.end(content);
+  } catch {
+    textResponse(res, 404, "Not found");
+  }
 }
 
 async function saveVideoInputFiles(payload) {
@@ -1691,6 +2015,7 @@ const server = createServer(async (req, res) => {
         doubaoConfigured: Boolean(config.arkKey && config.doubaoUrl && config.doubaoModel),
         seedanceConfigured: Boolean(config.arkKey && config.seedanceUrl && config.seedanceModel),
         seedreamConfigured: Boolean(config.arkKey && config.imageGenerationUrl && config.imageGenerationModel),
+        ffmpegConfigured: Boolean(config.ffmpegExe),
         libtvBridgeConfigured: Boolean(config.libtvBridgeUrl),
         libtvBridgeReachable: Boolean(libtvHealth.ok),
         libtvDatabase: config.libtvDbPath,
@@ -1707,9 +2032,14 @@ const server = createServer(async (req, res) => {
           video: config.videoModelOptions,
           imageGeneration: config.imageGenerationModelOptions
         },
+        ffmpeg: config.ffmpegExe,
         libtvHealth,
         modeHint: config.arkKey ? "real-api-ready" : "mock-without-env"
       });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/output-file") {
+      return serveOutputFile(res, url.searchParams.get("kind"), url.searchParams.get("name"));
     }
 
     if (req.method === "GET" && url.pathname === "/api/libtv/health") {
@@ -1776,6 +2106,12 @@ const server = createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/video-runs") {
       const payload = await readJsonBody(req);
       const run = createRun("video", payload, runVideoJob);
+      return jsonResponse(res, 202, { runId: run.id });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/stitch-runs") {
+      const payload = await readJsonBody(req);
+      const run = createRun("stitch", payload, runStitchJob);
       return jsonResponse(res, 202, { runId: run.id });
     }
 

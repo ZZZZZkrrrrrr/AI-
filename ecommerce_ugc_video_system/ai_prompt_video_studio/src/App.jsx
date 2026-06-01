@@ -1,21 +1,34 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  BarChart3,
+  Bell,
   Brain,
+  ChevronRight,
   Clipboard,
   Copy,
   Database,
   FileText,
   FolderOpen,
+  Gauge,
+  HardDrive,
   Image,
+  KeyRound,
   LayoutDashboard,
+  Menu,
   Moon,
   Play,
   RefreshCw,
+  Scissors,
   Settings,
+  ShieldCheck,
+  Sparkles,
+  Server,
   Sun,
+  Timer,
   Upload,
   Video,
+  Workflow,
   X
 } from "lucide-react";
 import {
@@ -29,7 +42,10 @@ import {
 } from "./api.js";
 
 const navItems = [
-  { id: "studio", label: "提示词工作台", icon: LayoutDashboard },
+  { id: "overview", label: "生产总览", icon: LayoutDashboard },
+  { id: "studio", label: "提示词工作台", icon: FileText, children: [
+    { id: "stitch", label: "视频拼接", icon: Scissors }
+  ] },
   { id: "tasks", label: "任务看板", icon: Clipboard },
   { id: "libtv", label: "libTV 任务", icon: Video },
   { id: "assets", label: "素材与输出", icon: FolderOpen },
@@ -53,6 +69,7 @@ const emptyStudio = {
 };
 
 const modelSettingsKey = "aiugc-model-settings";
+const notificationStorageKey = "aiugc-console-notifications";
 const defaultModelSettings = {
   analysisModel: "",
   analysisCustomModel: "",
@@ -88,8 +105,64 @@ function buildModelSettingsPayload(settings) {
   };
 }
 
+function findNavItem(pageId) {
+  for (const item of navItems) {
+    if (item.id === pageId) return item;
+    const child = item.children?.find((entry) => entry.id === pageId);
+    if (child) return child;
+  }
+  return null;
+}
+
+function navItemIsActive(item, pageId) {
+  return item.id === pageId || Boolean(item.children?.some((child) => child.id === pageId));
+}
+
+function isToday(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+}
+
+function taskStatusText(row) {
+  return String(row?.["任务状态"] || row?.status || "").toLowerCase();
+}
+
+function jobStatusText(row) {
+  return String(row?.["libTV状态"] || row?.status || "").toLowerCase();
+}
+
+function isGoodStatus(value) {
+  return /succeed|ready|pass|完成|成功|video_ready/i.test(String(value || ""));
+}
+
+function isBadStatus(value) {
+  return /fail|error|失败|异常|超时/i.test(String(value || ""));
+}
+
+function formatPercent(value, total) {
+  if (!total) return "0%";
+  return `${Math.round((value / total) * 100)}%`;
+}
+
+function sumFileSize(files = []) {
+  return files.reduce((total, file) => total + Number(file.size || file.size_bytes || 0), 0);
+}
+
+function readNotifications() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
+    return Array.isArray(saved) ? saved.slice(0, 80) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function App() {
-  const [page, setPage] = useState(() => location.hash.replace("#/", "") || "studio");
+  const [page, setPage] = useState(() => location.hash.replace("#/", "") || "overview");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem("aiugc-console-theme");
     if (saved === "light" || saved === "dark") return saved;
@@ -109,9 +182,12 @@ export function App() {
   const [assetTaskCode, setAssetTaskCode] = useState("");
   const [modelSettings, setModelSettings] = useState(readModelSettings);
   const [modelTrace, setModelTrace] = useState([]);
+  const [notifications, setNotifications] = useState(readNotifications);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const unreadCount = notifications.filter((item) => !item.read).length;
 
   useEffect(() => {
-    const onHash = () => setPage(location.hash.replace("#/", "") || "studio");
+    const onHash = () => setPage(location.hash.replace("#/", "") || "overview");
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -132,9 +208,42 @@ export function App() {
     localStorage.setItem(modelSettingsKey, JSON.stringify(modelSettings));
   }, [modelSettings]);
 
+  useEffect(() => {
+    localStorage.setItem(notificationStorageKey, JSON.stringify(notifications));
+  }, [notifications]);
+
   function navigate(nextPage) {
     location.hash = `/${nextPage}`;
     setPage(nextPage);
+  }
+
+  function addNotification({ level = "info", title, message = "", target = "" }) {
+    const at = new Date().toISOString();
+    setNotifications((current) => [
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        level,
+        title,
+        message,
+        target,
+        at,
+        read: false
+      },
+      ...current
+    ].slice(0, 80));
+  }
+
+  function markNotificationsRead() {
+    setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+  }
+
+  function clearNotifications() {
+    setNotifications([]);
+  }
+
+  function openNotificationTarget(target) {
+    if (target) navigate(target);
+    setNotificationOpen(false);
   }
 
   async function refreshRuntime() {
@@ -192,13 +301,14 @@ export function App() {
           type: event.type || "event",
           phase: event.phase || event.stepName || event.type || "模型事件",
           message: event.message || "",
-          output
+          output,
+          tokenUsage: event.tokenUsage || null
         }
       ].slice(-120)
     );
   }
 
-  function upsertPromptStep(name, status, message, output = "", at = "") {
+  function upsertPromptStep(name, status, message, output = "", at = "", tokenUsage = null) {
     const key = String(name || "处理中").trim() || "处理中";
     setPromptSteps((current) => {
       const index = current.findIndex((item) => item.key === key);
@@ -208,7 +318,8 @@ export function App() {
         status,
         message: message || "",
         output: output || "",
-        at: at || new Date().toISOString()
+        at: at || new Date().toISOString(),
+        tokenUsage: tokenUsage || null
       };
       if (index < 0) return [...current, next];
       const copy = [...current];
@@ -217,7 +328,8 @@ export function App() {
         status,
         message: message || copy[index].message,
         output: output || copy[index].output,
-        at: at || new Date().toISOString()
+        at: at || new Date().toISOString(),
+        tokenUsage: tokenUsage || copy[index].tokenUsage || null
       };
       return copy;
     });
@@ -285,6 +397,12 @@ export function App() {
     }
     resetRunState();
     setPromptRunning(true);
+    addNotification({
+      level: "info",
+      title: "提示词生成已开始",
+      message: "正在分析提示词包和产品图片。",
+      target: "studio"
+    });
     const payload = {
       promptPackText: studio.promptPackText.trim(),
       productName: studio.productName.trim(),
@@ -305,6 +423,12 @@ export function App() {
     } catch (error) {
       setPromptRunning(false);
       upsertPromptStep("任务创建", "failed", error.message, "", new Date().toISOString());
+      addNotification({
+        level: "error",
+        title: "提示词任务创建失败",
+        message: error.message,
+        target: "studio"
+      });
     }
   }
 
@@ -324,14 +448,17 @@ export function App() {
   function handlePromptEvent(event) {
     appendModelTrace(event);
     if (event.type === "status") {
-      upsertPromptStep(event.phase, "running", event.message, "", event.at);
+      upsertPromptStep(event.phase, "running", event.message, "", event.at, event.tokenUsage);
     }
     if (event.type === "model_meta") {
       upsertPromptStep("模型配置", "done", event.message, event.output, event.at);
     }
+    if (event.type === "token_usage") {
+      upsertPromptStep(event.phase || "模型调用", "done", event.message, "", event.at, event.tokenUsage);
+    }
     if (event.type === "image_analysis") {
       setStudio((current) => ({ ...current, imageAnalysis: event.output || "" }));
-      upsertPromptStep("图片识别", "done", event.message, event.output, event.at);
+      upsertPromptStep("图片识别", "done", event.message, event.output, event.at, event.tokenUsage);
     }
     if (event.type === "category_detected") {
       setStudio((current) => ({
@@ -342,11 +469,17 @@ export function App() {
       upsertPromptStep("类别识别", "done", event.message || `已识别类别：${event.category || "-"}`, "", event.at);
     }
     if (event.type === "step_completed") {
-      upsertPromptStep(event.stepName || `步骤 ${event.stepNo}`, "done", event.message, event.output, event.at);
+      upsertPromptStep(event.stepName || `步骤 ${event.stepNo}`, "done", event.message, event.output, event.at, event.tokenUsage);
     }
     if (event.type === "completed") {
       const result = event.result || {};
       upsertPromptStep("最终封装", "done", event.message, "", event.at);
+      addNotification({
+        level: "success",
+        title: "最终提示词已生成",
+        message: result.suggestedCategory ? `识别类别：${result.suggestedCategory}` : "可以复制或提交到 libTV。",
+        target: "studio"
+      });
       setStudio((current) => {
         const next = {
           ...current,
@@ -366,10 +499,22 @@ export function App() {
     if (event.type === "failed") {
       upsertPromptStep(event.phase || "失败", "failed", event.message, "", event.at);
       setPromptRunning(false);
+      addNotification({
+        level: "error",
+        title: "提示词生成失败",
+        message: event.message || "模型调用或流程执行失败。",
+        target: "studio"
+      });
     }
     if (event.type === "cancelled") {
       upsertPromptStep(event.phase || "已中断", "cancelled", event.message || "用户已中断生成。", "", event.at);
       setPromptRunning(false);
+      addNotification({
+        level: "warn",
+        title: "提示词生成已中断",
+        message: event.message || "用户在网页端中断了生成流程。",
+        target: "studio"
+      });
     }
   }
 
@@ -425,6 +570,12 @@ export function App() {
     };
     try {
       upsertVideoStep("提交准备", "running", "正在创建视频任务。", "", new Date().toISOString());
+      addNotification({
+        level: "info",
+        title: source.videoMode === "dry_run" ? "libTV 验证已开始" : "libTV 视频任务已提交",
+        message: source.videoMode === "dry_run" ? "当前为先验证模式，不会真实生成视频。" : "正在提交并等待 libTV 返回结果。",
+        target: "libtv"
+      });
       const { runId: nextRunId } = await requestJson("/api/video-runs", {
         method: "POST",
         body: JSON.stringify(payload)
@@ -434,6 +585,12 @@ export function App() {
       setVideoRunning(false);
       upsertVideoStep("提交失败", "failed", error.message, "", new Date().toISOString());
       appendVideoLog(error.message);
+      addNotification({
+        level: "error",
+        title: "libTV 提交失败",
+        message: error.message,
+        target: "studio"
+      });
     }
   }
 
@@ -462,10 +619,22 @@ export function App() {
       upsertVideoStep(event.phase || "libTV 完成", "done", event.message, JSON.stringify(event.result, null, 2), event.at);
       appendVideoLog(`[${event.phase}] ${event.message}`);
       appendVideoLog(JSON.stringify(event.result, null, 2));
+      addNotification({
+        level: "success",
+        title: "libTV 视频任务完成",
+        message: event.message || "视频结果已返回，可到 libTV 任务或视频拼接查看。",
+        target: "libtv"
+      });
     }
     if (event.type === "failed") {
       upsertVideoStep(event.phase || "libTV 失败", "failed", event.message, "", event.at);
       appendVideoLog(`[${event.phase || "失败"}] ${event.message}`);
+      addNotification({
+        level: "error",
+        title: "libTV 视频任务失败",
+        message: event.message || "请查看 libTV 任务详情。",
+        target: "libtv"
+      });
     }
   }
 
@@ -483,6 +652,29 @@ export function App() {
   }
 
   const currentPage = useMemo(() => {
+    if (page === "overview") {
+      return (
+        <OverviewPage
+          runtime={runtime}
+          tasks={tasks}
+          jobs={jobs}
+          assets={assets}
+          navigate={navigate}
+          onRefresh={() => {
+            refreshRuntime();
+            loadTasks();
+            loadJobs();
+            loadAssets(assetTaskCode);
+          }}
+        />
+      );
+    }
+    if (page === "stitch") {
+      return <VideoStitchPage jobs={jobs} assets={assets} addNotification={addNotification} onRefresh={() => {
+        loadJobs();
+        loadAssets(assetTaskCode);
+      }} />;
+    }
     if (page === "tasks") {
       return <TasksPage rows={tasks} onRefresh={loadTasks} onOpenAssets={(taskCode) => {
         setAssetTaskCode(taskCode);
@@ -537,35 +729,75 @@ export function App() {
   }, [page, tasks, jobs, assets, assetTaskCode, runtime, studio, promptSteps, promptRunning, runId, videoRunning, videoSteps, videoLog, modelSettings, modelTrace]);
 
   return (
-    <div className="console-shell">
+    <div className={sidebarCollapsed ? "console-shell sidebar-collapsed" : "console-shell"}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">AI</div>
-          <div>
-            <div className="brand-title">带货视频-SZ</div>
-            <div className="brand-subtitle">本地工作流控制台</div>
+          <div className="brand-copy">
+            <div className="brand-title">AI短视频</div>
+              <div className="brand-subtitle">工作流控制台</div>
           </div>
         </div>
         <nav className="nav-list">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const active = navItemIsActive(item, page);
             return (
-              <button key={item.id} className={page === item.id ? "nav-item active" : "nav-item"} onClick={() => navigate(item.id)}>
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </button>
+              <div className={item.children ? "nav-group" : ""} key={item.id}>
+                <button className={active ? "nav-item active" : "nav-item"} onClick={() => navigate(item.id)}>
+                  <Icon size={18} />
+                  <span className="nav-label">{item.label}</span>
+                </button>
+                {item.children?.length ? (
+                  <div className="subnav-list">
+                    {item.children.map((child) => {
+                      const ChildIcon = child.icon;
+                      return (
+                        <button
+                          key={child.id}
+                          className={page === child.id ? "subnav-item active" : "subnav-item"}
+                          onClick={() => navigate(child.id)}
+                        >
+                          <ChildIcon size={14} />
+                          <span className="nav-label">{child.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
             );
           })}
         </nav>
       </aside>
       <main className="main">
         <header className="topbar">
-          <div>
-            <h1>{navItems.find((item) => item.id === page)?.label || "提示词工作台"}</h1>
-            <p>提示词包 + 产品图片 → 最终提示词 → 数据库任务 → libTV 视频生成</p>
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="sidebar-toggle"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              aria-label="收起或展开侧边栏"
+            >
+              <Menu size={18} />
+            </button>
+            <div>
+              <h1>{findNavItem(page)?.label || "提示词工作台"}</h1>
+              <p>提示词包 + 产品图片 → 最终提示词 → 数据库任务 → libTV 视频生成</p>
+            </div>
           </div>
           <div className="top-actions">
             <RuntimeStatus runtime={runtime} onRefresh={refreshRuntime} />
+            <NotificationCenter
+              open={notificationOpen}
+              notifications={notifications}
+              unreadCount={unreadCount}
+              onToggle={() => setNotificationOpen((current) => !current)}
+              onClose={() => setNotificationOpen(false)}
+              onMarkAllRead={markNotificationsRead}
+              onClear={clearNotifications}
+              onOpenTarget={openNotificationTarget}
+            />
             <ThemeSwitch theme={theme} setTheme={setTheme} />
           </div>
         </header>
@@ -616,6 +848,610 @@ function RuntimeStatus({ runtime, onRefresh }) {
   );
 }
 
+function NotificationCenter({ open, notifications, unreadCount, onToggle, onClose, onMarkAllRead, onClear, onOpenTarget }) {
+  return (
+    <div className="notification-wrap">
+      <button
+        className={unreadCount ? "icon-button top-icon notification-button has-unread" : "icon-button top-icon notification-button"}
+        type="button"
+        title="任务提醒"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <Bell size={16} />
+        {unreadCount ? <span className="notification-badge">{unreadCount > 99 ? "99+" : unreadCount}</span> : null}
+      </button>
+      {open ? (
+        <div className="notification-panel" role="dialog" aria-label="任务提醒">
+          <div className="notification-head">
+            <div>
+              <strong>任务提醒</strong>
+              <span>{unreadCount ? `${unreadCount} 条未读` : "暂无未读"}</span>
+            </div>
+            <button className="icon-button notification-close" type="button" onClick={onClose} title="关闭">
+              <X size={15} />
+            </button>
+          </div>
+          <div className="notification-actions">
+            <button type="button" className="ghost-button" onClick={onMarkAllRead} disabled={!notifications.length}>全部已读</button>
+            <button type="button" className="ghost-button" onClick={onClear} disabled={!notifications.length}>清空</button>
+          </div>
+          <div className="notification-list">
+            {notifications.length ? notifications.map((item) => (
+              <button
+                type="button"
+                className={item.read ? `notification-item ${item.level}` : `notification-item ${item.level} unread`}
+                key={item.id}
+                onClick={() => onOpenTarget(item.target)}
+              >
+                <span className="notification-level" />
+                <span className="notification-copy">
+                  <strong>{item.title}</strong>
+                  {item.message ? <span>{item.message}</span> : null}
+                  <time>{formatDate(item.at)}</time>
+                </span>
+              </button>
+            )) : (
+              <div className="notification-empty">暂无任务提醒</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function VideoStitchPage({ jobs, assets, addNotification, onRefresh }) {
+  const [selected, setSelected] = useState([]);
+  const [groupSize, setGroupSize] = useState(2);
+  const [stitchNotice, setStitchNotice] = useState("");
+  const [stitchRunning, setStitchRunning] = useState(false);
+  const [stitchSteps, setStitchSteps] = useState([]);
+  const [stitchResult, setStitchResult] = useState(null);
+  const libtvVideos = jobs
+    .filter((row) => row["视频链接"])
+    .map((row) => ({
+      id: `job-${row["任务编号"]}-${row["外部任务ID"] || row["视频链接"]}`,
+      source: "libTV",
+      taskCode: row["任务编号"],
+      name: row["最终视频名称"] || row["任务编号"] || "未命名视频",
+      url: row["视频链接"],
+      openUrl: row["视频链接"],
+      status: row["libTV状态"],
+      updatedAt: row["完成时间"]
+    }));
+  const localVideos = (assets?.outputFiles || [])
+    .filter((file) => /\.mp4$/i.test(file.name || file.path || ""))
+    .map((file) => ({
+      id: `file-${file.path}`,
+      source: "本地输出",
+      taskCode: "-",
+      name: file.name,
+      url: file.path,
+      openUrl: file.url || file.path,
+      status: "本地文件",
+      updatedAt: file.updatedAt
+    }));
+  const videos = [...libtvVideos, ...localVideos];
+  const selectedVideos = videos.filter((video) => selected.includes(video.id));
+  const groupCount = groupSize > 0 ? Math.ceil(selectedVideos.length / groupSize) : 0;
+
+  function toggleVideo(videoId, checked) {
+    setSelected((current) => checked ? [...current, videoId] : current.filter((id) => id !== videoId));
+  }
+
+  function toggleAll(checked) {
+    setSelected(checked ? videos.map((video) => video.id) : []);
+  }
+
+  function upsertStitchStep(name, status, message, output = "", at = "") {
+    const key = String(name || "视频拼接").trim() || "视频拼接";
+    setStitchSteps((current) => {
+      const index = current.findIndex((item) => item.key === key);
+      const next = {
+        key,
+        name: key,
+        status,
+        message: message || "",
+        output: output || "",
+        at: at || new Date().toISOString()
+      };
+      if (index < 0) return [...current, next];
+      const copy = [...current];
+      copy[index] = { ...copy[index], ...next };
+      return copy;
+    });
+  }
+
+  async function startStitch() {
+    if (selectedVideos.length < 2) return;
+    setStitchRunning(true);
+    setStitchNotice("");
+    setStitchResult(null);
+    setStitchSteps([]);
+    addNotification?.({
+      level: "info",
+      title: "视频拼接已开始",
+      message: `已选择 ${selectedVideos.length} 个视频，按每组 ${groupSize} 个合成。`,
+      target: "stitch"
+    });
+    try {
+      upsertStitchStep("创建拼接任务", "running", "正在提交视频拼接任务。");
+      const data = await requestJson("/api/stitch-runs", {
+        method: "POST",
+        body: JSON.stringify({
+          groupSize,
+          videos: selectedVideos
+        })
+      });
+      connectStitchEvents(data.runId);
+    } catch (error) {
+      setStitchRunning(false);
+      upsertStitchStep("创建拼接任务", "failed", error.message);
+      addNotification?.({
+        level: "error",
+        title: "视频拼接启动失败",
+        message: error.message,
+        target: "stitch"
+      });
+    }
+  }
+
+  function connectStitchEvents(nextRunId) {
+    const source = createEventSource(`/api/runs/${nextRunId}/events`);
+    source.onmessage = (event) => handleStitchEvent(JSON.parse(event.data));
+    source.addEventListener("done", () => {
+      source.close();
+      setStitchRunning(false);
+      onRefresh?.();
+    });
+    source.onerror = () => {
+      source.close();
+      setStitchRunning(false);
+    };
+  }
+
+  function handleStitchEvent(event) {
+    if (event.type === "status") {
+      upsertStitchStep(event.phase, "running", event.message, "", event.at);
+    }
+    if (event.type === "group_completed") {
+      upsertStitchStep(event.phase, "done", event.message, JSON.stringify(event.result, null, 2), event.at);
+    }
+    if (event.type === "completed") {
+      setStitchResult(event.result || null);
+      upsertStitchStep(event.phase || "拼接完成", "done", event.message, JSON.stringify(event.result, null, 2), event.at);
+      setStitchNotice(event.message || "视频拼接已完成。");
+      addNotification?.({
+        level: "success",
+        title: "视频拼接完成",
+        message: event.message || "拼接视频已生成，可在本页打开查看。",
+        target: "stitch"
+      });
+    }
+    if (event.type === "failed") {
+      upsertStitchStep(event.phase || "拼接失败", "failed", event.message, "", event.at);
+      setStitchNotice(event.message || "视频拼接失败。");
+      addNotification?.({
+        level: "error",
+        title: "视频拼接失败",
+        message: event.message || "请检查视频文件或 ffmpeg 配置。",
+        target: "stitch"
+      });
+    }
+  }
+
+  return (
+    <section className="panel stitch-panel">
+      <div className="panel-head">
+        <div>
+          <h2>视频拼接</h2>
+          <p className="panel-note">从提示词工作台生成完成的视频里勾选素材，后续接入拼接接口后可直接合成。</p>
+        </div>
+        <div className="button-row">
+          <button className="secondary-button" type="button" onClick={onRefresh}>
+            <RefreshCw size={16} />
+            <span>刷新视频</span>
+          </button>
+          <button
+            className="primary-button stitch-submit"
+            type="button"
+            disabled={selectedVideos.length < 2 || stitchRunning}
+            onClick={startStitch}
+          >
+            <Scissors size={16} />
+            <span>{stitchRunning ? "拼接中" : "合成所选视频"}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="stitch-toolbar">
+        <label className="field">
+          <span>每组合成数量</span>
+          <input
+            type="number"
+            min="2"
+            max="20"
+            value={groupSize}
+            onChange={(event) => setGroupSize(Number(event.target.value) || 2)}
+          />
+        </label>
+        <div className="stitch-summary">
+          <div><span>可选视频</span><strong>{videos.length}</strong></div>
+          <div><span>已勾选</span><strong>{selectedVideos.length}</strong></div>
+          <div><span>预计组合</span><strong>{groupCount}</strong></div>
+        </div>
+      </div>
+
+      <label className="check-row stitch-check-all">
+        <input
+          type="checkbox"
+          checked={videos.length > 0 && selected.length === videos.length}
+          onChange={(event) => toggleAll(event.target.checked)}
+        />
+        <span>全选当前列表</span>
+      </label>
+
+      {stitchNotice ? <div className="stitch-notice">{stitchNotice}</div> : null}
+      {stitchSteps.length ? (
+        <div className="stitch-progress">
+          <ProgressBar value={progressPercent(stitchSteps)} />
+          <StepList steps={stitchSteps} emptyText="等待拼接任务" />
+        </div>
+      ) : null}
+      {stitchResult?.outputs?.length ? (
+        <div className="stitch-output-grid">
+          {stitchResult.outputs.map((output) => (
+            <a className="stitch-output-card" key={output.path} href={output.url} target="_blank" rel="noreferrer">
+              <strong>{output.name}</strong>
+              <span>第 {output.groupNo} 组 / {formatBytes(output.size)} / {output.ffmpegMode}</span>
+            </a>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="table-wrap stitch-table-wrap">
+        <table className="stitch-table">
+          <thead>
+            <tr>
+              <th>选择</th>
+              <th>视频名称</th>
+              <th>任务编号</th>
+              <th>来源</th>
+              <th>状态</th>
+              <th>完成时间</th>
+              <th>视频</th>
+            </tr>
+          </thead>
+          <tbody>
+            {videos.length ? videos.map((video) => (
+              <tr key={video.id}>
+                <td>
+                  <input
+                    className="table-check"
+                    type="checkbox"
+                    checked={selected.includes(video.id)}
+                    onChange={(event) => toggleVideo(video.id, event.target.checked)}
+                  />
+                </td>
+                <td>{video.name}</td>
+                <td>{video.taskCode}</td>
+                <td>{video.source}</td>
+                <td><StatusBadge value={video.status} /></td>
+                <td>{formatDate(video.updatedAt)}</td>
+                <td>{/^https?:\/\//i.test(video.openUrl) || String(video.openUrl).startsWith("/api/") ? <a href={video.openUrl} target="_blank" rel="noreferrer">打开</a> : <span className="path-cell">{video.openUrl}</span>}</td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan="7">暂时没有可拼接的视频。先在提示词工作台生成并提交 libTV，视频完成后会出现在这里。</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
+  const jobStats = useMemo(() => {
+    const values = jobs.map(jobStatusText);
+    return {
+      total: jobs.length,
+      succeeded: values.filter((value) => value.includes("succeed") || value.includes("完成")).length,
+      pending: values.filter((value) => value.includes("pending") || value.includes("running") || value.includes("处理中")).length,
+      failed: values.filter((value) => value.includes("fail") || value.includes("失败")).length
+    };
+  }, [jobs]);
+  const latestTasks = tasks.slice(0, 6);
+  const outputFiles = assets?.outputFiles || [];
+  const outputCount = outputFiles.length;
+  const todayTaskCount = tasks.filter((row) => isToday(row["更新时间"] || row.updated_at || row.created_at)).length;
+  const failedTaskCount = tasks.filter((row) => isBadStatus(taskStatusText(row))).length;
+  const stitchedOutputs = outputFiles.filter((file) => file.kind === "stitched" || /[\\/]stitched[\\/]/i.test(file.path || ""));
+  const libtvOutputs = outputFiles.filter((file) => file.kind === "libtv" || /[\\/]libtv[\\/]/i.test(file.path || ""));
+  const latestOutputs = outputFiles.filter((file) => /\.mp4$/i.test(file.name || file.path || "")).slice(0, 6);
+  const storageSize = sumFileSize(outputFiles);
+  const connected = !runtime?.error;
+  const libtvReady = Boolean(runtime?.libtvBridgeReachable);
+  const modelChannels = [
+    { name: "提示词分析", model: runtime?.currentModels?.analysis || "-", ready: Boolean(runtime?.doubaoConfigured || runtime?.qianwenTextConfigured) },
+    { name: "图片识别", model: runtime?.currentModels?.vision || "-", ready: Boolean(runtime?.qianwenVisionConfigured) },
+    { name: "视频生成", model: runtime?.currentModels?.video || "-", ready: Boolean(runtime?.seedanceConfigured || runtime?.libtvBridgeReachable) },
+    { name: "视频拼接", model: runtime?.ffmpeg || "ffmpeg", ready: Boolean(runtime?.ffmpegConfigured) }
+  ];
+  const statusCards = [
+    {
+      label: "后端 API",
+      value: connected ? "已连接" : "未连接",
+      detail: connected ? "端口 :3001" : runtime?.error || "等待检测",
+      good: connected,
+      icon: Server
+    },
+    {
+      label: "libTV 桥接",
+      value: libtvReady ? "已连接" : "未连接",
+      detail: runtime?.libtvBridgeUrl || "127.0.0.1:8799",
+      good: libtvReady,
+      icon: Video
+    },
+    {
+      label: "数据库",
+      value: runtime?.libtvDatabase ? "SQLite" : "未返回",
+      detail: runtime?.libtvDatabase || "等待后端配置",
+      good: Boolean(runtime?.libtvDatabase),
+      icon: Database
+    },
+    {
+      label: "模型配置",
+      value: runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured ? "可用" : "待配置",
+      detail: runtime?.currentModels?.analysis || runtime?.currentModels?.vision || "查看系统设置",
+      good: Boolean(runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured),
+      icon: Brain
+    }
+  ];
+  const productionCards = [
+    { label: "今日任务", value: todayTaskCount, detail: "按任务更新时间统计", icon: Timer, tone: "good" },
+    { label: "libTV 成功率", value: formatPercent(jobStats.succeeded, jobStats.total), detail: `${jobStats.succeeded}/${jobStats.total || 0} 个任务成功`, icon: Gauge, tone: "good" },
+    { label: "拼接成片", value: stitchedOutputs.length, detail: "outputs/stitched", icon: Scissors, tone: "info" },
+    { label: "libTV 视频", value: libtvOutputs.length, detail: "outputs/libtv", icon: Video, tone: "info" },
+    { label: "异常任务", value: failedTaskCount + jobStats.failed, detail: "任务与 libTV 失败合计", icon: ShieldCheck, tone: failedTaskCount + jobStats.failed ? "bad" : "good" },
+    { label: "本地存储", value: formatBytes(storageSize), detail: `${outputCount} 个输出文件`, icon: HardDrive, tone: "info" }
+  ];
+  const modules = [
+    {
+      page: "studio",
+      title: "提示词工作台",
+      code: "PROMPT_STUDIO",
+      desc: "上传 Word 提示词包和商品图，生成最终完整视频提示词。",
+      icon: Sparkles
+    },
+    {
+      page: "stitch",
+      title: "视频拼接",
+      code: "VIDEO_STITCH",
+      desc: "勾选已生成视频，按组调用 ffmpeg 合成完整素材。",
+      icon: Scissors
+    },
+    {
+      page: "tasks",
+      title: "任务看板",
+      code: "TASK_BOARD",
+      desc: "查看提示词入库、任务状态、类别、视频命名和更新时间。",
+      icon: Clipboard
+    },
+    {
+      page: "libtv",
+      title: "libTV 任务",
+      code: "LIBTV_JOBS",
+      desc: "追踪真实提交、轮询结果、视频链接和失败原因。",
+      icon: Video
+    },
+    {
+      page: "assets",
+      title: "素材与输出",
+      code: "ASSETS_OUTPUT",
+      desc: "按任务查看上传图片、生成文件、本地输出和素材路径。",
+      icon: FolderOpen
+    },
+    {
+      page: "settings",
+      title: "模型中心",
+      code: "MODEL_CENTER",
+      desc: "切换分析/视觉/视频模型，查看后端和通道配置。",
+      icon: Settings
+    }
+  ];
+
+  return (
+    <section className="overview-page">
+      <div className="overview-hero panel">
+        <div>
+          <div className="eyebrow">AI VIDEO OPERATIONS</div>
+          <h2>AI 视频生成工作流平台</h2>
+          <p>围绕商品图、提示词包、模型分析、libTV 生成和视频拼接组织生产流程，首页直接看到产能、状态、输出和模型通道。</p>
+        </div>
+        <div className="hero-actions">
+          <button className="primary-button" onClick={() => navigate("studio")}>
+            <Play size={16} />
+            <span>开始生成</span>
+          </button>
+          <button className="secondary-button" onClick={onRefresh}>
+            <RefreshCw size={16} />
+            <span>刷新状态</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="production-grid">
+        {productionCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div className={`production-card ${card.tone}`} key={card.label}>
+              <div className="production-icon"><Icon size={18} /></div>
+              <div>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small>{card.detail}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="overview-status-grid">
+        {statusCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div className={card.good ? "overview-status-card ready" : "overview-status-card"} key={card.label}>
+              <div className="overview-card-icon"><Icon size={18} /></div>
+              <div>
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <small title={card.detail}>{card.detail}</small>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="overview-layout">
+        <div className="module-panel panel">
+          <div className="panel-head">
+            <div>
+              <h2>功能入口</h2>
+              <p className="panel-note">按业务模块进入，底层接口沿用当前项目。</p>
+            </div>
+          </div>
+          <div className="module-grid">
+            {modules.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button className="module-card" key={item.page} onClick={() => navigate(item.page)}>
+                  <span className="module-icon"><Icon size={22} /></span>
+                  <span className="module-code">{item.code}</span>
+                  <strong>{item.title}</strong>
+                  <span>{item.desc}</span>
+                  <em>进入 <ChevronRight size={14} /></em>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="overview-main-strip">
+            <div className="main-strip-head">
+              <BarChart3 size={17} />
+              <strong>任务概况</strong>
+            </div>
+            <div className="stats-grid stats-grid-wide">
+              <div><span>总任务</span><strong>{tasks.length}</strong></div>
+              <div><span>libTV</span><strong>{jobStats.total}</strong></div>
+              <div><span>待处理</span><strong>{jobStats.pending}</strong></div>
+              <div><span>成功</span><strong>{jobStats.succeeded}</strong></div>
+              <div><span>失败</span><strong>{jobStats.failed}</strong></div>
+              <div><span>输出</span><strong>{outputCount}</strong></div>
+            </div>
+          </div>
+
+          <div className="overview-main-strip">
+            <div className="main-strip-head">
+              <ShieldCheck size={17} />
+              <strong>当前链路</strong>
+            </div>
+            <ol className="pipeline-list pipeline-list-wide">
+              <li><Workflow size={15} />提示词包 + 商品图</li>
+              <li><Workflow size={15} />视觉识别 + 类别判断</li>
+              <li><Workflow size={15} />生成最终完整提示词</li>
+              <li><Workflow size={15} />写入 SQLite 并提交 libTV</li>
+              <li><Workflow size={15} />按需拼接成片</li>
+            </ol>
+          </div>
+        </div>
+
+        <aside className="overview-side">
+          <div className="mini-panel panel">
+            <div className="mini-panel-head">
+              <KeyRound size={17} />
+              <strong>模型通道</strong>
+            </div>
+            <div className="channel-list">
+              {modelChannels.map((channel) => (
+                <div className={channel.ready ? "channel-item ready" : "channel-item"} key={channel.name}>
+                  <span>{channel.name}</span>
+                  <strong title={channel.model}>{channel.model}</strong>
+                  <em>{channel.ready ? "可用" : "待配置"}</em>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mini-panel panel">
+            <div className="mini-panel-head">
+              <FolderOpen size={17} />
+              <strong>最近产出</strong>
+            </div>
+            <div className="output-list">
+              {latestOutputs.length ? latestOutputs.map((file) => (
+                <a
+                  href={file.url || (/^https?:\/\//i.test(file.path || "") ? file.path : "#")}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="output-item"
+                  key={`${file.kind || ""}-${file.path || file.name}`}
+                >
+                  <strong title={file.name}>{file.name}</strong>
+                  <span>{file.kind || "output"} / {formatBytes(file.size)} / {formatDate(file.updatedAt)}</span>
+                </a>
+              )) : <div className="empty-inline">暂无输出视频</div>}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <div className="panel recent-panel">
+        <div className="panel-head">
+          <div>
+            <h2>最近任务</h2>
+            <p className="panel-note">这里只做预览，完整信息在任务看板。</p>
+          </div>
+          <button className="secondary-button" onClick={() => navigate("tasks")}>
+            <Clipboard size={16} />
+            <span>查看全部</span>
+          </button>
+        </div>
+        <div className="table-wrap compact-table">
+          <table>
+            <thead>
+              <tr>
+                <th>任务编号</th>
+                <th>最终视频名称</th>
+                <th>类别</th>
+                <th>状态</th>
+                <th>更新时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latestTasks.length ? latestTasks.map((row) => (
+                <tr key={row["任务编号"]}>
+                  <td>{row["任务编号"]}</td>
+                  <td>{row["最终视频名称"] || "-"}</td>
+                  <td>{row["类别"] || "-"}</td>
+                  <td><StatusBadge value={row["任务状态"]} /></td>
+                  <td>{formatDate(row["更新时间"])}</td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan="5">暂无任务记录</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function StudioPage(props) {
   const {
     studio,
@@ -640,6 +1476,7 @@ function StudioPage(props) {
   const [traceOpen, setTraceOpen] = useState(false);
   const promptProgress = progressPercent(promptSteps);
   const videoProgress = progressPercent(videoSteps);
+  const promptTokenUsage = summarizeTokenUsage(promptSteps, modelTrace);
   const videoUrl =
     findDeepValue(videoLog ? safeJsonFromLog(videoLog) : {}, ["video_url", "视频链接"]) ||
     (videoLog.match(/https?:\/\/\S+?\.mp4/)?.[0] || "");
@@ -734,6 +1571,7 @@ function StudioPage(props) {
           </div>
         </div>
         <ProgressBar value={promptProgress} />
+        <TokenUsageSummary usage={promptTokenUsage} />
         <StepList steps={promptSteps} emptyText="等待开始任务" />
 
         <div className="result-block">
@@ -790,8 +1628,10 @@ function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime,
         type: step.status,
         phase: step.name,
         message: step.message,
-        output: step.output
+        output: step.output,
+        tokenUsage: step.tokenUsage
       }));
+  const traceTokenUsage = summarizeTokenUsage(steps, records);
   const inputSummary = [
     `提示词包字数：${studio.promptPackText?.length || 0}`,
     `产品图片：${studio.images?.length || 0} 张${studio.images?.length ? `（${studio.images.map((image) => image.name).join("，")}）` : ""}`,
@@ -829,6 +1669,10 @@ function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime,
             <span>当前状态</span>
             <strong>{steps.at(-1)?.status || "-"}</strong>
           </div>
+          <div>
+            <span>Tokens</span>
+            <strong>{traceTokenUsage.totalTokens ? formatTokenNumber(traceTokenUsage.totalTokens) : "-"}</strong>
+          </div>
         </div>
         <h3 className="subhead">输入与模型</h3>
         <pre className="trace-box">{inputSummary}</pre>
@@ -838,7 +1682,10 @@ function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime,
             {records.map((item, index) => (
               <li className="trace-item" key={`${item.phase}-${item.at}-${index}`}>
                 <div className="trace-item-head">
-                  <strong>{item.phase || item.type || `记录 ${index + 1}`}</strong>
+                  <div>
+                    <strong>{item.phase || item.type || `记录 ${index + 1}`}</strong>
+                    <TokenUsageBadge usage={item.tokenUsage} />
+                  </div>
                   <time>{formatStepTime(item.at)}</time>
                 </div>
                 <div className="trace-item-message">{item.message || item.type}</div>
@@ -930,15 +1777,18 @@ function LibtvPage({ rows, onRefresh }) {
 
 function AssetsPage({ tasks, taskCode, setTaskCode, data, onRefresh }) {
   return (
-    <section className="panel">
+    <section className="panel assets-panel">
       <div className="panel-head">
-        <h2>素材与输出</h2>
-        <div className="button-row">
-          <select value={taskCode} onChange={(event) => setTaskCode(event.target.value)}>
+        <div>
+          <h2>素材与输出</h2>
+          <p className="panel-note">查看提示词、商品图、本地视频和拼接产出。</p>
+        </div>
+        <div className="button-row assets-actions">
+          <select className="assets-select" value={taskCode} onChange={(event) => setTaskCode(event.target.value)}>
             <option value="">全部任务</option>
             {tasks.map((task) => <option value={task["任务编号"]} key={task["任务编号"]}>{task["任务编号"]}</option>)}
           </select>
-          <button className="secondary-button" onClick={onRefresh}><RefreshCw size={16} /><span>刷新</span></button>
+          <button className="secondary-button assets-refresh" onClick={onRefresh}><RefreshCw size={16} /><span>刷新</span></button>
         </div>
       </div>
       <div className="table-wrap">
@@ -995,12 +1845,15 @@ function AssetsPage({ tasks, taskCode, setTaskCode, data, onRefresh }) {
 function SettingsPage({ runtime, onRefresh, modelSettings, updateModelSettings }) {
   const activeAnalysisModel = resolveModelChoice(modelSettings, "analysis") || runtime?.currentModels?.analysis || "-";
   const activeVisionModel = resolveModelChoice(modelSettings, "vision") || runtime?.currentModels?.vision || "-";
+  const activeVideoModel = resolveModelChoice(modelSettings, "video") || runtime?.currentModels?.video || "-";
+  const activeImageModel = resolveModelChoice(modelSettings, "imageGeneration") || runtime?.currentModels?.imageGeneration || "-";
   const rows = [
     ["后端 API", runtime?.error ? "未连接" : "已连接"],
     ["千问文本", runtime?.qianwenTextConfigured ? "已配置" : "未配置"],
     ["千问视觉", runtime?.qianwenVisionConfigured ? "已配置" : "未配置"],
     ["豆包分析", runtime?.doubaoConfigured ? "已配置" : "未配置"],
     ["libTV 桥接", runtime?.libtvBridgeReachable ? "已连接" : "未连接"],
+    ["ffmpeg 拼接", runtime?.ffmpegConfigured ? "已配置" : "未配置"],
     ["当前分析模型", activeAnalysisModel],
     ["当前视觉模型", activeVisionModel],
     ["数据库", runtime?.libtvDatabase || "-"],
@@ -1008,11 +1861,20 @@ function SettingsPage({ runtime, onRefresh, modelSettings, updateModelSettings }
   ];
   return (
     <section className="panel settings-panel">
-      <TableHead title="系统设置" onRefresh={onRefresh} />
+      <TableHead title="模型中心" onRefresh={onRefresh} />
       <ModelSettingsPanel
         runtime={runtime}
         modelSettings={modelSettings}
         updateModelSettings={updateModelSettings}
+      />
+      <ModelChannelPanel
+        channels={[
+          { name: "提示词分析", provider: "豆包 / 千问", model: activeAnalysisModel, ready: Boolean(runtime?.doubaoConfigured || runtime?.qianwenTextConfigured), desc: "负责拆解提示词包、生成最终完整提示词。" },
+          { name: "图片识别", provider: "千问视觉", model: activeVisionModel, ready: Boolean(runtime?.qianwenVisionConfigured), desc: "负责识别商品图、自动判断类别和卖点。" },
+          { name: "视频生成", provider: "libTV / Seedance", model: activeVideoModel, ready: Boolean(runtime?.libtvBridgeReachable || runtime?.seedanceConfigured), desc: "负责提交视频生成任务并回写结果。" },
+          { name: "文生图", provider: "Seedream", model: activeImageModel, ready: Boolean(runtime?.seedreamConfigured), desc: "预留给后续商品素材生成。" },
+          { name: "视频拼接", provider: "ffmpeg", model: runtime?.ffmpeg || "ffmpeg", ready: Boolean(runtime?.ffmpegConfigured), desc: "负责把已生成视频按组拼接成片。" }
+        ]}
       />
       <div className="settings-grid">
         {rows.map(([name, value]) => (
@@ -1024,6 +1886,33 @@ function SettingsPage({ runtime, onRefresh, modelSettings, updateModelSettings }
       </div>
       <pre className="json-box">{JSON.stringify(runtime || {}, null, 2)}</pre>
     </section>
+  );
+}
+
+function ModelChannelPanel({ channels }) {
+  return (
+    <div className="settings-section">
+      <div className="settings-section-head">
+        <div>
+          <h3>模型与执行通道</h3>
+          <p>用于确认整条 AI 视频生产链路里每一层是否可用。</p>
+        </div>
+        <KeyRound size={18} />
+      </div>
+      <div className="model-channel-grid">
+        {channels.map((channel) => (
+          <div className={channel.ready ? "model-channel-card ready" : "model-channel-card"} key={channel.name}>
+            <div className="model-channel-head">
+              <strong>{channel.name}</strong>
+              <StatusBadge value={channel.ready ? "可用" : "待配置"} />
+            </div>
+            <span>{channel.provider}</span>
+            <em title={channel.model}>{channel.model}</em>
+            <p>{channel.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -1090,7 +1979,10 @@ function StepList({ steps, emptyText }) {
             <div className="step-index">{String(index + 1).padStart(2, "0")}</div>
             <div className="step-body">
             <div className="step-topline">
-              <div className="step-title">{step.name}</div>
+              <div>
+                <div className="step-title">{step.name}</div>
+                <TokenUsageBadge usage={step.tokenUsage} />
+              </div>
               <time className="step-time">{formatStepTime(step.at)}</time>
             </div>
             <div className="step-message">{step.message}</div>
@@ -1110,6 +2002,29 @@ function ProgressBar({ value }) {
   );
 }
 
+function TokenUsageSummary({ usage }) {
+  if (!usage?.totalTokens) return null;
+  return (
+    <div className="token-summary" aria-label="token 用量汇总">
+      <span>Tokens</span>
+      <strong>{formatTokenNumber(usage.totalTokens)}</strong>
+      <span>输入 {formatTokenNumber(usage.promptTokens)}</span>
+      <span>输出 {formatTokenNumber(usage.completionTokens)}</span>
+      <span>{usage.calls} 次调用</span>
+    </div>
+  );
+}
+
+function TokenUsageBadge({ usage }) {
+  const current = normalizeTokenUsage(usage);
+  if (!current?.totalTokens) return null;
+  return (
+    <span className="token-badge" title={`输入 ${formatTokenNumber(current.promptTokens)} / 输出 ${formatTokenNumber(current.completionTokens)}`}>
+      tokens {formatTokenNumber(current.totalTokens)}
+    </span>
+  );
+}
+
 function StatusBadge({ value }) {
   const text = value || "-";
   const kind = /succeeded|ready|pass|完成|成功|video_ready/i.test(text)
@@ -1120,6 +2035,55 @@ function StatusBadge({ value }) {
         ? "warn"
         : "muted";
   return <span className={`status-badge ${kind}`}>{text}</span>;
+}
+
+function normalizeTokenUsage(usage) {
+  if (!usage) return null;
+  const source = usage.current || usage;
+  const promptTokens = Number(source.promptTokens || source.prompt_tokens || source.input_tokens || 0);
+  const completionTokens = Number(source.completionTokens || source.completion_tokens || source.output_tokens || 0);
+  const totalTokens = Number(source.totalTokens || source.total_tokens || 0) || promptTokens + completionTokens;
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    calls: Number(source.calls || 0)
+  };
+}
+
+function summarizeTokenUsage(steps = [], trace = []) {
+  const latestTotal = [...trace, ...steps]
+    .map((item) => item?.tokenUsage?.total)
+    .filter(Boolean)
+    .at(-1);
+  if (latestTotal) {
+    return {
+      promptTokens: Number(latestTotal.promptTokens || 0),
+      completionTokens: Number(latestTotal.completionTokens || 0),
+      totalTokens: Number(latestTotal.totalTokens || 0),
+      calls: Number(latestTotal.calls || 0)
+    };
+  }
+  const seen = new Set();
+  return [...steps, ...trace].reduce(
+    (total, item, index) => {
+      const current = normalizeTokenUsage(item?.tokenUsage);
+      if (!current?.totalTokens) return total;
+      const key = `${item.phase || item.name || item.key || index}-${item.at || ""}-${current.totalTokens}`;
+      if (seen.has(key)) return total;
+      seen.add(key);
+      total.promptTokens += current.promptTokens;
+      total.completionTokens += current.completionTokens;
+      total.totalTokens += current.totalTokens;
+      total.calls += 1;
+      return total;
+    },
+    { promptTokens: 0, completionTokens: 0, totalTokens: 0, calls: 0 }
+  );
+}
+
+function formatTokenNumber(value) {
+  return Number(value || 0).toLocaleString("zh-CN");
 }
 
 function progressPercent(steps) {
