@@ -1,0 +1,2 @@
+file 'D:/Organized/Projects/codex_project/workflow/ecommerce_ugc_video_system/ai_prompt_video_studio/runs/stitch/STITCH-20260601-102804-ab6c3034/g1-input-01.mp4'
+file 'D:/Organized/Projects/codex_project/workflow/ecommerce_ugc_video_system/ai_prompt_video_studio/runs/stitch/STITCH-20260601-102804-ab6c3034/g1-input-02.mp4'

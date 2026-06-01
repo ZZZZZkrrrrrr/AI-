@@ -1,0 +1,5 @@
+在浏览器中打开以下链接完成登录（成功后会自动回调本机并结束本命令）：
+
+https://www.liblib.tv/zh?callback_url=http%3A%2F%2F127.0.0.1%3A50890%2Fcallback
+
+等待本机回调…

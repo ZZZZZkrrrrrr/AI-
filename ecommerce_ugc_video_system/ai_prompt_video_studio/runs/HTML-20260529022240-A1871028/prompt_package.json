@@ -1,0 +1,10 @@
+{
+  "taskCode": "HTML-20260529022240-A1871028",
+  "productName": "libTV进度反馈测试商品",
+  "productBrief": "只用于验证写入数据库并提交 libTV 的页面进度反馈，不真实提交。",
+  "duration": 5,
+  "aspectRatio": "9:16",
+  "promptPackage": {
+    "source": "progress-dry-run"
+  }
+}

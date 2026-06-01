@@ -1,0 +1,15 @@
+{
+  "taskCode": "20260529-FUZHUANG-006",
+  "taskDate": "20260529",
+  "category": "女装",
+  "categoryCode": "FUZHUANG",
+  "serial": 6,
+  "libtvNodeName": "AIUGC-20260529-FUZHUANG-006-video",
+  "productName": "数据库优化验证商品",
+  "productBrief": "验证唯一数据库 ai_ugc_product.sqlite 的字段和视图。",
+  "duration": 5,
+  "aspectRatio": "9:16",
+  "promptPackage": {
+    "source": "db-optimize-test"
+  }
+}
