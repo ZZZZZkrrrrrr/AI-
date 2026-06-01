@@ -57,10 +57,14 @@ const config = {
   runStorageDir: process.env.RUN_STORAGE_DIR || path.join(ROOT, "runs"),
   pythonExe: process.env.PYTHON_EXE || "py",
   ffmpegExe: process.env.FFMPEG_EXE || "ffmpeg",
-  libtvDefaultDryRun: coerceBool(process.env.LIBTV_DEFAULT_DRY_RUN, true)
+  libtvDefaultDryRun: coerceBool(process.env.LIBTV_DEFAULT_DRY_RUN, true),
+  batchMaxWorkers: boundedNumber(process.env.BATCH_MAX_WORKERS, 3, 1, 30)
 };
 
 const runs = new Map();
+const activeBatchItemRuns = new Map();
+let batchProcessorScheduled = false;
+let batchSchemaReadyPromise = null;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -180,6 +184,9 @@ function emit(run, event) {
     ...event
   };
   run.events.push(payload);
+  if (typeof run.onEvent === "function") {
+    Promise.resolve(run.onEvent(payload)).catch(() => {});
+  }
   for (const res of run.subscribers) {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
   }
@@ -191,6 +198,32 @@ function emit(run, event) {
     run.subscribers.clear();
     setTimeout(() => runs.delete(run.id), 10 * 60 * 1000).unref?.();
   }
+}
+
+function createInternalRun(kind, onEvent) {
+  const runId = randomUUID();
+  const run = {
+    id: runId,
+    kind,
+    createdAt: new Date().toISOString(),
+    status: "running",
+    events: [],
+    subscribers: new Set(),
+    abortController: new AbortController(),
+    cancelled: false,
+    tokenUsage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      calls: 0,
+      items: []
+    },
+    result: null,
+    error: null,
+    onEvent
+  };
+  runs.set(runId, run);
+  return run;
 }
 
 function cancelRun(run, reason = "用户已中断生成。") {
@@ -1342,6 +1375,10 @@ function formatTimePart(date) {
   ].join("");
 }
 
+function formatCompactDateTime(date = new Date()) {
+  return `${formatDatePart(date)}-${formatTimePart(date)}`;
+}
+
 async function recoverLibTVResultFromDatabase(saved, originalError) {
   const deadline = Date.now() + 180000;
   let lastSnapshot = null;
@@ -1444,6 +1481,765 @@ print(json.dumps([dict(row) for row in rows], ensure_ascii=False))
     }
   });
   return parseJsonFromText(result.stdout, "无法读取 SQLite 查询结果。");
+}
+
+async function executeSqlite(sql, params = []) {
+  const script = `
+import json
+import sqlite3
+import sys
+
+db_path = sys.argv[1]
+sql = sys.argv[2]
+params = json.loads(sys.argv[3])
+con = sqlite3.connect(db_path)
+con.execute("PRAGMA foreign_keys=ON")
+con.execute(sql, params)
+con.commit()
+print(json.dumps({"ok": True}, ensure_ascii=False))
+`;
+  const result = await runProcess(config.pythonExe, pythonInlineArgs(script, config.libtvDbPath, sql, JSON.stringify(params)), {
+    cwd: WORKFLOW_DIR,
+    env: {
+      ...process.env,
+      PYTHONUTF8: "1",
+      PYTHONIOENCODING: "utf-8"
+    }
+  });
+  return parseJsonFromText(result.stdout, "无法写入 SQLite。");
+}
+
+async function executeSqliteMany(operations = []) {
+  if (!operations.length) return { ok: true, changes: 0 };
+  const script = `
+import json
+import sqlite3
+import sys
+
+db_path = sys.argv[1]
+operations = json.loads(sys.argv[2])
+con = sqlite3.connect(db_path)
+con.execute("PRAGMA foreign_keys=ON")
+cur = con.cursor()
+for item in operations:
+    cur.execute(item["sql"], item.get("params", []))
+con.commit()
+print(json.dumps({"ok": True, "changes": len(operations)}, ensure_ascii=False))
+`;
+  const result = await runProcess(config.pythonExe, pythonInlineArgs(script, config.libtvDbPath, JSON.stringify(operations)), {
+    cwd: WORKFLOW_DIR,
+    env: {
+      ...process.env,
+      PYTHONUTF8: "1",
+      PYTHONIOENCODING: "utf-8"
+    }
+  });
+  return parseJsonFromText(result.stdout, "无法批量写入 SQLite。");
+}
+
+async function ensureBatchSchema() {
+  if (batchSchemaReadyPromise) return batchSchemaReadyPromise;
+  batchSchemaReadyPromise = (async () => {
+    const script = `
+import json
+import sqlite3
+import sys
+
+db_path = sys.argv[1]
+con = sqlite3.connect(db_path)
+con.execute("PRAGMA foreign_keys=ON")
+con.executescript("""
+CREATE TABLE IF NOT EXISTS batch_jobs (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  total_count INTEGER NOT NULL DEFAULT 0,
+  pending_count INTEGER NOT NULL DEFAULT 0,
+  running_count INTEGER NOT NULL DEFAULT 0,
+  success_count INTEGER NOT NULL DEFAULT 0,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  cancelled_count INTEGER NOT NULL DEFAULT 0,
+  concurrency INTEGER NOT NULL DEFAULT 2,
+  input_payload_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS batch_items (
+  id TEXT PRIMARY KEY,
+  batch_id TEXT NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+  row_no INTEGER NOT NULL,
+  task_no TEXT,
+  prompt_file_name TEXT,
+  image_file_name TEXT,
+  product_name TEXT,
+  product_category TEXT,
+  product_brief TEXT,
+  target_duration INTEGER NOT NULL DEFAULT 15,
+  aspect_ratio TEXT NOT NULL DEFAULT '9:16',
+  video_mode TEXT NOT NULL DEFAULT 'dry_run',
+  auto_submit INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'draft',
+  current_step TEXT,
+  progress INTEGER NOT NULL DEFAULT 0,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  image_analysis TEXT,
+  suggested_category TEXT,
+  final_prompt TEXT,
+  prompt_package_json TEXT,
+  token_usage_json TEXT,
+  libtv_task_code TEXT,
+  libtv_node_name TEXT,
+  video_url TEXT,
+  error_message TEXT,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  max_retries INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT,
+  updated_at TEXT NOT NULL,
+  UNIQUE(batch_id, row_no)
+);
+
+CREATE INDEX IF NOT EXISTS idx_batch_items_batch_status ON batch_items(batch_id, status, row_no);
+CREATE INDEX IF NOT EXISTS idx_batch_items_status ON batch_items(status, updated_at);
+
+CREATE TABLE IF NOT EXISTS batch_events (
+  id TEXT PRIMARY KEY,
+  batch_id TEXT NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+  item_id TEXT REFERENCES batch_items(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  phase TEXT,
+  message TEXT,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_batch_events_batch_time ON batch_events(batch_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_batch_events_item_time ON batch_events(item_id, created_at);
+""")
+con.commit()
+print(json.dumps({"ok": True}, ensure_ascii=False))
+`;
+    const result = await runProcess(config.pythonExe, pythonInlineArgs(script, config.libtvDbPath), {
+      cwd: WORKFLOW_DIR,
+      env: {
+        ...process.env,
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8"
+      }
+    });
+    return parseJsonFromText(result.stdout, "无法初始化批量任务表。");
+  })();
+  return batchSchemaReadyPromise;
+}
+
+async function listBatchJobs(limit = 50) {
+  await ensureBatchSchema();
+  return querySqlite(
+    `
+    SELECT *
+    FROM batch_jobs
+    ORDER BY created_at DESC
+    LIMIT ?
+    `,
+    [boundedNumber(limit, 50, 1, 300)]
+  );
+}
+
+async function getBatchDetail(batchId) {
+  await ensureBatchSchema();
+  const jobs = await querySqlite("SELECT * FROM batch_jobs WHERE id = ?", [batchId]);
+  if (!jobs.length) return null;
+  const items = await querySqlite(
+    `
+    SELECT *
+    FROM batch_items
+    WHERE batch_id = ?
+    ORDER BY row_no ASC
+    `,
+    [batchId]
+  );
+  const events = await querySqlite(
+    `
+    SELECT *
+    FROM batch_events
+    WHERE batch_id = ?
+    ORDER BY created_at DESC
+    LIMIT 120
+    `,
+    [batchId]
+  );
+  return { job: jobs[0], items, events };
+}
+
+async function createBatchJob(payload) {
+  await ensureBatchSchema();
+  const rawItems = Array.isArray(payload.items) ? payload.items : [];
+  if (!rawItems.length) throw new Error("请至少添加一条批量任务。");
+  if (rawItems.length > 2000) throw new Error("单个批次最多 2000 条任务，请拆分批次。");
+
+  const now = new Date().toISOString();
+  const batchId = randomUUID();
+  const batchName = String(payload.name || `批量任务 ${formatCompactDateTime(new Date())}`).trim().slice(0, 120);
+  const concurrency = boundedNumber(payload.concurrency, 2, 1, config.batchMaxWorkers);
+  const autoStart = coerceBool(payload.autoStart, true);
+  const batchDir = path.join(config.runStorageDir, "batches", batchId);
+  await mkdir(batchDir, { recursive: true });
+
+  const operations = [
+    {
+      sql: `
+        INSERT INTO batch_jobs (
+          id, name, status, total_count, pending_count, running_count, success_count, failed_count, cancelled_count,
+          concurrency, input_payload_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?, ?, ?)
+      `,
+      params: [
+        batchId,
+        batchName,
+        autoStart ? "queued" : "draft",
+        rawItems.length,
+        autoStart ? rawItems.length : 0,
+        concurrency,
+        JSON.stringify({ source: payload.source || "console", createdBy: payload.createdBy || "local" }),
+        now,
+        now
+      ]
+    }
+  ];
+
+  for (const [index, raw] of rawItems.entries()) {
+    const item = normalizeBatchItem(raw, index + 1);
+    const itemId = randomUUID();
+    const rowDir = path.join(batchDir, String(index + 1).padStart(5, "0"));
+    await mkdir(rowDir, { recursive: true });
+    const promptPath = path.join(rowDir, "prompt.txt");
+    await writeFile(promptPath, item.promptPackText, "utf8");
+    const savedImages = [];
+    for (const [imageIndex, image] of item.images.entries()) {
+      const parsed = parseDataUrlImage(image);
+      const ext = imageExtension(parsed.mime, image.name);
+      const filename = `${String(imageIndex + 1).padStart(2, "0")}-${safeFilePart(path.parse(image.name).name || "product")}${ext}`;
+      const imagePath = path.join(rowDir, filename);
+      await writeFile(imagePath, parsed.buffer);
+      savedImages.push({
+        name: image.name,
+        type: parsed.mime,
+        size: parsed.buffer.length,
+        path: imagePath
+      });
+    }
+    const itemPayload = {
+      promptPath,
+      promptFileName: item.promptFileName,
+      images: savedImages,
+      productName: item.productName,
+      productCategory: item.productCategory,
+      productBrief: item.productBrief,
+      targetDuration: item.targetDuration,
+      aspectRatio: item.aspectRatio,
+      videoMode: item.videoMode,
+      autoSubmit: item.autoSubmit,
+      modelSettings: item.modelSettings
+    };
+    operations.push({
+      sql: `
+        INSERT INTO batch_items (
+          id, batch_id, row_no, task_no, prompt_file_name, image_file_name, product_name, product_category,
+          product_brief, target_duration, aspect_ratio, video_mode, auto_submit, status, current_step, progress,
+          payload_json, attempts, max_retries, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0, ?, ?, ?)
+      `,
+      params: [
+        itemId,
+        batchId,
+        index + 1,
+        item.taskNo,
+        item.promptFileName,
+        item.images[0]?.name || "",
+        item.productName,
+        item.productCategory,
+        item.productBrief,
+        item.targetDuration,
+        item.aspectRatio,
+        item.videoMode,
+        item.autoSubmit ? 1 : 0,
+        autoStart ? "queued" : "draft",
+        autoStart ? "排队中" : "待开始",
+        JSON.stringify(itemPayload),
+        item.maxRetries,
+        now,
+        now
+      ]
+    });
+  }
+
+  await executeSqliteMany(operations);
+  await logBatchEvent(batchId, null, "batch_created", "创建批次", `已创建 ${rawItems.length} 条批量任务。`, {
+    concurrency,
+    autoStart
+  });
+  if (autoStart) scheduleBatchProcessor();
+  return getBatchDetail(batchId);
+}
+
+function normalizeBatchItem(raw, rowNo) {
+  const promptPackText = String(raw.promptPackText || "").trim();
+  const images = normalizeImages(raw.images);
+  if (!promptPackText) throw new Error(`第 ${rowNo} 行缺少提示词包正文。`);
+  if (!images.length && !String(raw.productBrief || "").trim()) throw new Error(`第 ${rowNo} 行缺少商品图或商品补充信息。`);
+  return {
+    taskNo: String(raw.taskNo || raw.task_no || rowNo).trim().slice(0, 80),
+    promptFileName: String(raw.promptFileName || raw.prompt_file_name || "").trim().slice(0, 260),
+    promptPackText,
+    images,
+    productName: String(raw.productName || raw.product_name || "").trim().slice(0, 160),
+    productCategory: cleanCategory(raw.productCategory || raw.category || "", ""),
+    productBrief: String(raw.productBrief || raw.product_brief || "").trim().slice(0, 5000),
+    targetDuration: boundedNumber(raw.targetDuration || raw.duration || raw.durationSec, 15, 3, 60),
+    aspectRatio: String(raw.aspectRatio || raw.ratio || "9:16"),
+    videoMode: ["dry_run", "submit", "run"].includes(String(raw.videoMode || "")) ? String(raw.videoMode) : "dry_run",
+    autoSubmit: coerceBool(raw.autoSubmit, true),
+    modelSettings: normalizeModelSettings(raw.modelSettings || {}),
+    maxRetries: boundedNumber(raw.maxRetries, 1, 0, 5)
+  };
+}
+
+async function updateBatchSummary(batchId) {
+  await ensureBatchSchema();
+  const rows = await querySqlite(
+    `
+    SELECT
+      COUNT(*) AS total_count,
+      SUM(CASE WHEN status IN ('draft','queued','retrying') THEN 1 ELSE 0 END) AS pending_count,
+      SUM(CASE WHEN status IN ('running','image_analysis','prompt_generating','submitting_libtv','video_generating') THEN 1 ELSE 0 END) AS running_count,
+      SUM(CASE WHEN status IN ('succeeded','prompt_ready') THEN 1 ELSE 0 END) AS success_count,
+      SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed_count,
+      SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_count
+    FROM batch_items
+    WHERE batch_id = ?
+    `,
+    [batchId]
+  );
+  const summary = rows[0] || {};
+  const total = Number(summary.total_count || 0);
+  const running = Number(summary.running_count || 0);
+  const pending = Number(summary.pending_count || 0);
+  const failed = Number(summary.failed_count || 0);
+  const cancelled = Number(summary.cancelled_count || 0);
+  const success = Number(summary.success_count || 0);
+  let status = "running";
+  let finishedAt = null;
+  if (total && success + failed + cancelled >= total && running === 0 && pending === 0) {
+    status = failed ? "completed_with_errors" : cancelled && !success ? "cancelled" : "completed";
+    finishedAt = new Date().toISOString();
+  } else {
+    const jobRows = await querySqlite("SELECT status FROM batch_jobs WHERE id = ?", [batchId]);
+    if (jobRows[0]?.status === "paused") status = "paused";
+    if (jobRows[0]?.status === "cancelled") status = "cancelled";
+  }
+  const now = new Date().toISOString();
+  await executeSqlite(
+    `
+    UPDATE batch_jobs
+    SET status = ?,
+        total_count = ?,
+        pending_count = ?,
+        running_count = ?,
+        success_count = ?,
+        failed_count = ?,
+        cancelled_count = ?,
+        finished_at = COALESCE(finished_at, ?),
+        updated_at = ?
+    WHERE id = ?
+    `,
+    [status, total, pending, running, success, failed, cancelled, finishedAt, now, batchId]
+  );
+}
+
+async function updateBatchItem(itemId, fields) {
+  const allowed = new Set([
+    "status",
+    "current_step",
+    "progress",
+    "image_analysis",
+    "suggested_category",
+    "final_prompt",
+    "prompt_package_json",
+    "token_usage_json",
+    "libtv_task_code",
+    "libtv_node_name",
+    "video_url",
+    "error_message",
+    "attempts",
+    "started_at",
+    "finished_at",
+    "updated_at"
+  ]);
+  const entries = Object.entries(fields).filter(([key]) => allowed.has(key));
+  if (!entries.length) return;
+  const sets = entries.map(([key]) => `${key} = ?`);
+  const params = entries.map(([, value]) => value);
+  if (!entries.some(([key]) => key === "updated_at")) {
+    sets.push("updated_at = ?");
+    params.push(new Date().toISOString());
+  }
+  params.push(itemId);
+  await executeSqlite(`UPDATE batch_items SET ${sets.join(", ")} WHERE id = ?`, params);
+}
+
+async function logBatchEvent(batchId, itemId, eventType, phase, message, payload = {}) {
+  await executeSqlite(
+    `
+    INSERT INTO batch_events (id, batch_id, item_id, event_type, phase, message, payload_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [randomUUID(), batchId, itemId, eventType, phase || "", message || "", JSON.stringify(payload || {}), new Date().toISOString()]
+  );
+}
+
+function scheduleBatchProcessor() {
+  if (batchProcessorScheduled) return;
+  batchProcessorScheduled = true;
+  setTimeout(() => {
+    batchProcessorScheduled = false;
+    processBatchQueue().catch((error) => console.error("Batch processor failed:", error));
+  }, 50).unref?.();
+}
+
+async function processBatchQueue() {
+  await ensureBatchSchema();
+  while (activeBatchItemRuns.size < config.batchMaxWorkers) {
+    const candidates = await querySqlite(
+      `
+      SELECT
+        bi.*,
+        bj.status AS batch_status,
+        bj.concurrency AS batch_concurrency
+      FROM batch_items bi
+      JOIN batch_jobs bj ON bj.id = bi.batch_id
+      WHERE bj.status IN ('queued','running')
+        AND bi.status IN ('queued','retrying')
+      ORDER BY bj.created_at ASC, bi.row_no ASC
+      LIMIT 50
+      `
+    );
+    const next = await pickNextBatchItem(candidates);
+    if (!next) break;
+    activeBatchItemRuns.set(next.id, { batchId: next.batch_id, run: null });
+    runBatchItem(next).finally(() => {
+      activeBatchItemRuns.delete(next.id);
+      scheduleBatchProcessor();
+    });
+  }
+}
+
+async function pickNextBatchItem(candidates) {
+  for (const item of candidates) {
+    if (activeBatchItemRuns.has(item.id)) continue;
+    const activeForBatch = [...activeBatchItemRuns.values()].filter((entry) => entry.batchId === item.batch_id).length;
+    const perBatchLimit = boundedNumber(item.batch_concurrency, 2, 1, config.batchMaxWorkers);
+    if (activeForBatch >= perBatchLimit) continue;
+    return item;
+  }
+  return null;
+}
+
+async function runBatchItem(item) {
+  const batchId = item.batch_id;
+  const itemId = item.id;
+  const startedAt = new Date().toISOString();
+  await executeSqlite("UPDATE batch_jobs SET status = 'running', started_at = COALESCE(started_at, ?), updated_at = ? WHERE id = ?", [
+    startedAt,
+    startedAt,
+    batchId
+  ]);
+  await updateBatchItem(itemId, {
+    status: "running",
+    current_step: "准备任务",
+    progress: 3,
+    started_at: item.started_at || startedAt,
+    error_message: "",
+    attempts: Number(item.attempts || 0) + 1
+  });
+  await updateBatchSummary(batchId);
+  await logBatchEvent(batchId, itemId, "item_started", "准备任务", `第 ${item.row_no} 行开始执行。`);
+
+  try {
+    const payload = await loadBatchItemPayload(item);
+    const promptRun = createInternalRun("batch_prompt", (event) => handleBatchPromptEvent(batchId, itemId, event));
+    activeBatchItemRuns.set(itemId, { batchId, run: promptRun });
+    await runFinalPromptJob(promptRun, payload);
+    if (promptRun.status === "cancelled") throw new RunCancelledError(promptRun.error || "任务已取消。");
+    if (promptRun.status !== "completed") throw new Error(promptRun.error || "提示词生成失败。");
+
+    const promptResult = promptRun.result || {};
+    const finalPrompt = promptResult.finalPrompt || "";
+    const suggestedCategory = promptResult.suggestedCategory || payload.productCategory || "";
+    await updateBatchItem(itemId, {
+      status: payload.autoSubmit ? "submitting_libtv" : "prompt_ready",
+      current_step: payload.autoSubmit ? "提交 libTV" : "提示词已生成",
+      progress: payload.autoSubmit ? 82 : 100,
+      image_analysis: promptResult.imageAnalysis || "",
+      suggested_category: suggestedCategory,
+      final_prompt: finalPrompt,
+      prompt_package_json: JSON.stringify(promptResult.promptPackage || {}),
+      token_usage_json: JSON.stringify(promptResult.tokenUsage || promptRun.tokenUsage || {})
+    });
+
+    if (!payload.autoSubmit) {
+      await logBatchEvent(batchId, itemId, "item_prompt_ready", "提示词已生成", "已生成最终提示词，未自动提交 libTV。");
+      await updateBatchSummary(batchId);
+      return;
+    }
+
+    const videoPayload = {
+      finalPrompt,
+      promptPackage: promptResult.promptPackage || null,
+      productName: payload.productName,
+      productCategory: payload.productCategory || suggestedCategory,
+      productBrief: payload.productBrief,
+      imageAnalysis: promptResult.imageAnalysis || "",
+      suggestedCategory,
+      images: payload.images,
+      duration: payload.targetDuration,
+      aspectRatio: payload.aspectRatio,
+      dryRun: payload.videoMode === "dry_run",
+      waitForVideo: payload.videoMode === "run",
+      download: true
+    };
+    const videoRun = createInternalRun("batch_video", (event) => handleBatchVideoEvent(batchId, itemId, event));
+    activeBatchItemRuns.set(itemId, { batchId, run: videoRun });
+    await runVideoJob(videoRun, videoPayload);
+    if (videoRun.status === "cancelled") throw new RunCancelledError(videoRun.error || "任务已取消。");
+    if (videoRun.status !== "completed") throw new Error(videoRun.error || "libTV 提交失败。");
+
+    const videoResult = videoRun.result || {};
+    await updateBatchItem(itemId, {
+      status: "succeeded",
+      current_step: "完成",
+      progress: 100,
+      libtv_task_code: videoResult.taskCode || "",
+      libtv_node_name: videoResult.libtvNodeName || "",
+      video_url: extractVideoUrl(videoResult),
+      finished_at: new Date().toISOString()
+    });
+    await logBatchEvent(batchId, itemId, "item_completed", "完成", "视频任务已完成。", {
+      taskCode: videoResult.taskCode,
+      videoUrl: extractVideoUrl(videoResult)
+    });
+  } catch (error) {
+    const cancelled = error?.name === "RunCancelledError";
+    await updateBatchItem(itemId, {
+      status: cancelled ? "cancelled" : "failed",
+      current_step: cancelled ? "已取消" : "失败",
+      progress: cancelled ? Number(item.progress || 0) : 100,
+      error_message: error.message,
+      finished_at: new Date().toISOString()
+    });
+    await logBatchEvent(batchId, itemId, cancelled ? "item_cancelled" : "item_failed", cancelled ? "已取消" : "失败", error.message);
+  } finally {
+    await updateBatchSummary(batchId);
+  }
+}
+
+async function loadBatchItemPayload(item) {
+  const saved = JSON.parse(item.payload_json || "{}");
+  const promptPackText = await readFile(saved.promptPath, "utf8");
+  const images = [];
+  for (const image of saved.images || []) {
+    const buffer = await readFile(image.path);
+    images.push({
+      name: image.name,
+      type: image.type || "image/png",
+      size: image.size || buffer.length,
+      dataUrl: `data:${image.type || "image/png"};base64,${buffer.toString("base64")}`
+    });
+  }
+  return {
+    promptPackText,
+    productName: saved.productName || item.product_name || "",
+    productCategory: saved.productCategory || item.product_category || "",
+    productBrief: saved.productBrief || item.product_brief || "",
+    targetDuration: boundedNumber(saved.targetDuration || item.target_duration, 15, 3, 60),
+    aspectRatio: saved.aspectRatio || item.aspect_ratio || "9:16",
+    images,
+    videoMode: saved.videoMode || item.video_mode || "dry_run",
+    autoSubmit: coerceBool(saved.autoSubmit, true),
+    modelSettings: normalizeModelSettings(saved.modelSettings || {})
+  };
+}
+
+async function handleBatchPromptEvent(batchId, itemId, event) {
+  const phase = event.phase || event.stepName || event.type || "提示词生成";
+  const status = batchStatusFromPromptEvent(event);
+  const progress = progressFromPromptEvent(event);
+  const fields = { current_step: phase, progress };
+  if (status) fields.status = status;
+  if (event.type === "image_analysis") fields.image_analysis = event.output || "";
+  if (event.type === "category_detected") fields.suggested_category = event.category || "";
+  if (event.type === "completed") {
+    fields.final_prompt = event.result?.finalPrompt || "";
+    fields.prompt_package_json = JSON.stringify(event.result?.promptPackage || {});
+    fields.token_usage_json = JSON.stringify(event.result?.tokenUsage || {});
+  }
+  await updateBatchItem(itemId, fields);
+  await logBatchEvent(batchId, itemId, event.type || "prompt_event", phase, event.message || "", compactEventPayload(event));
+}
+
+function batchStatusFromPromptEvent(event) {
+  if (event.type === "image_analysis") return "image_analysis";
+  if (event.type === "step_completed" || event.type === "token_usage") return "prompt_generating";
+  if (event.type === "completed") return "prompt_ready";
+  if (event.type === "failed") return "failed";
+  if (event.type === "cancelled") return "cancelled";
+  return event.type === "status" ? "running" : "";
+}
+
+function progressFromPromptEvent(event) {
+  if (event.type === "model_meta") return 6;
+  if (event.type === "image_analysis") return 24;
+  if (event.type === "category_detected") return 28;
+  if (event.type === "step_completed") {
+    const stepNo = Number(event.stepNo || 1);
+    return Math.max(30, Math.min(74, 30 + stepNo * 3));
+  }
+  if (event.type === "completed") return 80;
+  if (event.type === "failed" || event.type === "cancelled") return 100;
+  return 12;
+}
+
+async function handleBatchVideoEvent(batchId, itemId, event) {
+  const phase = event.phase || event.type || "libTV";
+  const fields = {
+    current_step: phase,
+    status: event.type === "completed" ? "succeeded" : event.type === "failed" ? "failed" : "video_generating",
+    progress: event.type === "completed" || event.type === "failed" ? 100 : 88
+  };
+  if (event.type === "completed") {
+    fields.libtv_task_code = event.result?.taskCode || "";
+    fields.libtv_node_name = event.result?.libtvNodeName || "";
+    fields.video_url = extractVideoUrl(event.result || {});
+  }
+  if (event.type === "failed") fields.error_message = event.message || "";
+  await updateBatchItem(itemId, fields);
+  await logBatchEvent(batchId, itemId, event.type || "video_event", phase, event.message || "", compactEventPayload(event));
+}
+
+function compactEventPayload(event) {
+  return {
+    type: event.type,
+    phase: event.phase,
+    stepNo: event.stepNo,
+    stepName: event.stepName,
+    category: event.category,
+    tokenUsage: event.tokenUsage || undefined,
+    result: event.result
+      ? {
+          taskCode: event.result.taskCode,
+          libtvNodeName: event.result.libtvNodeName,
+          videoUrl: extractVideoUrl(event.result)
+        }
+      : undefined
+  };
+}
+
+function extractVideoUrl(value) {
+  const found = deepFindValue(value, ["video_url", "videoUrl", "url", "output_url", "download_url"]);
+  return typeof found === "string" && /^https?:\/\//i.test(found) ? found : "";
+}
+
+function deepFindValue(value, keys) {
+  const wanted = new Set(keys);
+  const queue = [value];
+  while (queue.length) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    if (Array.isArray(current)) {
+      queue.push(...current);
+      continue;
+    }
+    for (const [key, item] of Object.entries(current)) {
+      if (wanted.has(key) && item) return item;
+      if (item && typeof item === "object") queue.push(item);
+    }
+  }
+  return "";
+}
+
+async function startBatch(batchId) {
+  await ensureBatchSchema();
+  const now = new Date().toISOString();
+  await executeSqlite(
+    `
+    UPDATE batch_items
+    SET status = 'queued', current_step = '排队中', progress = 0, error_message = '', updated_at = ?
+    WHERE batch_id = ? AND status IN ('draft','failed','cancelled')
+    `,
+    [now, batchId]
+  );
+  await executeSqlite(
+    `
+    UPDATE batch_jobs
+    SET status = 'queued', started_at = COALESCE(started_at, ?), finished_at = NULL, updated_at = ?
+    WHERE id = ?
+    `,
+    [now, now, batchId]
+  );
+  await updateBatchSummary(batchId);
+  await logBatchEvent(batchId, null, "batch_started", "启动批次", "批量任务已进入队列。");
+  scheduleBatchProcessor();
+  return getBatchDetail(batchId);
+}
+
+async function pauseBatch(batchId) {
+  await ensureBatchSchema();
+  const now = new Date().toISOString();
+  await executeSqlite("UPDATE batch_jobs SET status = 'paused', updated_at = ? WHERE id = ?", [now, batchId]);
+  await logBatchEvent(batchId, null, "batch_paused", "暂停批次", "批量任务已暂停，新任务不会继续领取。");
+  await updateBatchSummary(batchId);
+  return getBatchDetail(batchId);
+}
+
+async function cancelBatch(batchId) {
+  await ensureBatchSchema();
+  const now = new Date().toISOString();
+  for (const [itemId, entry] of activeBatchItemRuns.entries()) {
+    if (entry.batchId === batchId && entry.run) cancelRun(entry.run, "批量任务已取消。");
+  }
+  await executeSqlite(
+    `
+    UPDATE batch_items
+    SET status = 'cancelled', current_step = '已取消', error_message = '批量任务已取消。', finished_at = ?, updated_at = ?
+    WHERE batch_id = ? AND status IN ('draft','queued','retrying','running','image_analysis','prompt_generating','submitting_libtv','video_generating')
+    `,
+    [now, now, batchId]
+  );
+  await executeSqlite("UPDATE batch_jobs SET status = 'cancelled', finished_at = ?, updated_at = ? WHERE id = ?", [now, now, batchId]);
+  await logBatchEvent(batchId, null, "batch_cancelled", "取消批次", "批量任务已取消。");
+  await updateBatchSummary(batchId);
+  return getBatchDetail(batchId);
+}
+
+async function retryBatchFailures(batchId) {
+  await ensureBatchSchema();
+  const now = new Date().toISOString();
+  await executeSqlite(
+    `
+    UPDATE batch_items
+    SET status = 'queued', current_step = '等待重试', progress = 0, error_message = '', finished_at = NULL, updated_at = ?
+    WHERE batch_id = ? AND status = 'failed'
+    `,
+    [now, batchId]
+  );
+  await executeSqlite("UPDATE batch_jobs SET status = 'queued', finished_at = NULL, updated_at = ? WHERE id = ?", [now, batchId]);
+  await logBatchEvent(batchId, null, "batch_retry", "重试失败任务", "失败任务已重新进入队列。");
+  await updateBatchSummary(batchId);
+  scheduleBatchProcessor();
+  return getBatchDetail(batchId);
 }
 
 async function listOutputFiles() {
@@ -2019,6 +2815,8 @@ const server = createServer(async (req, res) => {
         libtvBridgeConfigured: Boolean(config.libtvBridgeUrl),
         libtvBridgeReachable: Boolean(libtvHealth.ok),
         libtvDatabase: config.libtvDbPath,
+        batchMaxWorkers: config.batchMaxWorkers,
+        activeBatchWorkers: activeBatchItemRuns.size,
         currentModels: {
           qianwenText: config.qianwenModel,
           analysis: config.doubaoModel,
@@ -2056,6 +2854,40 @@ const server = createServer(async (req, res) => {
       const limit = boundedNumber(url.searchParams.get("limit"), 50, 1, 200);
       const rows = await querySqlite("SELECT * FROM v_libtv_job_detail LIMIT ?", [limit]);
       return jsonResponse(res, 200, { ok: true, rows });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/batches") {
+      const limit = boundedNumber(url.searchParams.get("limit"), 50, 1, 200);
+      const rows = await listBatchJobs(limit);
+      return jsonResponse(res, 200, { ok: true, rows, activeWorkers: activeBatchItemRuns.size });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/batches") {
+      const payload = await readJsonBody(req);
+      const data = await createBatchJob(payload);
+      return jsonResponse(res, 202, { ok: true, ...data });
+    }
+
+    const batchActionMatch = url.pathname.match(/^\/api\/batches\/([^/]+)\/(start|pause|cancel|retry)$/);
+    if (req.method === "POST" && batchActionMatch) {
+      const [, batchId, action] = batchActionMatch;
+      const data =
+        action === "start"
+          ? await startBatch(batchId)
+          : action === "pause"
+            ? await pauseBatch(batchId)
+            : action === "cancel"
+              ? await cancelBatch(batchId)
+              : await retryBatchFailures(batchId);
+      if (!data) return textResponse(res, 404, "Batch not found");
+      return jsonResponse(res, 200, { ok: true, ...data });
+    }
+
+    const batchDetailMatch = url.pathname.match(/^\/api\/batches\/([^/]+)$/);
+    if (req.method === "GET" && batchDetailMatch) {
+      const data = await getBatchDetail(batchDetailMatch[1]);
+      if (!data) return textResponse(res, 404, "Batch not found");
+      return jsonResponse(res, 200, { ok: true, ...data });
     }
 
     if (req.method === "GET" && url.pathname === "/api/assets") {
@@ -2172,4 +3004,7 @@ const server = createServer(async (req, res) => {
 
 server.listen(config.port, () => {
   console.log(`AI Prompt Video Studio listening on http://localhost:${config.port}`);
+  ensureBatchSchema()
+    .then(() => scheduleBatchProcessor())
+    .catch((error) => console.error("Batch schema init failed:", error));
 });

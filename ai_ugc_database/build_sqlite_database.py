@@ -206,6 +206,83 @@ def build_database(path: Path) -> None:
           updated_at TEXT NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS batch_jobs (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft',
+          total_count INTEGER NOT NULL DEFAULT 0,
+          pending_count INTEGER NOT NULL DEFAULT 0,
+          running_count INTEGER NOT NULL DEFAULT 0,
+          success_count INTEGER NOT NULL DEFAULT 0,
+          failed_count INTEGER NOT NULL DEFAULT 0,
+          cancelled_count INTEGER NOT NULL DEFAULT 0,
+          concurrency INTEGER NOT NULL DEFAULT 2,
+          input_payload_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL,
+          started_at TEXT,
+          finished_at TEXT,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS batch_items (
+          id TEXT PRIMARY KEY,
+          batch_id TEXT NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+          row_no INTEGER NOT NULL,
+          task_no TEXT,
+          prompt_file_name TEXT,
+          image_file_name TEXT,
+          product_name TEXT,
+          product_category TEXT,
+          product_brief TEXT,
+          target_duration INTEGER NOT NULL DEFAULT 15,
+          aspect_ratio TEXT NOT NULL DEFAULT '9:16',
+          video_mode TEXT NOT NULL DEFAULT 'dry_run',
+          auto_submit INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'draft',
+          current_step TEXT,
+          progress INTEGER NOT NULL DEFAULT 0,
+          payload_json TEXT NOT NULL DEFAULT '{}',
+          image_analysis TEXT,
+          suggested_category TEXT,
+          final_prompt TEXT,
+          prompt_package_json TEXT,
+          token_usage_json TEXT,
+          libtv_task_code TEXT,
+          libtv_node_name TEXT,
+          video_url TEXT,
+          error_message TEXT,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          max_retries INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          started_at TEXT,
+          finished_at TEXT,
+          updated_at TEXT NOT NULL,
+          UNIQUE(batch_id, row_no)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_batch_items_batch_status
+          ON batch_items(batch_id, status, row_no);
+
+        CREATE INDEX IF NOT EXISTS idx_batch_items_status
+          ON batch_items(status, updated_at);
+
+        CREATE TABLE IF NOT EXISTS batch_events (
+          id TEXT PRIMARY KEY,
+          batch_id TEXT NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+          item_id TEXT REFERENCES batch_items(id) ON DELETE CASCADE,
+          event_type TEXT NOT NULL,
+          phase TEXT,
+          message TEXT,
+          payload_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_batch_events_batch_time
+          ON batch_events(batch_id, created_at);
+
+        CREATE INDEX IF NOT EXISTS idx_batch_events_item_time
+          ON batch_events(item_id, created_at);
+
         CREATE VIEW IF NOT EXISTS v_ready_tasks AS
         SELECT
           vt.id AS task_id,
