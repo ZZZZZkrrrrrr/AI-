@@ -2165,9 +2165,75 @@ tr:last-child td {
   border: 1px dashed var(--line);
   border-radius: 8px;
   background: var(--panel-soft);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.upload-box:hover {
+  border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
+  background: var(--field-focus);
+  transform: translateY(-1px);
+}
+
+.file-input-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.file-field {
+  cursor: pointer;
+}
+
+.file-picker-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  margin-top: 6px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+}
+
+.file-picker-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 108px;
+  min-height: 32px;
+  padding: 0 13px;
+  border-radius: 7px;
+  background: var(--brand);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(45, 212, 191, 0.14);
+}
+
+.file-picker-button svg {
+  flex: 0 0 auto;
+}
+
+.file-picker-status {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .upload-box em {
+  display: block;
+  margin-top: 8px;
   color: var(--brand);
   font-size: 13px;
   font-style: normal;
@@ -2187,6 +2253,41 @@ tr:last-child td {
   margin: 12px 0;
   color: var(--muted-strong);
   font-size: 14px;
+}
+
+.checkbox-line input[type="checkbox"] {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--brand);
+}
+
+.batch-builder-actions {
+  justify-content: space-between;
+  margin-top: 14px;
+}
+
+.batch-submit-check {
+  min-height: 38px;
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.batch-builder-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.batch-builder-buttons .secondary-button {
+  min-height: 38px;
+  padding: 0 13px;
+  white-space: nowrap;
 }
 
 .compact-check {
@@ -2445,6 +2546,15 @@ tr:last-child td {
   .guide-steps,
   .guide-notes {
     grid-template-columns: 1fr;
+  }
+
+  .batch-builder-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .batch-builder-buttons {
+    justify-content: flex-start;
   }
 
   .batch-precheck {

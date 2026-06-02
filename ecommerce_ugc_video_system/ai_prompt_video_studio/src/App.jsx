@@ -425,6 +425,7 @@ export function App() {
     }
     const text = lower.endsWith(".docx") ? await extractDocxFile(file) : await file.text();
     updateStudio("promptPackText", text);
+    updateStudio("promptPackage", { name: file.name, size: file.size, type: file.type || "text/plain" });
   }
 
   async function handleImages(files) {
@@ -1329,17 +1330,38 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
           <div className="batch-upload-grid">
             <label className="field upload-box">
               <span>提示词包，可多选 Word</span>
-              <input type="file" accept=".docx,.txt,.md" multiple onChange={(event) => handlePromptFiles(event.target.files)} />
+              <input className="file-input-native" type="file" accept=".docx,.txt,.md" multiple onChange={(event) => handlePromptFiles(event.target.files)} />
+              <span className="file-picker-shell">
+                <span className="file-picker-button">
+                  <Upload size={16} />
+                  <span>上传文件</span>
+                </span>
+                <span className="file-picker-status">{promptFiles.length ? `已选择 ${promptFiles.length} 个文件` : "未选择文件"}</span>
+              </span>
               <em>{promptFiles.length} 个提示词包</em>
             </label>
             <label className="field upload-box">
               <span>商品图片，可多选</span>
-              <input type="file" accept="image/*" multiple onChange={(event) => handleImageFiles(event.target.files)} />
+              <input className="file-input-native" type="file" accept="image/*" multiple onChange={(event) => handleImageFiles(event.target.files)} />
+              <span className="file-picker-shell">
+                <span className="file-picker-button">
+                  <Upload size={16} />
+                  <span>上传图片</span>
+                </span>
+                <span className="file-picker-status">{imageFiles.length ? `已选择 ${imageFiles.length} 张图片` : "未选择图片"}</span>
+              </span>
               <em>{imageFiles.length} 张商品图</em>
             </label>
             <label className="field upload-box">
               <span>CSV / Excel 导入</span>
-              <input type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(event) => handleCsv(event.target.files?.[0])} />
+              <input className="file-input-native" type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(event) => handleCsv(event.target.files?.[0])} />
+              <span className="file-picker-shell">
+                <span className="file-picker-button">
+                  <Upload size={16} />
+                  <span>导入表格</span>
+                </span>
+                <span className="file-picker-status">{csvRows.length ? `已导入 ${csvRows.length} 行配置` : "未导入表格"}</span>
+              </span>
               <em>{csvRows.length} 行表格配置</em>
             </label>
           </div>
@@ -1373,20 +1395,22 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
               </select>
             </label>
           </div>
-          <label className="checkbox-line">
-            <input type="checkbox" checked={autoSubmit} onChange={(event) => setAutoSubmit(event.target.checked)} />
-            <span>生成最终提示词后自动提交 libTV</span>
-          </label>
           <div className="batch-builder-actions">
-            <button className="secondary-button" type="button" onClick={downloadBatchTemplate}>
-              <Download size={16} />
-              <span>下载模板</span>
-            </button>
-            <button className="secondary-button" type="button" onClick={buildRows}>
-              <ListChecks size={16} />
-              <span>生成任务表</span>
-            </button>
-            <button className="secondary-button" type="button" onClick={() => createBatch(false)} disabled={creating || !selectedRows.length}>只创建不启动</button>
+            <label className="checkbox-line batch-submit-check">
+              <input type="checkbox" checked={autoSubmit} onChange={(event) => setAutoSubmit(event.target.checked)} />
+              <span>生成最终提示词后自动提交 libTV</span>
+            </label>
+            <div className="batch-builder-buttons">
+              <button className="secondary-button" type="button" onClick={downloadBatchTemplate}>
+                <Download size={16} />
+                <span>下载模板</span>
+              </button>
+              <button className="secondary-button" type="button" onClick={buildRows}>
+                <ListChecks size={16} />
+                <span>生成任务表</span>
+              </button>
+              <button className="secondary-button" type="button" onClick={() => createBatch(false)} disabled={creating || !selectedRows.length}>只创建不启动</button>
+            </div>
           </div>
         </div>
 
@@ -2423,17 +2447,31 @@ function StudioPage(props) {
           <button type="button" className="ghost-button" onClick={clearStudio}>清空</button>
         </div>
 
-        <label className="field">
+        <label className="field file-field">
           <span>提示词包</span>
-          <input type="file" accept=".docx,.txt,.md,.json,.csv" onChange={(event) => handlePromptFile(event.target.files?.[0])} />
+          <input className="file-input-native" type="file" accept=".docx,.txt,.md,.json,.csv" onChange={(event) => handlePromptFile(event.target.files?.[0])} />
+          <span className="file-picker-shell">
+            <span className="file-picker-button">
+              <Upload size={16} />
+              <span>上传文件</span>
+            </span>
+            <span className="file-picker-status">{studio.promptPackage?.name || (studio.promptPackText ? "已读取提示词文本" : "未选择文件")}</span>
+          </span>
         </label>
         <label className="field">
           <span>提示词包正文</span>
           <textarea rows={10} value={studio.promptPackText} onChange={(event) => updateStudio("promptPackText", event.target.value)} placeholder="粘贴 SOP / 提示词包文本" />
         </label>
-        <label className="field">
+        <label className="field file-field">
           <span>产品图片</span>
-          <input type="file" accept="image/*" multiple onChange={(event) => handleImages(event.target.files)} />
+          <input className="file-input-native" type="file" accept="image/*" multiple onChange={(event) => handleImages(event.target.files)} />
+          <span className="file-picker-shell">
+            <span className="file-picker-button">
+              <Upload size={16} />
+              <span>上传图片</span>
+            </span>
+            <span className="file-picker-status">{studio.images.length ? `已选择 ${studio.images.length} 张图片` : "未选择图片"}</span>
+          </span>
         </label>
         <div className="image-grid">
           {studio.images.map((image) => (
