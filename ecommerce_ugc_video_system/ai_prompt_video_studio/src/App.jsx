@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   Bell,
   BookOpen,
@@ -15,6 +16,7 @@ import {
   Gauge,
   HardDrive,
   Image,
+  Info,
   KeyRound,
   LayoutDashboard,
   ListChecks,
@@ -96,6 +98,11 @@ const batchTemplateRows = [
   ["男装-001", "男装-001.docx", "男装-001.png", "通勤男装短袖", "男装", "主推通勤穿搭，突出面料、版型、上身效果", 15, "9:16", "先验证", "是"],
   ["女装-001", "女装-001.docx", "女装-001.jpg", "夏季连衣裙", "女装", "突出清爽、显瘦、日常出街场景", 15, "9:16", "先验证", "是"]
 ];
+
+function defaultBatchName() {
+  return `批量生成 ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+}
+
 const defaultModelSettings = {
   analysisModel: "",
   analysisCustomModel: "",
@@ -991,7 +998,7 @@ function NotificationCenter({ open, notifications, unreadCount, onToggle, onClos
 }
 
 function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJobs, loadBatchDetail, addNotification, onRefreshAll }) {
-  const [batchName, setBatchName] = useState(() => `批量生成 ${new Date().toLocaleString("zh-CN", { hour12: false })}`);
+  const [batchName, setBatchName] = useState(() => defaultBatchName());
   const [promptFiles, setPromptFiles] = useState([]);
   const [imageFiles, setImageFiles] = useState([]);
   const [csvRows, setCsvRows] = useState([]);
@@ -1005,9 +1012,13 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
   const [selectedBatchId, setSelectedBatchId] = useState("");
   const [creating, setCreating] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState("");
   const activeDetail = batchDetail?.job?.id === selectedBatchId ? batchDetail : null;
   const validatedRows = useMemo(() => validateBatchDraftRows(rows), [rows]);
   const precheck = useMemo(() => summarizeBatchPrecheck(validatedRows), [validatedRows]);
+  const precheckIssues = useMemo(() => summarizeBatchIssueGroups(validatedRows), [validatedRows]);
   const [onlyInvalidRows, setOnlyInvalidRows] = useState(false);
   const visibleRows = onlyInvalidRows ? validatedRows.filter((row) => !row.validation.ok) : validatedRows;
   const selectedRows = validatedRows.filter((row) => row.enabled !== false && row.validation.ok);
@@ -1026,6 +1037,121 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
     }, 2500);
     return () => clearInterval(timer);
   }, [selectedBatchId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    requestJson("/api/batch-draft")
+      .then((data) => {
+        if (cancelled) return;
+        if (data.draft) {
+          restoreBatchDraft(data.draft);
+          setDraftSavedAt(data.draft.updatedAt || "");
+        }
+      })
+      .catch((error) => {
+        addNotification?.({ level: "warn", title: "批量草稿恢复失败", message: error.message, target: "batch" });
+      })
+      .finally(() => {
+        if (!cancelled) setDraftLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftLoaded) return undefined;
+    const hasDraftContent = promptFiles.length || imageFiles.length || csvRows.length || rows.length;
+    if (!hasDraftContent) return undefined;
+    const timer = setTimeout(() => {
+      saveBatchDraft({ silent: true }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [
+    draftLoaded,
+    batchName,
+    promptFiles,
+    imageFiles,
+    csvRows,
+    rows,
+    matchMode,
+    concurrency,
+    defaultVideoMode,
+    defaultDuration,
+    defaultAspectRatio,
+    autoSubmit
+  ]);
+
+  function restoreBatchDraft(draft) {
+    const savedPromptFiles = Array.isArray(draft.promptFiles) ? draft.promptFiles : [];
+    const savedImageFiles = Array.isArray(draft.imageFiles) ? draft.imageFiles : [];
+    setBatchName(draft.batchName || defaultBatchName());
+    setPromptFiles(savedPromptFiles);
+    setImageFiles(savedImageFiles);
+    setCsvRows(Array.isArray(draft.csvRows) ? draft.csvRows : []);
+    setRows(hydrateBatchDraftRows(Array.isArray(draft.rows) ? draft.rows : [], savedPromptFiles, savedImageFiles));
+    setMatchMode(draft.matchMode || "filename");
+    setConcurrency(Number(draft.concurrency || 2));
+    setDefaultVideoMode(draft.defaultVideoMode || "dry_run");
+    setDefaultDuration(Number(draft.defaultDuration || 15));
+    setDefaultAspectRatio(draft.defaultAspectRatio || "9:16");
+    setAutoSubmit(draft.autoSubmit !== false);
+    setOnlyInvalidRows(false);
+  }
+
+  async function saveBatchDraft({ silent = false } = {}) {
+    setDraftSaving(true);
+    try {
+      const data = await requestJson("/api/batch-draft", {
+        method: "POST",
+        body: JSON.stringify(buildBatchDraftPayload({
+          batchName,
+          promptFiles,
+          imageFiles,
+          csvRows,
+          rows,
+          matchMode,
+          concurrency,
+          defaultVideoMode,
+          defaultDuration,
+          defaultAspectRatio,
+          autoSubmit
+        }))
+      });
+      setDraftSavedAt(data.draft?.updatedAt || new Date().toISOString());
+      if (!silent) {
+        addNotification?.({ level: "success", title: "批量草稿已保存", message: "刷新页面后可以继续使用当前上传内容。", target: "batch" });
+      }
+    } catch (error) {
+      if (!silent) {
+        addNotification?.({ level: "error", title: "批量草稿保存失败", message: error.message, target: "batch" });
+        alert(error.message);
+      }
+      throw error;
+    } finally {
+      setDraftSaving(false);
+    }
+  }
+
+  async function clearBatchDraft() {
+    const confirmed = window.confirm("确定清空当前批量上传草稿吗？已上传的提示词包、商品图、表格和待创建任务表都会清空。");
+    if (!confirmed) return;
+    setBatchName(defaultBatchName());
+    setPromptFiles([]);
+    setImageFiles([]);
+    setCsvRows([]);
+    setRows([]);
+    setMatchMode("filename");
+    setConcurrency(2);
+    setDefaultVideoMode("dry_run");
+    setDefaultDuration(15);
+    setDefaultAspectRatio("9:16");
+    setAutoSubmit(true);
+    setOnlyInvalidRows(false);
+    setDraftSavedAt("");
+    await requestJson("/api/batch-draft", { method: "DELETE" });
+    addNotification?.({ level: "info", title: "批量草稿已清空", message: "页面刷新后不会再恢复这次上传内容。", target: "batch" });
+  }
 
   async function handlePromptFiles(files) {
     const selected = Array.from(files || []);
@@ -1316,6 +1442,9 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
               <h2>任务构建</h2>
               <p className="panel-note">第一版支持多提示词包、多商品图、CSV 导入和文件名自动匹配。</p>
             </div>
+            <div className="batch-draft-status">
+              <span>{draftSaving ? "草稿保存中" : draftSavedAt ? `草稿已保存 ${formatDate(draftSavedAt)}` : draftLoaded ? "暂无草稿" : "正在恢复草稿"}</span>
+            </div>
           </div>
           <div className="two-col">
             <label className="field">
@@ -1376,7 +1505,7 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
             </label>
             <label className="field">
               <span>默认时长</span>
-              <input type="number" min="3" max="60" value={defaultDuration} onChange={(event) => setDefaultDuration(Number(event.target.value || 15))} />
+              <input type="number" min="4" max="15" value={defaultDuration} onChange={(event) => setDefaultDuration(Number(event.target.value || 15))} />
             </label>
             <label className="field">
               <span>默认画幅</span>
@@ -1409,6 +1538,10 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                 <ListChecks size={16} />
                 <span>生成任务表</span>
               </button>
+              <button className="secondary-button" type="button" onClick={() => saveBatchDraft({ silent: false })} disabled={draftSaving}>
+                <span>{draftSaving ? "保存中" : "保存草稿"}</span>
+              </button>
+              <button className="secondary-button danger-light" type="button" onClick={clearBatchDraft}>清空草稿</button>
               <button className="secondary-button" type="button" onClick={() => createBatch(false)} disabled={creating || !selectedRows.length}>只创建不启动</button>
             </div>
           </div>
@@ -1429,7 +1562,7 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                 className={selectedBatchId === job.id ? "batch-job-item active" : "batch-job-item"}
                 onClick={() => setSelectedBatchId(job.id)}
               >
-                <strong>{job.name}</strong>
+                <strong>{displayBatchName(job)}</strong>
                 <span>{job.success_count || 0}/{job.total_count || 0} 完成 · 失败 {job.failed_count || 0}</span>
                 <StatusBadge value={job.status} />
               </button>
@@ -1445,26 +1578,75 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
             <p className="panel-note">一行就是一条视频任务，勾选后可批量创建。</p>
           </div>
           <div className="panel-actions">
-            {rows.length ? (
-              <label className="checkbox-line compact-check">
-                <input type="checkbox" checked={onlyInvalidRows} onChange={(event) => setOnlyInvalidRows(event.target.checked)} />
-                <span>只看异常</span>
-              </label>
-            ) : null}
             <button className="ghost-button" type="button" onClick={() => toggleAllRows(true)}>全选</button>
             <button className="ghost-button" type="button" onClick={() => toggleAllRows(false)}>全不选</button>
           </div>
         </div>
         {rows.length ? (
-          <div className="batch-precheck">
-            <div>
-              <strong>预检结果</strong>
-              <span>共 {precheck.total} 条，通过 {precheck.ok} 条，异常 {precheck.error} 条，提醒 {precheck.warn} 条。</span>
+          <div className={`batch-precheck-panel ${precheck.error ? "has-error" : precheck.warn ? "has-warn" : "is-ok"}`}>
+            <div className="batch-precheck-top">
+              <div>
+                <strong>导入预检</strong>
+                <p>{precheck.error ? "发现阻断问题，异常行不会进入批量创建。" : precheck.warn ? "基础校验已通过，但仍有需要人工确认的提醒项。" : "文件匹配和基础参数正常，可以创建批量任务。"}</p>
+              </div>
+              <span className={`precheck-ready-badge ${precheck.error ? "error" : precheck.warn ? "warn" : "ok"}`}>
+                {precheck.error ? "需要处理" : precheck.warn ? "可创建，需确认" : "可创建"}
+              </span>
             </div>
-            <em>{precheck.error ? "异常行不会被创建，请先修正缺文件、重复编号、非法参数等问题。" : "当前已通过基础校验，可以创建批量任务。"}</em>
+
+            <div className="precheck-metrics">
+              <div>
+                <span>总任务</span>
+                <strong>{precheck.total}</strong>
+              </div>
+              <div>
+                <span>已勾选可创建</span>
+                <strong>{selectedRows.length}</strong>
+              </div>
+              <div>
+                <span>阻断问题</span>
+                <strong>{precheck.error}</strong>
+              </div>
+              <div>
+                <span>提醒确认</span>
+                <strong>{precheck.warn}</strong>
+              </div>
+            </div>
+
+            <div className="precheck-issue-grid">
+              <div className="precheck-issue-card">
+                <div className="precheck-issue-title">
+                  <AlertTriangle size={15} />
+                  <span>阻断问题</span>
+                </div>
+                {precheckIssues.errors.length ? (
+                  <ul>
+                    {precheckIssues.errors.slice(0, 4).map((item) => <li key={item.message}><span>{item.message}</span><em>{item.count} 行</em></li>)}
+                  </ul>
+                ) : <p>没有阻断问题。</p>}
+              </div>
+              <div className="precheck-issue-card">
+                <div className="precheck-issue-title">
+                  <Info size={15} />
+                  <span>提醒项</span>
+                </div>
+                {precheckIssues.warnings.length ? (
+                  <ul>
+                    {precheckIssues.warnings.slice(0, 4).map((item) => <li key={item.message}><span>{item.message}</span><em>{item.count} 行</em></li>)}
+                  </ul>
+                ) : <p>没有提醒项。</p>}
+              </div>
+            </div>
+
+            <div className="precheck-next-line">
+              <span>下一步：先处理阻断问题，再勾选要执行的任务；系统只会创建通过预检且已勾选的行。</span>
+              <button className="ghost-button" type="button" onClick={() => setOnlyInvalidRows((value) => !value)}>
+                {onlyInvalidRows ? "查看全部任务" : "只看异常行"}
+              </button>
+            </div>
           </div>
         ) : null}
-        <div className="table-wrap batch-draft-table">
+        <div className={`table-wrap batch-draft-table ${visibleRows.length ? "" : "is-empty"}`}>
           <table>
             <thead>
               <tr>
@@ -1484,7 +1666,7 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                 const invalid = !row.validation.ok;
                 const validationLabel = invalid ? "异常" : row.validation.warnings.length ? "提醒" : "通过";
                 return (
-                <tr key={row.id}>
+                <tr key={row.id} className={invalid ? "draft-row-error" : row.validation.warnings.length ? "draft-row-warn" : ""}>
                   <td><input type="checkbox" disabled={invalid} checked={row.enabled !== false && !invalid} onChange={(event) => updateRow(row.id, "enabled", event.target.checked)} /></td>
                   <td className="precheck-cell">
                     <span className={`precheck-badge ${invalid ? "error" : row.validation.warnings.length ? "warn" : "ok"}`}>{validationLabel}</span>
@@ -1496,7 +1678,7 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                   <td><input value={row.productName} onChange={(event) => updateRow(row.id, "productName", event.target.value)} /></td>
                   <td><input value={row.productCategory} onChange={(event) => updateRow(row.id, "productCategory", event.target.value)} placeholder="可空" /></td>
                   <td><textarea rows={2} value={row.productBrief} onChange={(event) => updateRow(row.id, "productBrief", event.target.value)} /></td>
-                  <td>
+                  <td className="batch-param-cell">
                     <span>{row.targetDuration}s</span>
                     <span>{row.aspectRatio}</span>
                     <span>{row.videoMode}</span>
@@ -1504,7 +1686,7 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                 </tr>
               );
               }) : (
-                <tr><td colSpan="9">{rows.length ? "当前没有异常行。" : "上传提示词包和商品图后，点击“生成任务表”。"}</td></tr>
+                <tr><td className="batch-empty-row-cell" colSpan={9}>{rows.length ? "当前没有异常行。" : "上传提示词包和商品图后，点击“生成任务表”。"}</td></tr>
               )}
             </tbody>
           </table>
@@ -1556,8 +1738,8 @@ function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, loadBatchJo
                   <td>{item.current_step || "-"}</td>
                   <td>{item.libtv_task_code || item.task_no || "-"}</td>
                   <td>
-                    <strong>{item.product_name || "-"}</strong>
-                    <span>{item.suggested_category || item.product_category || "-"}</span>
+                    <strong>{displayItemProductName(item)}</strong>
+                    <span>{displayItemCategory(item)}</span>
                   </td>
                   <td>
                     <div className="mini-progress"><span style={{ width: `${Number(item.progress || 0)}%` }} /></div>
@@ -1677,7 +1859,7 @@ function validateBatchDraftRows(rows = []) {
     if (!row.prompt) errors.push("缺提示词包");
     if (row.prompt && !String(row.prompt.text || "").trim()) errors.push("提示词包内容为空");
     if (!row.image) errors.push("缺商品图片");
-    if (!Number.isFinite(duration) || duration < 3 || duration > 60) errors.push("视频时长需为 3-60 秒");
+    if (!Number.isFinite(duration) || duration < 4 || duration > 15) errors.push("视频时长需为 4-15 秒");
     if (!["9:16", "16:9", "1:1"].includes(aspectRatio)) errors.push("画幅只支持 9:16、16:9、1:1");
     if (!["dry_run", "submit", "run"].includes(videoMode)) errors.push("libTV 模式不合法");
 
@@ -1702,6 +1884,87 @@ function stripBatchValidation(row) {
   return rest;
 }
 
+function buildBatchDraftPayload({
+  batchName,
+  promptFiles,
+  imageFiles,
+  csvRows,
+  rows,
+  matchMode,
+  concurrency,
+  defaultVideoMode,
+  defaultDuration,
+  defaultAspectRatio,
+  autoSubmit
+}) {
+  return {
+    batchName,
+    promptFiles: (promptFiles || []).map((file) => ({
+      id: file.id,
+      name: file.name,
+      text: file.text || ""
+    })),
+    imageFiles: (imageFiles || []).map((file) => ({
+      id: file.id,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      dataUrl: file.dataUrl
+    })),
+    csvRows: Array.isArray(csvRows) ? csvRows : [],
+    rows: serializeBatchDraftRows(rows),
+    matchMode,
+    concurrency,
+    defaultVideoMode,
+    defaultDuration,
+    defaultAspectRatio,
+    autoSubmit
+  };
+}
+
+function serializeBatchDraftRows(rows = []) {
+  return rows.map((row) => ({
+    id: row.id,
+    enabled: row.enabled,
+    taskNo: row.taskNo,
+    promptFileName: row.prompt?.name || row.promptFileName || "",
+    imageFileName: row.image?.name || row.imageFileName || "",
+    requestedPromptFileName: row.requestedPromptFileName || "",
+    requestedImageFileName: row.requestedImageFileName || "",
+    productName: row.productName || "",
+    productCategory: row.productCategory || "",
+    productBrief: row.productBrief || "",
+    targetDuration: row.targetDuration,
+    aspectRatio: row.aspectRatio,
+    videoMode: row.videoMode,
+    autoSubmit: row.autoSubmit
+  }));
+}
+
+function hydrateBatchDraftRows(rows = [], promptFiles = [], imageFiles = []) {
+  const promptByName = indexFiles(promptFiles);
+  const imageByName = indexFiles(imageFiles);
+  return rows.map((row, index) => makeBatchDraftRow({
+    index,
+    prompt: findIndexedFile(promptByName, row.promptFileName),
+    image: findIndexedFile(imageByName, row.imageFileName),
+    requestedPromptFileName: row.requestedPromptFileName || row.promptFileName || "",
+    requestedImageFileName: row.requestedImageFileName || row.imageFileName || "",
+    taskNo: row.taskNo,
+    productName: row.productName,
+    productCategory: row.productCategory,
+    productBrief: row.productBrief,
+    targetDuration: row.targetDuration,
+    aspectRatio: row.aspectRatio,
+    videoMode: row.videoMode,
+    autoSubmit: row.autoSubmit
+  })).map((row, index) => ({
+    ...row,
+    id: rows[index]?.id || row.id,
+    enabled: rows[index]?.enabled !== false
+  }));
+}
+
 function summarizeBatchPrecheck(rows = []) {
   return rows.reduce((summary, row) => {
     summary.total += 1;
@@ -1712,6 +1975,29 @@ function summarizeBatchPrecheck(rows = []) {
     }
     return summary;
   }, { total: 0, ok: 0, error: 0, warn: 0 });
+}
+
+function summarizeBatchIssueGroups(rows = []) {
+  const errors = new Map();
+  const warnings = new Map();
+  rows.forEach((row) => {
+    (row.validation?.errors || []).forEach((message) => {
+      errors.set(message, (errors.get(message) || 0) + 1);
+    });
+    (row.validation?.warnings || []).forEach((message) => {
+      warnings.set(message, (warnings.get(message) || 0) + 1);
+    });
+  });
+  return {
+    errors: issueMapToList(errors),
+    warnings: issueMapToList(warnings)
+  };
+}
+
+function issueMapToList(map) {
+  return Array.from(map.entries())
+    .map(([message, count]) => ({ message, count }))
+    .sort((a, b) => b.count - a.count || a.message.localeCompare(b.message, "zh-CN"));
 }
 
 function indexFiles(files = []) {
@@ -1834,6 +2120,33 @@ function tokenTotal(value) {
   }
 }
 
+function displayBatchName(job) {
+  const fallback = `批量生成 ${formatDate(job?.created_at) || ""}`.trim();
+  return displayCleanText(job?.name, fallback || "未命名批次");
+}
+
+function displayItemProductName(item) {
+  return displayCleanText(item?.product_name, item?.task_no || "-");
+}
+
+function displayItemCategory(item) {
+  return displayCleanText(item?.suggested_category, displayCleanText(item?.product_category, "-"));
+}
+
+function displayCleanText(value, fallback = "-") {
+  const text = String(value ?? "").trim();
+  if (!text || isLikelyBrokenText(text)) return fallback;
+  return text;
+}
+
+function isLikelyBrokenText(value) {
+  const compact = String(value || "").replace(/\s/g, "");
+  if (!compact) return true;
+  const brokenMarks = (compact.match(/[?？�]/g) || []).length;
+  if (/^[?？�]+$/.test(compact)) return true;
+  return brokenMarks >= 2 && brokenMarks / compact.length > 0.35;
+}
+
 function batchActionTitle(action) {
   if (action === "start") return "批量任务已启动";
   if (action === "pause") return "批量任务已暂停";
@@ -1843,7 +2156,8 @@ function batchActionTitle(action) {
 
 function resultValueForExport(item, key) {
   if (key === "tokens") return tokenTotal(item.token_usage_json);
-  if (key === "category") return item.suggested_category || item.product_category || "";
+  if (key === "category") return displayCleanText(item.suggested_category, displayCleanText(item.product_category, ""));
+  if (key === "product_name") return displayCleanText(item.product_name, "");
   return item[key] || "";
 }
 
@@ -2225,7 +2539,6 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
     <section className="overview-page">
       <div className="overview-hero panel">
         <div>
-          <div className="eyebrow">AI VIDEO OPERATIONS</div>
           <h2>AI 视频生成工作流平台</h2>
           <p>围绕商品图、提示词包、模型分析、libTV 生成和视频拼接组织生产流程，首页直接看到产能、状态、输出和模型通道。</p>
         </div>
@@ -2286,9 +2599,10 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
               const Icon = item.icon;
               return (
                 <button className="module-card" key={item.page} onClick={() => navigate(item.page)}>
-                  <span className="module-icon"><Icon size={22} /></span>
-                  <span className="module-code">{item.code}</span>
-                  <strong>{item.title}</strong>
+                  <div className="module-card-head">
+                    <strong>{item.title}</strong>
+                    <span className="module-icon"><Icon size={22} /></span>
+                  </div>
                   <span>{item.desc}</span>
                   <em>进入 <ChevronRight size={14} /></em>
                 </button>
@@ -2498,7 +2812,7 @@ function StudioPage(props) {
         <div className="three-col">
           <label className="field">
             <span>视频时长</span>
-            <input type="number" min="3" max="60" value={studio.targetDuration} onChange={(event) => updateStudio("targetDuration", event.target.value)} />
+            <input type="number" min="4" max="15" value={studio.targetDuration} onChange={(event) => updateStudio("targetDuration", event.target.value)} />
           </label>
           <label className="field">
             <span>画幅</span>
@@ -2677,7 +2991,7 @@ function TasksPage({ rows, onRefresh, onOpenAssets }) {
   return (
     <section className="panel">
       <TableHead title="任务看板" onRefresh={onRefresh} />
-      <div className="table-wrap">
+      <div className="table-wrap task-board-table">
         <table>
           <thead>
             <tr>
@@ -2715,7 +3029,7 @@ function LibtvPage({ rows, onRefresh }) {
   return (
     <section className="panel">
       <TableHead title="libTV 任务" onRefresh={onRefresh} />
-      <div className="table-wrap">
+      <div className="table-wrap libtv-table">
         <table>
           <thead>
             <tr>
@@ -2763,7 +3077,7 @@ function AssetsPage({ tasks, taskCode, setTaskCode, data, onRefresh }) {
           <button className="secondary-button assets-refresh" onClick={onRefresh}><RefreshCw size={16} /><span>刷新</span></button>
         </div>
       </div>
-      <div className="table-wrap">
+      <div className="table-wrap assets-table">
         <table>
           <thead>
             <tr>
@@ -2788,7 +3102,7 @@ function AssetsPage({ tasks, taskCode, setTaskCode, data, onRefresh }) {
         </table>
       </div>
       <h3 className="subhead">本地视频输出</h3>
-      <div className="table-wrap">
+      <div className="table-wrap assets-table output-files-table">
         <table>
           <thead>
             <tr>

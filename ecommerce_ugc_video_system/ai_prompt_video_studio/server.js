@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,7 +81,7 @@ const mimeTypes = {
 
 const corsHeaders = {
   "access-control-allow-origin": "*",
-  "access-control-allow-methods": "GET,POST,OPTIONS",
+  "access-control-allow-methods": "GET,POST,DELETE,OPTIONS",
   "access-control-allow-headers": "content-type"
 };
 
@@ -136,6 +136,36 @@ function jsonResponse(res, statusCode, data) {
 function textResponse(res, statusCode, text) {
   res.writeHead(statusCode, { ...corsHeaders, "content-type": "text/plain; charset=utf-8" });
   res.end(text);
+}
+
+function batchDraftPath() {
+  return path.join(config.runStorageDir, "drafts", "batch-upload-draft.json");
+}
+
+async function readBatchDraft() {
+  const filePath = batchDraftPath();
+  if (!existsSync(filePath)) return null;
+  try {
+    return JSON.parse(await readFile(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function writeBatchDraft(payload = {}) {
+  const filePath = batchDraftPath();
+  const draft = {
+    version: 1,
+    updatedAt: new Date().toISOString(),
+    ...payload
+  };
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, JSON.stringify(draft, null, 2), "utf8");
+  return draft;
+}
+
+async function deleteBatchDraft() {
+  await rm(batchDraftPath(), { force: true });
 }
 
 async function readJsonBody(req) {
@@ -483,7 +513,7 @@ function normalizePromptPayload(payload) {
     productCategory,
     analysisModel: modelSettings.analysisModel,
     visionModel: modelSettings.visionModel,
-    targetDuration: boundedNumber(payload.targetDuration, 15, 3, 60),
+    targetDuration: boundedNumber(payload.targetDuration, 15, 4, 15),
     aspectRatio: String(payload.aspectRatio || "9:16"),
     images
   };
@@ -558,7 +588,7 @@ function normalizeVideoPayload(payload) {
     productName,
     productCategory,
     images,
-    duration: boundedNumber(payload.duration, 15, 3, 60),
+    duration: boundedNumber(payload.duration, 15, 4, 15),
     aspectRatio: String(payload.aspectRatio || "9:16"),
     dryRun: coerceBool(payload.dryRun, config.libtvDefaultDryRun),
     waitForVideo: coerceBool(payload.waitForVideo, false),
@@ -1799,7 +1829,7 @@ function normalizeBatchItem(raw, rowNo) {
     productName: String(raw.productName || raw.product_name || "").trim().slice(0, 160),
     productCategory: cleanCategory(raw.productCategory || raw.category || "", ""),
     productBrief: String(raw.productBrief || raw.product_brief || "").trim().slice(0, 5000),
-    targetDuration: boundedNumber(raw.targetDuration || raw.duration || raw.durationSec, 15, 3, 60),
+    targetDuration: boundedNumber(raw.targetDuration || raw.duration || raw.durationSec, 15, 4, 15),
     aspectRatio: String(raw.aspectRatio || raw.ratio || "9:16"),
     videoMode: ["dry_run", "submit", "run"].includes(String(raw.videoMode || "")) ? String(raw.videoMode) : "dry_run",
     autoSubmit: coerceBool(raw.autoSubmit, true),
@@ -2064,7 +2094,7 @@ async function loadBatchItemPayload(item) {
     productName: saved.productName || item.product_name || "",
     productCategory: saved.productCategory || item.product_category || "",
     productBrief: saved.productBrief || item.product_brief || "",
-    targetDuration: boundedNumber(saved.targetDuration || item.target_duration, 15, 3, 60),
+    targetDuration: boundedNumber(saved.targetDuration || item.target_duration, 15, 4, 15),
     aspectRatio: saved.aspectRatio || item.aspect_ratio || "9:16",
     images,
     videoMode: saved.videoMode || item.video_mode || "dry_run",
@@ -2455,6 +2485,66 @@ function runProcess(file, args, options) {
   });
 }
 
+function formatBridgeFailure(data, rawText) {
+  const detail =
+    extractBridgeFailureText(data?.result) ||
+    extractBridgeFailureText(data?.stdout) ||
+    extractBridgeFailureText(data?.error) ||
+    extractBridgeFailureText(data?.stderr) ||
+    extractBridgeFailureText(rawText) ||
+    "libTV bridge returned ok=false";
+  return String(detail).slice(0, 1200);
+}
+
+function extractBridgeFailureText(value) {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (!text) return "";
+    const failedReason = extractJsonStringField(text, "failedReason");
+    const taskMatch = text.match(/\[run\]\s+task=([^\s]+)\s+status=([^\s]+)\s+progress=([^\s]+)/i);
+    if (failedReason && taskMatch) return `task=${taskMatch[1]} status=${taskMatch[2]} progress=${taskMatch[3]}: ${failedReason}`;
+    if (failedReason) return failedReason;
+    if (taskMatch) return `task=${taskMatch[1]} status=${taskMatch[2]} progress=${taskMatch[3]}`;
+    return text;
+  }
+  if (typeof value === "object") {
+    const candidates = [
+      value.failedReason,
+      value.error_message,
+      value.errorMessage,
+      value.message,
+      value.data?.taskInfo?.failedReason,
+      value.taskInfo?.failedReason,
+      value.result,
+      value.stdout,
+      value.error,
+      value.stderr
+    ];
+    for (const candidate of candidates) {
+      const extracted = extractBridgeFailureText(candidate);
+      if (extracted) return extracted;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
+function extractJsonStringField(text, fieldName) {
+  const pattern = new RegExp(`"${fieldName}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`);
+  const match = String(text || "").match(pattern);
+  if (!match) return "";
+  try {
+    return JSON.parse(`"${match[1]}"`);
+  } catch {
+    return match[1];
+  }
+}
+
 async function callLibTVBridge(payload, timeoutMs) {
   if (!config.libtvBridgeUrl) throw new Error("缺少 LIBTV_BRIDGE_URL 配置。");
   const controller = new AbortController();
@@ -2477,8 +2567,7 @@ async function callLibTVBridge(payload, timeoutMs) {
       throw new Error(data?.error || text || `libTV bridge HTTP ${response.status}`);
     }
     if (data?.ok === false) {
-      const detail = data.error || data.stderr || data.result || text || "libTV bridge returned ok=false";
-      throw new Error(`libTV bridge failed: ${String(detail).slice(0, 1200)}`);
+      throw new Error(`libTV bridge failed: ${formatBridgeFailure(data, text)}`);
     }
     return data;
   } finally {
@@ -2564,14 +2653,24 @@ function formatLocalDate(date = new Date()) {
 }
 
 function cleanCategory(value, fallback = "未分类") {
-  return String(value || "")
+  const cleaned = String(value || "")
     .replace(/\*\*/g, "")
     .replace(/[`"'“”‘’]/g, "")
     .replace(/\s+/g, "")
     .trim()
     .replace(/^[-：:\s]+|[-：:\s]+$/g, "")
     .replace(/[（(].*$/, "")
-    .slice(0, 40) || fallback;
+    .slice(0, 40);
+  if (isLikelyBrokenText(cleaned)) return fallback;
+  return cleaned || fallback;
+}
+
+function isLikelyBrokenText(value) {
+  const compact = String(value || "").replace(/\s/g, "");
+  if (!compact) return true;
+  const brokenMarks = (compact.match(/[?？�]/g) || []).length;
+  if (/^[?？�]+$/.test(compact)) return true;
+  return brokenMarks >= 2 && brokenMarks / compact.length > 0.35;
 }
 
 function inferCategoryFromSources({ imageAnalysis = "", productBrief = "", productName = "", promptText = "" } = {}) {
@@ -2854,6 +2953,22 @@ const server = createServer(async (req, res) => {
       const limit = boundedNumber(url.searchParams.get("limit"), 50, 1, 200);
       const rows = await querySqlite("SELECT * FROM v_libtv_job_detail LIMIT ?", [limit]);
       return jsonResponse(res, 200, { ok: true, rows });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/batch-draft") {
+      const draft = await readBatchDraft();
+      return jsonResponse(res, 200, { ok: true, draft });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/batch-draft") {
+      const payload = await readJsonBody(req);
+      const draft = await writeBatchDraft(payload);
+      return jsonResponse(res, 200, { ok: true, draft });
+    }
+
+    if (req.method === "DELETE" && url.pathname === "/api/batch-draft") {
+      await deleteBatchDraft();
+      return jsonResponse(res, 200, { ok: true });
     }
 
     if (req.method === "GET" && url.pathname === "/api/batches") {
