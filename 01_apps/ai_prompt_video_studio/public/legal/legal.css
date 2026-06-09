@@ -1,0 +1,149 @@
+:root {
+  color: #182420;
+  background: #eef1ef;
+  font-family: "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  color: #182420;
+  background: #eef1ef;
+}
+
+a {
+  color: #126a63;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.legal-shell {
+  width: min(880px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 48px;
+}
+
+.legal-header {
+  display: grid;
+  gap: 10px;
+  padding: 22px 0 18px;
+  border-bottom: 1px solid #d5ddda;
+}
+
+.legal-kicker {
+  color: #126a63;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.legal-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 7vw, 44px);
+  line-height: 1.1;
+}
+
+.legal-header p,
+.legal-meta,
+.legal-note,
+.legal-card p,
+.legal-section p,
+.legal-section li {
+  color: #5f6d67;
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+.legal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.legal-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.legal-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d5ddda;
+  border-radius: 8px;
+  color: #182420;
+  background: #ffffff;
+  font-weight: 800;
+}
+
+.legal-card,
+.legal-section {
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid #d5ddda;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(19, 34, 29, 0.06);
+}
+
+.legal-section h2,
+.legal-card h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  line-height: 1.3;
+}
+
+.legal-section h3 {
+  margin: 18px 0 8px;
+  font-size: 16px;
+}
+
+.legal-section ul,
+.legal-section ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.legal-section li + li {
+  margin-top: 6px;
+}
+
+.legal-warning {
+  border-color: #e1c35b;
+  background: #fff8db;
+}
+
+.legal-footer {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #d5ddda;
+  color: #5f6d67;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+@media (max-width: 640px) {
+  .legal-shell {
+    width: min(100% - 24px, 880px);
+    padding-top: 14px;
+  }
+
+  .legal-card,
+  .legal-section {
+    padding: 14px;
+  }
+
+  .legal-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

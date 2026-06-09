@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI控制台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar">
+        <div>
+          <h1>AI 带货视频-SZ 提示词工作台</h1>
+          <div class="subline">提示词包 + 产品图片 → 豆包按文档步骤演算 → 最终完整提示词 → 数据库任务 → libTV 视频生成</div>
+        </div>
+        <div class="runtime" id="runtimeStatus">
+          <span class="status-dot"></span>
+          <span>检测中</span>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <form class="input-panel" id="runForm">
+          <div class="panel-head">
+            <h2>输入</h2>
+            <button class="secondary-button" type="button" id="clearButton">清空</button>
+          </div>
+
+          <label class="field">
+            <span>提示词包（支持 Word .docx 中文文档）</span>
+            <input id="promptFile" type="file" accept=".docx,.txt,.md,.json,.csv" />
+          </label>
+
+          <label class="field">
+            <span>提示词包正文</span>
+            <textarea id="promptPackText" rows="12" placeholder="粘贴你的 SOP / 提示词包文本"></textarea>
+          </label>
+
+          <label class="field">
+            <span>产品图片</span>
+            <input id="imageFiles" type="file" accept="image/*" multiple />
+          </label>
+          <div class="image-grid" id="imagePreview"></div>
+
+          <label class="field">
+            <span>商品名称 / 任务名称</span>
+            <input id="productName" type="text" placeholder="可选，不填会自动从补充信息生成" />
+          </label>
+
+          <label class="field">
+            <span>类别（不填会根据图片自动识别）</span>
+            <input id="productCategory" type="text" placeholder="例如：女装、美妆、家居、数码" />
+          </label>
+
+          <label class="field">
+            <span>商品补充信息</span>
+            <textarea id="productBrief" rows="5" placeholder="例如：品类、主推商品、卖点、目标人群、禁忌项"></textarea>
+          </label>
+
+          <div class="spec-row">
+            <label class="field compact">
+              <span>视频时长</span>
+              <input id="targetDuration" type="number" min="3" max="60" value="15" />
+            </label>
+            <label class="field compact">
+              <span>画幅</span>
+              <select id="aspectRatio">
+                <option value="9:16">9:16 竖屏</option>
+                <option value="16:9">16:9 横屏</option>
+                <option value="1:1">1:1 方形</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="video-options">
+            <label class="field compact">
+              <span>libTV 提交方式</span>
+              <select id="videoMode">
+                <option value="dry_run">先验证，不真实提交</option>
+                <option value="submit">真实提交任务</option>
+                <option value="run">真实提交并等待结果</option>
+              </select>
+            </label>
+            <label class="check-row">
+              <input id="autoSubmit" type="checkbox" />
+              <span>最终提示词生成后自动提交 libTV</span>
+            </label>
+          </div>
+
+          <button class="primary-button" type="submit" id="startButton">生成最终完整提示词</button>
+        </form>
+
+        <section class="output-panel">
+          <div class="panel-head">
+            <h2>过程进度</h2>
+            <span class="run-id" id="runId"></span>
+          </div>
+
+          <div class="progress-track" id="progressTrack">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+
+          <ol class="step-list" id="stepList"></ol>
+
+          <div class="result-area">
+            <div class="panel-head result-head">
+              <h2>最终完整提示词（可粘贴/可编辑）</h2>
+              <div class="button-group">
+                <button class="secondary-button" type="button" id="copyPromptButton" disabled>复制</button>
+                <button class="secondary-button" type="button" id="videoButton" disabled>写入数据库并提交 libTV</button>
+              </div>
+            </div>
+            <textarea id="finalPrompt" rows="14" placeholder="可以手动粘贴最终提示词，也可以等待分析流程自动填入"></textarea>
+            <pre class="json-box" id="packageJson"></pre>
+            <div class="video-progress" id="videoProgress" hidden>
+              <div class="video-progress-head">
+                <strong>libTV 提交进度</strong>
+                <span id="videoProgressLabel">等待提交</span>
+              </div>
+              <div class="video-progress-track">
+                <div class="video-progress-bar" id="videoProgressBar"></div>
+              </div>
+              <ol class="video-step-list" id="videoStepList"></ol>
+            </div>
+            <div class="video-status" id="videoStatus"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

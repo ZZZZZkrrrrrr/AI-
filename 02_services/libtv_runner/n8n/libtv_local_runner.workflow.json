@@ -1,0 +1,249 @@
+{
+  "name": "libTV 本地脚本复用 - 生成与轮询",
+  "nodes": [
+    {
+      "id": "9d50a7c0-0bd2-4cad-a9e7-4d6574acff10",
+      "name": "说明：复用本地 LibTV 脚本",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -980,
+        -260
+      ],
+      "parameters": {
+        "width": 720,
+        "height": 230,
+        "color": 3,
+        "content": "## libTV 本地脚本复用\n\n默认 action=list，用来查看 SQLite 里可提交任务。\n\n常用 action：list / account / submit / poll / run。\nsubmit、poll、run 时填写 task_code；dry_run=true 只预演不提交。"
+      }
+    },
+    {
+      "id": "b4f20f77-1f7c-47c2-a3b6-f6c955a64f54",
+      "name": "01 手动触发",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -920,
+        80
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "f4bf5a59-e09a-4e39-aab1-ad03b9d8725d",
+      "name": "02 配置 libTV 执行动作",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -660,
+        80
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "libtv-action",
+              "name": "action",
+              "value": "list",
+              "type": "string"
+            },
+            {
+              "id": "libtv-task-code",
+              "name": "task_code",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "libtv-dry-run",
+              "name": "dry_run",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "libtv-download",
+              "name": "download",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "libtv-model",
+              "name": "model",
+              "value": "star-video2",
+              "type": "string"
+            },
+            {
+              "id": "libtv-ratio",
+              "name": "ratio",
+              "value": "9:16",
+              "type": "string"
+            },
+            {
+              "id": "libtv-duration",
+              "name": "duration",
+              "value": "15",
+              "type": "string"
+            },
+            {
+              "id": "libtv-resolution",
+              "name": "resolution",
+              "value": "720p",
+              "type": "string"
+            },
+            {
+              "id": "libtv-enable-sound",
+              "name": "enable_sound",
+              "value": "off",
+              "type": "string"
+            },
+            {
+              "id": "libtv-count",
+              "name": "count",
+              "value": "1",
+              "type": "string"
+            },
+            {
+              "id": "libtv-poll-interval",
+              "name": "poll_interval",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "libtv-max-wait-seconds",
+              "name": "max_wait_seconds",
+              "value": 1800,
+              "type": "number"
+            },
+            {
+              "id": "libtv-timeout",
+              "name": "timeout",
+              "value": 600,
+              "type": "number"
+            },
+            {
+              "id": "libtv-bridge-url",
+              "name": "bridge_base_url",
+              "value": "http://host.docker.internal:8799",
+              "type": "string"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "92332552-7ebe-4859-83d7-3ae093ec294f",
+      "name": "03 组装本地脚本请求",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const cfg = { ...$json };\n\nfunction text(value, fallback = '') {\n  const output = value === undefined || value === null ? '' : String(value).trim();\n  return output || fallback;\n}\n\nfunction bool(value) {\n  return value === true || value === 'true' || value === '1' || value === 1;\n}\n\nfunction number(value, fallback) {\n  const next = Number(value);\n  return Number.isFinite(next) ? next : fallback;\n}\n\nconst action = text(cfg.action, 'list').toLowerCase();\nconst allowed = ['list', 'account', 'submit', 'poll', 'run'];\nif (!allowed.includes(action)) {\n  throw new Error('不支持的 libTV action: ' + action);\n}\n\nconst bridgeBaseUrl = text(cfg.bridge_base_url, 'http://host.docker.internal:8799').replace(/\\/+$/, '');\nconst body = {\n  action,\n  task_code: text(cfg.task_code),\n  task_id: text(cfg.task_id),\n  dry_run: bool(cfg.dry_run),\n  download: bool(cfg.download),\n  model: text(cfg.model, 'star-video2'),\n  ratio: text(cfg.ratio, '9:16'),\n  duration: text(cfg.duration, '15'),\n  resolution: text(cfg.resolution, '720p'),\n  enable_sound: text(cfg.enable_sound, 'off'),\n  count: text(cfg.count, '1'),\n  team_id: text(cfg.team_id),\n  node_name: text(cfg.node_name),\n  poll_interval: number(cfg.poll_interval, 30),\n  max_wait_seconds: number(cfg.max_wait_seconds, 1800),\n  timeout: number(cfg.timeout, 600),\n  output_dir: text(cfg.output_dir)\n};\n\nreturn {\n  json: {\n    ...body,\n    request_url: bridgeBaseUrl + '/invoke'\n  }\n};"
+      }
+    },
+    {
+      "id": "944643ac-7b5b-45e3-83d1-b3ea59b18098",
+      "name": "04 调用本机 libTV 脚本",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -120,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.request_url }}",
+        "authentication": "none",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "timeout": 1900000
+        }
+      }
+    },
+    {
+      "id": "7c74ffbd-5de3-4549-8d1a-e629a9fb91e1",
+      "name": "05 输出 libTV 执行结果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        80
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "const response = $json;\nconst result = response.result || {};\nconst action = response.action || result.action || 'unknown';\n\nfunction nextHint() {\n  if (!response.ok) return '查看 error / stderr 字段，修复后重跑当前 action。';\n  if (action === 'list') return '把 action 改成 submit，并填写 task_code；先保持 dry_run=true 验证。';\n  if (action === 'submit') return '提交成功后，把 action 改成 poll 并保持同一个 task_code。';\n  if (action === 'poll' && response.result?.status === 'running') return '视频还在生成，稍后再次执行 poll。';\n  if (action === 'run') return 'run 已完成提交和轮询；如超时可改 action=poll 继续查。';\n  return '流程执行完成。';\n}\n\nreturn {\n  json: {\n    ok: Boolean(response.ok),\n    action,\n    returncode: response.returncode,\n    duration_seconds: response.duration_seconds,\n    count: result.count,\n    task_code: result.task_code,\n    status: result.status,\n    video_url: result.video_url || result.poll?.video_url,\n    cover_url: result.cover_url || result.poll?.cover_url,\n    result,\n    error: response.error,\n    stderr: response.stderr,\n    next_step: nextHint()\n  }\n};"
+      }
+    }
+  ],
+  "connections": {
+    "01 手动触发": {
+      "main": [
+        [
+          {
+            "node": "02 配置 libTV 执行动作",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "02 配置 libTV 执行动作": {
+      "main": [
+        [
+          {
+            "node": "03 组装本地脚本请求",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "03 组装本地脚本请求": {
+      "main": [
+        [
+          {
+            "node": "04 调用本机 libTV 脚本",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "04 调用本机 libTV 脚本": {
+      "main": [
+        [
+          {
+            "node": "05 输出 libTV 执行结果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}

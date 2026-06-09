@@ -1,0 +1,10 @@
+tunnel: your-cloudflare-tunnel-id
+credentials-file: C:\Users\YOUR_USER\.cloudflared\your-cloudflare-tunnel-id.json
+
+ingress:
+  - hostname: zkraiflow.top
+    service: http://127.0.0.1:5173
+  - hostname: www.zkraiflow.top
+    service: http://127.0.0.1:5173
+  - service: http_status:404
+

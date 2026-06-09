@@ -1,0 +1,44 @@
+{
+  "name": "ai-prompt-video-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "api": "node server.js",
+    "start": "node server.js",
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build && node scripts/check-bundle-budget.mjs",
+    "build:report": "npm run build && node scripts/report-bundle-size.mjs",
+    "mobile:check": "node scripts/check-mobile-readiness.mjs",
+    "pwa:check": "node scripts/check-pwa-assets.mjs",
+    "store:check": "node scripts/check-store-readiness.mjs",
+    "store:check:strict": "node scripts/check-store-readiness.mjs --strict",
+    "screenshots:check": "node scripts/check-screenshot-plan.mjs",
+    "screenshots:check:strict": "node scripts/check-screenshot-plan.mjs --strict",
+    "screenshots:capture": "npm run build && node scripts/capture-web-screenshots.mjs",
+    "capacitor:check": "node scripts/check-capacitor-readiness.mjs",
+    "capacitor:sync": "npm run build && npx cap sync",
+    "compliance:check": "node scripts/check-compliance-assets.mjs",
+    "cloud:check": "node scripts/check-cloud-readiness.mjs",
+    "cloud:check:strict": "node scripts/check-cloud-readiness.mjs --strict",
+    "cloud:smoke": "node scripts/production-smoke-test.mjs",
+    "analyze:app": "node scripts/report-app-structure.mjs",
+    "app:health": "npm run mobile:check && npm run pwa:check && npm run analyze:app && npm run build:report && npm run capacitor:check",
+    "release:check": "npm run compliance:check && npm run cloud:check:strict && npm run screenshots:check && npm run store:check && npm run app:health",
+    "preview": "vite preview --host 0.0.0.0 --port 5173"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "vite": "^7.2.4",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.0"
+  }
+}

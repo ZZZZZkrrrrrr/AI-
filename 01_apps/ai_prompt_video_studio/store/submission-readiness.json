@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "store-submission-readiness-v1",
+  "updatedAt": "2026-06-09",
+  "app": {
+    "name": "AI Prompt Video Studio",
+    "subtitle": "AI short video workflow studio",
+    "category": "Productivity",
+    "descriptionStatus": "draft",
+    "supportUrl": "TODO_PUBLIC_SUPPORT_URL",
+    "marketingUrl": "TODO_PUBLIC_MARKETING_URL",
+    "privacyPolicyUrl": "TODO_PUBLIC_PRIVACY_POLICY_URL",
+    "accountDeletionUrl": "TODO_PUBLIC_BASE_URL/legal/delete-account.html",
+    "contactEmail": "TODO_CONTACT_EMAIL",
+    "contactPhone": "TODO_CONTACT_PHONE"
+  },
+  "review": {
+    "demoAccountStatus": "pending",
+    "reviewNotesStatus": "draft",
+    "minimumFunctionalityNotes": "Mobile PWA shell, create flow, task/assets cards, settings/legal/data rights entry, and video stitch page are implemented. Capacitor dependencies and native Android/iOS project templates are generated; signing, store screenshots, and device validation remain pending."
+  },
+  "privacy": {
+    "applePrivacyNutritionLabel": {
+      "status": "draft",
+      "tracking": "none-planned",
+      "thirdPartyPartnerReviewStatus": "pending",
+      "dataTypes": [
+        "Account info",
+        "User content",
+        "Product images",
+        "Prompts",
+        "Generated video metadata",
+        "Diagnostics"
+      ]
+    },
+    "googleDataSafety": {
+      "status": "draft",
+      "accountCreation": true,
+      "inAppDeletionRequest": true,
+      "webDeletionUrl": "TODO_PUBLIC_BASE_URL/legal/delete-account.html",
+      "encryptionInTransit": "required-for-production",
+      "dataTypes": [
+        "Account info",
+        "Files and docs",
+        "Photos and videos",
+        "App activity",
+        "Diagnostics"
+      ]
+    },
+    "thirdPartySdks": [
+      {
+        "name": "React",
+        "type": "frontend framework",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "Vite",
+        "type": "build tooling",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "lucide-react",
+        "type": "icon library",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "xlsx",
+        "type": "document parsing library",
+        "collectsUserData": false,
+        "reviewStatus": "needs-production-review"
+      }
+    ],
+    "permissions": [
+      "Network access",
+      "File picker for image/doc upload when packaged",
+      "Optional photo library save/share plugin after Capacitor validation"
+    ]
+  },
+  "distribution": {
+    "pwaStatus": "internal-ready",
+    "capacitorStatus": "native-projects-generated",
+    "iosNativeStatus": "project-generated",
+    "androidNativeStatus": "project-generated",
+    "trustedWebActivityStatus": "optional-after-pwa"
+  },
+  "china": {
+    "operatorName": "TODO_OPERATOR_LEGAL_ENTITY",
+    "domain": "TODO_PUBLIC_DOMAIN",
+    "icpFilingNumber": "TODO_ICP_FILING_NUMBER",
+    "appFilingNumber": "TODO_APP_FILING_NUMBER",
+    "filingStatus": "not-started",
+    "filingDisplayLocation": "TODO_DISPLAY_APP_FILING_NUMBER_IN_APP"
+  },
+  "screenshots": {
+    "status": "pending",
+    "planStatus": "structured",
+    "webCaptureStatus": "captured-first-pass",
+    "planFile": "store/screenshot-plan.json",
+    "requiredSets": [
+      "mobile-web-390",
+      "mobile-web-430",
+      "tablet-web-768",
+      "ios-app-store",
+      "google-play-phone",
+      "domestic-android-store"
+    ]
+  }
+}

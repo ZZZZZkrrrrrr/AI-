@@ -1,0 +1,59 @@
+# Secrets and local configuration
+.env
+*.local
+*.secret
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# Runtime uploads, outputs and logs
+runs/
+outputs/
+04_runtime/
+99_temp/
+logs/
+*.log
+*.runtime.log
+server.out.log
+server.err.log
+api.runtime.log
+vite.runtime.log
+
+# SQLite runtime data and backups
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+database.backup*.sqlite
+n8n_database_backup*.sqlite
+ai_ugc_database/backups/
+03_database/ai_ugc_database/backups/
+90_archive/database_backups/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local libTV state
+libtv_runner/.libtv_config/
+02_services/libtv_runner/.libtv_config/
+
+# Cloudflare Tunnel local runtime
+02_services/cloudflare_tunnel/logs/
+02_services/cloudflare_tunnel/config.yml
+02_services/cloudflare_tunnel/cloudflared.exe
+02_services/cloudflare_tunnel/*.json
+02_services/cloudflare_tunnel/*.pem
+
+# Local CLI binaries
+02_services/libtv_runner/bin/libtv.exe
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

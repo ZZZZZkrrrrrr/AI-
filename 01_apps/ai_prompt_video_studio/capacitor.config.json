@@ -1,0 +1,22 @@
+{
+  "appId": "top.zkraiflow.aivideostudio",
+  "appName": "AI Video Studio",
+  "webDir": "dist",
+  "backgroundColor": "#eef1ef",
+  "loggingBehavior": "production",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor",
+    "cleartext": false
+  },
+  "android": {
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false,
+    "resolveServiceWorkerRequests": true
+  },
+  "ios": {
+    "preferredContentMode": "mobile",
+    "scrollEnabled": true,
+    "allowsLinkPreview": false
+  }
+}

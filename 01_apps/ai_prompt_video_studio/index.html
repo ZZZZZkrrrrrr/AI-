@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#126a63" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AI 视频" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <title>AI 视频工作台</title>
+    <script>
+      (() => {
+        const themeKey = "aiugc-console-theme";
+        const versionKey = "aiugc-console-theme-default-version";
+        const darkDefaultVersion = "dark-default-20260608";
+        try {
+          if (localStorage.getItem(versionKey) !== darkDefaultVersion) {
+            localStorage.setItem(versionKey, darkDefaultVersion);
+            localStorage.setItem(themeKey, "dark");
+          }
+          const saved = localStorage.getItem(themeKey);
+          document.documentElement.dataset.theme = saved === "light" ? "light" : "dark";
+        } catch {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

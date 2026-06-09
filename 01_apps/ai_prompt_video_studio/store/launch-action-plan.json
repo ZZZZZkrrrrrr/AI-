@@ -1,0 +1,257 @@
+{
+  "schemaVersion": "store-launch-action-plan-v1",
+  "updatedAt": "2026-06-09",
+  "lastReviewedAt": "2026-06-09",
+  "basis": [
+    {
+      "name": "Apple App Store screenshot specifications",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/",
+      "requirement": "Prepare store-accurate PNG/JPG screenshots for required iPhone and iPad display families."
+    },
+    {
+      "name": "Apple App Privacy Details",
+      "url": "https://developer.apple.com/app-store/app-privacy-details/",
+      "requirement": "Declare app and third-party code data collection practices before submission."
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "requirement": "Complete a clear and accurate Data safety section for every app."
+    },
+    {
+      "name": "Google Play account deletion requirements",
+      "url": "https://support.google.com/googleplay/android-developer/answer/13327111",
+      "requirement": "Apps with account creation must disclose account deletion support and provide a functional web deletion link."
+    },
+    {
+      "name": "Capacitor documentation",
+      "url": "https://capacitorjs.com/docs",
+      "requirement": "Use Capacitor as the native container path for iOS and Android packaging."
+    },
+    {
+      "name": "MIIT app filing notice",
+      "url": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2023/art_920db564162e4312916a01bed6540ad8.html",
+      "requirement": "Prepare operator, domain, ICP filing, and APP filing materials for China distribution."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "public-web-base",
+      "order": 1,
+      "title": "Public HTTPS web base",
+      "owner": "business-ops",
+      "status": "waiting-for-owner-input",
+      "objective": "Choose and deploy the public HTTPS domain used by PWA, support, privacy, terms, AI disclosure, and account deletion pages.",
+      "blocks": [
+        "Support URL",
+        "Marketing URL",
+        "Privacy policy URL",
+        "Account deletion URL",
+        "Google Play web deletion URL",
+        "Public domain"
+      ],
+      "inputs": [
+        "Public domain",
+        "HTTPS hosting target",
+        "Production app origin"
+      ],
+      "evidence": [
+        "PUBLIC_APP_ORIGIN is set to an HTTPS URL",
+        "supportUrl, marketingUrl, privacyPolicyUrl, and accountDeletionUrl no longer use TODO placeholders",
+        "All public legal pages load without authentication"
+      ],
+      "nextActions": [
+        "Select final domain and hosting provider",
+        "Deploy dist and public legal pages",
+        "Replace TODO public URLs in store/submission-readiness.json"
+      ]
+    },
+    {
+      "id": "contact-and-support",
+      "order": 2,
+      "title": "Store contact and support channel",
+      "owner": "business-ops",
+      "status": "waiting-for-owner-input",
+      "objective": "Provide review-safe support contact details for store listings and user support.",
+      "blocks": [
+        "Contact email",
+        "Contact phone",
+        "Review notes status"
+      ],
+      "inputs": [
+        "Support email",
+        "Support phone or business contact number",
+        "Support response process"
+      ],
+      "evidence": [
+        "contactEmail is a real monitored email address",
+        "contactPhone is filled with a reachable support or business contact",
+        "public/support.html mirrors the chosen support channel"
+      ],
+      "nextActions": [
+        "Create or choose support inbox",
+        "Confirm phone/contact policy",
+        "Update public support page and store/submission-readiness.json"
+      ]
+    },
+    {
+      "id": "privacy-and-data-safety",
+      "order": 3,
+      "title": "Privacy labels and data safety forms",
+      "owner": "product-legal",
+      "status": "drafting",
+      "objective": "Finalize privacy disclosures for Apple App Privacy and Google Play Data safety based on actual production data flows.",
+      "blocks": [
+        "Apple privacy nutrition label status",
+        "Google Play Data safety status",
+        "Pre-release legal wording"
+      ],
+      "inputs": [
+        "Final production API list",
+        "Third-party SDK and library inventory",
+        "Data retention and deletion policy",
+        "Whether analytics, ads, or tracking are added"
+      ],
+      "evidence": [
+        "privacy.applePrivacyNutritionLabel.status is ready",
+        "privacy.googleDataSafety.status is ready",
+        "Legal pages no longer contain pre-release wording",
+        "Third-party SDK review statuses are ok or documented"
+      ],
+      "nextActions": [
+        "Review server routes and local storage usage",
+        "Confirm no analytics/ads SDK is added without disclosure",
+        "Finalize privacy.html, ai-disclosure.html, and Data safety answers"
+      ]
+    },
+    {
+      "id": "review-demo-account",
+      "order": 4,
+      "title": "Review demo account and notes",
+      "owner": "product-ops",
+      "status": "pending",
+      "objective": "Prepare a stable reviewer path that demonstrates mobile creation, assets/results, settings, legal pages, and account deletion request.",
+      "blocks": [
+        "Review demo account status",
+        "Review notes status",
+        "Store description status"
+      ],
+      "inputs": [
+        "Demo account credentials",
+        "Seeded sample task/assets",
+        "Review instructions for dry-run video generation"
+      ],
+      "evidence": [
+        "review.demoAccountStatus is ready",
+        "review.reviewNotesStatus is ready",
+        "Reviewer can open home, create, assets, stitch, settings, support, and deletion pages without private local paths"
+      ],
+      "nextActions": [
+        "Create a review-safe account or local auth bypass for review environment",
+        "Seed non-private demo product image and generated result",
+        "Write App Store and Google Play review notes"
+      ]
+    },
+    {
+      "id": "native-capacitor-packaging",
+      "order": 5,
+      "title": "Native iOS and Android packaging",
+      "owner": "engineering",
+      "status": "native-projects-generated",
+      "objective": "Install Capacitor packages, generate native projects, sync the built web app, and validate device behavior.",
+      "blocks": [
+        "iOS native package status",
+        "Android native package status",
+        "iOS native project is not present",
+        "Android native project is not present"
+      ],
+      "inputs": [
+        "Apple Developer account",
+        "Google Play developer account",
+        "Signing identifiers",
+        "Final app icon and splash assets",
+        "Production API origin"
+      ],
+      "evidence": [
+        "@capacitor/core, @capacitor/cli, @capacitor/ios, and @capacitor/android are installed",
+        "ios/App/App/Info.plist exists",
+        "android/app/build.gradle exists",
+        "Android android:allowBackup is false",
+        "Android manifest does not enable cleartext traffic",
+        "iOS Info.plist does not declare broad ATS exceptions",
+        "capacitor:check warnings for missing native projects are resolved"
+      ],
+      "nextActions": [
+        "Install Android SDK and configure ANDROID_HOME or ANDROID_SDK_ROOT",
+        "Switch Android build environment to JDK 17 or newer",
+        "Open Android project and verify Gradle build with the selected JDK/Android SDK",
+        "Open iOS project on macOS and verify Xcode signing/build settings",
+        "Validate safe areas, file picker, downloads, support links, and account deletion on real devices"
+      ]
+    },
+    {
+      "id": "store-screenshots",
+      "order": 6,
+      "title": "Store-accurate screenshots",
+      "owner": "product-design",
+      "status": "web-first-pass-captured",
+      "objective": "Convert current mobile web screenshot coverage into store-accurate native screenshot sets.",
+      "blocks": [
+        "Store screenshot status",
+        "iOS App Store screenshots",
+        "Google Play screenshots",
+        "Domestic Android screenshots"
+      ],
+      "inputs": [
+        "Native iOS build or simulator",
+        "Native Android build or emulator",
+        "Localized screenshot copy",
+        "Review-safe sample data"
+      ],
+      "evidence": [
+        "mobile-web-390, mobile-web-430, and tablet-web-768 screenshots exist",
+        "iOS App Store required portrait sizes are captured",
+        "Google Play phone screenshots are captured",
+        "Screenshots do not expose private data or TODO URLs"
+      ],
+      "nextActions": [
+        "Use current web captures as layout baseline",
+        "Capture iOS screenshots after Capacitor iOS validation",
+        "Capture Android screenshots after Capacitor Android validation"
+      ]
+    },
+    {
+      "id": "china-distribution-compliance",
+      "order": 7,
+      "title": "China distribution compliance",
+      "owner": "business-legal",
+      "status": "waiting-for-owner-input",
+      "objective": "Prepare domestic Android store and public China distribution materials.",
+      "blocks": [
+        "China app operator legal entity",
+        "ICP filing number",
+        "APP filing number",
+        "China APP filing status",
+        "APP filing number display location"
+      ],
+      "inputs": [
+        "Operator legal entity",
+        "Public domain",
+        "ICP filing number",
+        "APP filing number",
+        "Selected domestic Android channels"
+      ],
+      "evidence": [
+        "china.operatorName is the real legal entity",
+        "china.icpFilingNumber and china.appFilingNumber are filled",
+        "filingDisplayLocation points to an in-app or public page location",
+        "Domestic channel privacy and permission materials are prepared"
+      ],
+      "nextActions": [
+        "Confirm legal entity and domain ownership",
+        "Complete ICP and APP filing steps",
+        "Add filing display location to support/legal surfaces"
+      ]
+    }
+  ]
+}
