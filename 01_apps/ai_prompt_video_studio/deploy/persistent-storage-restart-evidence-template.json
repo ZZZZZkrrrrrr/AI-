@@ -1,0 +1,242 @@
+{
+  "schemaVersion": "persistent-storage-restart-evidence-template-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-production-volume",
+  "targetOrigin": "https://www.zkraiflow.top",
+  "purpose": "Define the sanitized evidence needed to prove uploads, generated run artifacts, account exports, deletion requests, and review demo data survive API and worker restarts before public launch or real video generation.",
+  "officialReferences": [
+    {
+      "name": "Docker volumes",
+      "url": "https://docs.docker.com/engine/storage/volumes/",
+      "whyItMatters": "Container-generated data should be written to managed volumes instead of relying on a container writable layer."
+    },
+    {
+      "name": "Kubernetes volumes",
+      "url": "https://kubernetes.io/docs/concepts/storage/volumes/",
+      "whyItMatters": "Persistent volumes can exist beyond a pod lifecycle, while ephemeral volumes are tied to pod lifetime."
+    },
+    {
+      "name": "Google Cloud Run container filesystem",
+      "url": "https://docs.cloud.google.com/run/docs/container-contract#filesystem",
+      "whyItMatters": "Some serverless container filesystems are in-memory and do not persist when an instance stops."
+    },
+    {
+      "name": "Amazon S3 object storage",
+      "url": "https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html",
+      "whyItMatters": "Object storage is a candidate adapter for durable uploads, generated outputs, exports, and backup/restore workflows."
+    }
+  ],
+  "requiredInputsOutsideRepository": [
+    {
+      "id": "production-storage-target",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "mounted volume path",
+        "object storage bucket plus server-side adapter",
+        "managed persistent disk mounted into API and worker services"
+      ],
+      "doNotStore": [
+        "cloud storage secret key",
+        "bucket access key",
+        "unredacted backup manifest"
+      ]
+    },
+    {
+      "id": "backup-retention-policy",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "daily backup snapshot",
+        "object versioning policy",
+        "documented retention and deletion schedule"
+      ],
+      "doNotStore": [
+        "backup encryption key",
+        "private customer file list"
+      ]
+    }
+  ],
+  "storageTargets": [
+    {
+      "id": "uploads",
+      "pathUnderRunStorage": "uploads/",
+      "mustSurvive": [
+        "API process restart",
+        "worker process restart",
+        "single deployment restart"
+      ],
+      "exampleEvidence": "A demo product image remains listed and readable after restart."
+    },
+    {
+      "id": "generated-runs",
+      "pathUnderRunStorage": "runs/",
+      "mustSurvive": [
+        "API process restart",
+        "worker process restart",
+        "single deployment restart"
+      ],
+      "exampleEvidence": "A dry-run or generated result remains visible in task/result cards after restart."
+    },
+    {
+      "id": "data-exports",
+      "pathUnderRunStorage": "exports/",
+      "mustSurvive": [
+        "API process restart",
+        "single deployment restart"
+      ],
+      "exampleEvidence": "A review-account data export request can be downloaded or inspected after restart."
+    },
+    {
+      "id": "deletion-requests",
+      "pathUnderRunStorage": "privacy-requests/",
+      "mustSurvive": [
+        "API process restart",
+        "single deployment restart"
+      ],
+      "exampleEvidence": "A deletion request record remains queued or completed after restart."
+    },
+    {
+      "id": "review-demo-seed",
+      "pathUnderRunStorage": "review-demo/",
+      "mustSurvive": [
+        "API process restart",
+        "review seed rerun"
+      ],
+      "exampleEvidence": "Seeded demo product, account asset, and dry-run task remain available to the review account."
+    }
+  ],
+  "restartScenario": {
+    "preRestart": [
+      "Confirm RUN_STORAGE_DIR points to a production persistent path or object-storage adapter.",
+      "Log in with a review-safe account.",
+      "Upload one demo product image.",
+      "Create one dry-run task.",
+      "Create one data export request and one deletion request record."
+    ],
+    "restartActions": [
+      "Restart API service.",
+      "Restart worker service if present.",
+      "Do not clear the mounted volume or object storage bucket."
+    ],
+    "postRestart": [
+      "Log in again or verify the session state.",
+      "Confirm uploaded product image is still readable.",
+      "Confirm dry-run task/result is still visible.",
+      "Confirm data export and deletion request records still exist.",
+      "Run npm run cloud:smoke against https://www.zkraiflow.top.",
+      "Record only redacted paths and object ids."
+    ]
+  },
+  "requiredSmokeArtifacts": [
+    {
+      "id": "run-storage-path-proof",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "RUN_STORAGE_DIR value is non-empty and not a temporary path",
+        "storage target type is mounted-volume or object-storage-adapter",
+        "path or bucket identifier is redacted if private"
+      ]
+    },
+    {
+      "id": "upload-survives-restart",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "demo upload created before restart",
+        "same upload readable after restart",
+        "no private customer image is used"
+      ]
+    },
+    {
+      "id": "result-survives-restart",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "dry-run or generated result exists before restart",
+        "same task/result visible after restart",
+        "worker output reference still resolves"
+      ]
+    },
+    {
+      "id": "privacy-artifacts-survive-restart",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "data export request survives restart",
+        "deletion request record survives restart",
+        "retention/deletion note is linked"
+      ]
+    },
+    {
+      "id": "backup-retention-recorded",
+      "status": "waiting-owner-input",
+      "evidenceRequired": [
+        "backup owner is named outside placeholder fields",
+        "backup frequency is chosen",
+        "retention and deletion policy is recorded"
+      ]
+    }
+  ],
+  "sampleEvidenceRecord": {
+    "schemaVersion": "persistent-storage-restart-result-v1",
+    "capturedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "targetOrigin": "https://www.zkraiflow.top",
+    "storageTargetType": "mounted-volume | object-storage-adapter | managed-disk",
+    "runStorageDir": "/redacted/persistent/path",
+    "restartActions": [
+      "api-service-restart",
+      "worker-service-restart"
+    ],
+    "result": {
+      "passes": 0,
+      "failures": 0,
+      "warnings": 0
+    },
+    "verifiedArtifacts": [
+      "uploads",
+      "generated-runs",
+      "data-exports",
+      "deletion-requests",
+      "review-demo-seed"
+    ],
+    "evidenceFiles": [
+      "store/evidence/storage-restart/YYYY-MM-DD/persistent-storage-restart-redacted.json"
+    ],
+    "followUpBlockers": [
+      "persistent-storage",
+      "production-observability-rollback",
+      "libtv-worker-migration"
+    ]
+  },
+  "evidenceRules": {
+    "fileNaming": "store/evidence/storage-restart/YYYY-MM-DD/persistent-storage-restart-redacted.json",
+    "allowedInRepository": [
+      "redacted storage target type",
+      "pass/fail counts",
+      "redacted artifact ids",
+      "restart action summary",
+      "linked blocker ids"
+    ],
+    "doNotStore": [
+      "cloud storage secret key",
+      "raw bucket credentials",
+      "private customer uploads",
+      "unredacted backup manifest",
+      "session cookie",
+      "review account password"
+    ]
+  },
+  "closeoutGates": [
+    "Production RUN_STORAGE_DIR or object storage adapter is selected and configured.",
+    "Uploads survive API and worker restart.",
+    "Generated run/task artifacts survive API and worker restart.",
+    "Data export and deletion request records survive restart.",
+    "Backup frequency, owner, and retention/deletion policy are recorded.",
+    "npm run storage:restart-template passes before collecting production evidence.",
+    "release-blockers-register keeps persistent-storage blocked until filled restart evidence exists."
+  ],
+  "linkedFiles": [
+    "deploy/cloud-deployment-action-plan.json",
+    "deploy/libtv-worker-storage-plan.json",
+    "deploy/production.env.example",
+    "deploy/production-release-runbook.md",
+    "scripts/check-persistent-storage-evidence-template.mjs",
+    "00_docs/PERSISTENT_STORAGE_RESTART_EVIDENCE_TEMPLATE_2026-06-10.md"
+  ]
+}

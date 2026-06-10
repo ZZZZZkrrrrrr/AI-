@@ -1,0 +1,286 @@
+{
+  "schemaVersion": "store-screenshot-plan-v1",
+  "updatedAt": "2026-06-10",
+  "officialReferences": [
+    {
+      "name": "Apple screenshot specifications",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/"
+    },
+    {
+      "name": "Google Play preview asset guidelines",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151"
+    }
+  ],
+  "capturePrinciples": [
+    "Use real app screens from the production build, not marketing-only slides.",
+    "Show the mobile app value path in the first shots: video-mode home, image/text-mode home, prompt-package guided entry, create, task/assets, settings/compliance.",
+    "Keep text legible on 390px phones and avoid overlays that hide real UI.",
+    "Do not show real API keys, private customer assets, unfinished TODO URLs, or personal data.",
+    "Use localized screenshot sets for the markets submitted."
+  ],
+  "requiredScenes": [
+    "home",
+    "home-notifications",
+    "home-image",
+    "create-prompt-intent",
+    "create",
+    "assets",
+    "settings",
+    "pwa-install-guide",
+    "stitch"
+  ],
+  "sets": [
+    {
+      "id": "mobile-web-390",
+      "channel": "mobile-web",
+      "status": "captured",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      },
+      "minimumShots": 4,
+      "shots": [
+        {
+          "id": "home",
+          "route": "/",
+          "title": "视频模式首页",
+          "purpose": "展示默认视频模式下的大按钮入口、分段切换和底部导航。"
+        },
+        {
+          "id": "home-notifications",
+          "route": "/",
+          "title": "手机端任务提醒",
+          "purpose": "展示右上角通知提醒打开后的紧凑面板，验证不会遮挡主要操作区或跑出屏幕。",
+          "interactions": [
+            {
+              "type": "clickSelector",
+              "selector": ".notification-button",
+              "waitMs": 500
+            }
+          ]
+        },
+        {
+          "id": "home-image",
+          "route": "/",
+          "title": "图文模式首页",
+          "purpose": "展示图文模式下的上传商品图、整理素材、提示词包和我的数据入口。",
+          "interactions": [
+            {
+              "type": "clickText",
+              "text": "图文",
+              "waitMs": 500
+            }
+          ]
+        },
+        {
+          "id": "create-prompt-intent",
+          "route": "/",
+          "title": "提示词包定向创建",
+          "purpose": "展示从图文模式首页点击提示词包后，创建页直接落到提示词包步骤。",
+          "interactions": [
+            {
+              "type": "clickText",
+              "text": "图文",
+              "waitMs": 500
+            },
+            {
+              "type": "clickText",
+              "text": "提示词包",
+              "waitMs": 900
+            }
+          ]
+        },
+        {
+          "id": "create",
+          "route": "/#/studio",
+          "title": "创建任务",
+          "purpose": "展示商品资料输入、提示词生成和视频任务入口。"
+        },
+        {
+          "id": "assets",
+          "route": "/#/assets",
+          "title": "素材与结果",
+          "purpose": "展示素材卡片、任务状态和结果预览。"
+        },
+        {
+          "id": "settings",
+          "route": "/#/settings",
+          "title": "我的与合规",
+          "purpose": "展示模型中心、隐私政策、帮助支持和数据权利入口。"
+        },
+        {
+          "id": "pwa-install-guide",
+          "route": "/",
+          "title": "PWA install guide",
+          "purpose": "Capture the mobile add-to-home-screen guidance card so pilot users and reviewers can see how to install the web app.",
+          "showPwaInstallGuide": true
+        }
+      ]
+    },
+    {
+      "id": "mobile-web-430",
+      "channel": "mobile-web",
+      "status": "captured",
+      "viewport": {
+        "width": 430,
+        "height": 932,
+        "deviceScaleFactor": 2
+      },
+      "minimumShots": 4,
+      "shots": [
+        {
+          "id": "home",
+          "route": "/",
+          "title": "移动端工作台首页",
+          "purpose": "展示更大手机下的首页密度。"
+        },
+        {
+          "id": "create",
+          "route": "/#/studio",
+          "title": "创建任务",
+          "purpose": "展示提示词和视频生成配置。"
+        },
+        {
+          "id": "assets",
+          "route": "/#/assets",
+          "title": "素材与结果",
+          "purpose": "展示素材管理和生成结果卡片。"
+        },
+        {
+          "id": "stitch",
+          "route": "/#/stitch",
+          "title": "视频拼接",
+          "purpose": "展示移动端拼接页和任务输出。"
+        }
+      ]
+    },
+    {
+      "id": "tablet-web-768",
+      "channel": "tablet-web",
+      "status": "captured",
+      "viewport": {
+        "width": 768,
+        "height": 1024,
+        "deviceScaleFactor": 2
+      },
+      "minimumShots": 3,
+      "shots": [
+        {
+          "id": "home",
+          "route": "/",
+          "title": "平板工作台首页",
+          "purpose": "展示平板下的工作台布局。"
+        },
+        {
+          "id": "create",
+          "route": "/#/studio",
+          "title": "平板创建任务",
+          "purpose": "展示更宽屏下的创建表单和任务配置。"
+        },
+        {
+          "id": "assets",
+          "route": "/#/assets",
+          "title": "平板素材库",
+          "purpose": "展示素材、任务和结果的横向信息密度。"
+        }
+      ]
+    },
+    {
+      "id": "ios-app-store-iphone",
+      "channel": "app-store",
+      "platform": "ios",
+      "status": "blocked-until-native-build",
+      "minimumShots": 4,
+      "targetFamilies": [
+        {
+          "name": "iPhone 6.9 inch display",
+          "portraitSizes": [
+            "1320x2868",
+            "1290x2796",
+            "1260x2736"
+          ]
+        },
+        {
+          "name": "iPhone 6.5 inch display",
+          "portraitSizes": [
+            "1284x2778",
+            "1242x2688"
+          ]
+        }
+      ],
+      "shots": [
+        {
+          "id": "home",
+          "title": "App 工作台"
+        },
+        {
+          "id": "create",
+          "title": "创建 AI 视频任务"
+        },
+        {
+          "id": "assets",
+          "title": "素材与生成结果"
+        },
+        {
+          "id": "settings",
+          "title": "隐私、帮助与数据权利"
+        }
+      ]
+    },
+    {
+      "id": "google-play-phone",
+      "channel": "google-play",
+      "platform": "android",
+      "status": "blocked-until-native-build",
+      "minimumShots": 4,
+      "targetSizes": [
+        "1080x1920",
+        "1440x2560"
+      ],
+      "shots": [
+        {
+          "id": "home",
+          "title": "App 工作台"
+        },
+        {
+          "id": "create",
+          "title": "创建 AI 视频任务"
+        },
+        {
+          "id": "assets",
+          "title": "素材与生成结果"
+        },
+        {
+          "id": "settings",
+          "title": "隐私、帮助与数据权利"
+        }
+      ]
+    },
+    {
+      "id": "domestic-android-store",
+      "channel": "domestic-android",
+      "platform": "android",
+      "status": "pending-channel-selection",
+      "minimumShots": 4,
+      "shots": [
+        {
+          "id": "home",
+          "title": "App 工作台"
+        },
+        {
+          "id": "create",
+          "title": "创建 AI 视频任务"
+        },
+        {
+          "id": "assets",
+          "title": "素材与生成结果"
+        },
+        {
+          "id": "settings",
+          "title": "隐私、帮助与数据权利"
+        }
+      ]
+    }
+  ]
+}

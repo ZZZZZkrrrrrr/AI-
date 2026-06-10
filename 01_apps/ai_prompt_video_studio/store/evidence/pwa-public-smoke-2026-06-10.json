@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "sanitized-public-smoke-evidence-v1",
+  "generatedAt": "2026-06-10T08:30:00+08:00",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "command": "npm run pwa:public-smoke",
+  "result": {
+    "passes": 31,
+    "blockers": 0,
+    "warnings": 0
+  },
+  "verifiedPublicAssets": [
+    {
+      "url": "https://www.zkraiflow.top/manifest.webmanifest",
+      "evidence": "Manifest reachable, valid JSON, standalone display, root start_url and scope, required icon declarations, and shortcuts verified."
+    },
+    {
+      "url": "https://www.zkraiflow.top/sw.js",
+      "evidence": "Service worker reachable and includes install, activate, fetch, message, SKIP_WAITING, and API-cache exclusion behavior."
+    },
+    {
+      "url": "https://www.zkraiflow.top/offline.html",
+      "evidence": "Offline page reachable, HTML document present, and offline state message verified."
+    },
+    {
+      "url": "https://www.zkraiflow.top/icons/icon-192.png",
+      "evidence": "192px PNG icon reachable and non-empty."
+    },
+    {
+      "url": "https://www.zkraiflow.top/icons/icon-512.png",
+      "evidence": "512px PNG icon reachable and non-empty."
+    },
+    {
+      "url": "https://www.zkraiflow.top/icons/icon-maskable-512.png",
+      "evidence": "Maskable PNG icon reachable and non-empty."
+    }
+  ],
+  "verificationScope": [
+    "Public HTTPS PWA asset availability",
+    "Manifest installability prerequisites",
+    "Service worker lifecycle prerequisites",
+    "Offline fallback asset availability"
+  ],
+  "remainingGates": [
+    "Android Chrome production install prompt and standalone launch on a real device",
+    "iOS Safari Add to Home Screen flow on a real device",
+    "Offline relaunch behavior on a real production device",
+    "Authenticated PWA session after review-safe account creation"
+  ],
+  "secretPolicy": "No credentials, cookies, API keys, account screenshots, private uploads, or hosting console data are stored in this evidence file."
+}

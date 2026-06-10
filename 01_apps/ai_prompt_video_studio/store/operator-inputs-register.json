@@ -1,0 +1,517 @@
+{
+  "schemaVersion": "operator-inputs-register-v1",
+  "updatedAt": "2026-06-10",
+  "status": "collecting-owner-inputs",
+  "scope": "Owner-provided values required before external launch, app store submission, production smoke testing, and China distribution.",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "rules": [
+    "Do not store real passwords, API keys, signing keys, private certificates, or recovery codes in this repository.",
+    "Use this register to track which owner-provided values are still missing, where they should be entered, and which command proves the value is usable.",
+    "When a real secret is required, store only a password-manager or hosting-secret reference here.",
+    "A field is not release-ready until both the source file and the verification command agree."
+  ],
+  "inputGroups": [
+    {
+      "id": "contact-and-support",
+      "title": "Store contact and user support",
+      "owner": "business-ops",
+      "status": "waiting-for-owner-input",
+      "releaseImpact": "Apple, Google, domestic Android stores, users, and reviewers need a monitored support channel before submission.",
+      "fields": [
+        {
+          "id": "contactEmail",
+          "label": "Support email",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/app/contactEmail",
+          "currentValue": "TODO_CONTACT_EMAIL",
+          "targetFormat": "Monitored email address, for example support@example.com.",
+          "writeTo": [
+            "store/submission-readiness.json#/app/contactEmail",
+            "public/support.html",
+            "store/review-notes-template.json review contact fields"
+          ],
+          "verification": [
+            "npm run store:check",
+            "npm run public:check"
+          ],
+          "doNotStore": [
+            "Mail admin password",
+            "Mailbox recovery code"
+          ]
+        },
+        {
+          "id": "contactPhone",
+          "label": "Support phone or business contact number",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/app/contactPhone",
+          "currentValue": "TODO_CONTACT_PHONE",
+          "targetFormat": "Reachable support or business phone number in international format when possible.",
+          "writeTo": [
+            "store/submission-readiness.json#/app/contactPhone",
+            "public/support.html",
+            "store/review-notes-template.json review contact fields"
+          ],
+          "verification": [
+            "npm run store:check",
+            "npm run public:check"
+          ],
+          "doNotStore": [
+            "Personal private phone if it should not appear in store records"
+          ]
+        },
+        {
+          "id": "supportSla",
+          "label": "Support response commitment",
+          "required": false,
+          "currentValue": "TODO_SUPPORT_SLA",
+          "targetFormat": "Plain wording such as: We respond within 2 business days.",
+          "writeTo": [
+            "public/support.html",
+            "store/review-notes-template.json"
+          ],
+          "verification": [
+            "npm run compliance:check"
+          ],
+          "doNotStore": []
+        }
+      ]
+    },
+    {
+      "id": "review-demo-account",
+      "title": "Reviewer account and seeded demo data",
+      "owner": "product-ops",
+      "status": "pending-real-credentials",
+      "releaseImpact": "Store reviewers cannot validate restricted creation, assets, settings, data rights, and dry-run task flows without a stable review account.",
+      "fields": [
+        {
+          "id": "reviewBaseUrl",
+          "label": "Review environment URL",
+          "required": true,
+          "currentValue": "https://www.zkraiflow.top",
+          "targetFormat": "Public HTTPS app origin.",
+          "writeTo": [
+            "release password manager",
+            "store/review-notes-template.json"
+          ],
+          "verification": [
+            "npm run public:check"
+          ],
+          "doNotStore": []
+        },
+        {
+          "id": "reviewUsername",
+          "label": "Reviewer username",
+          "required": true,
+          "currentValue": "TODO_REVIEW_USERNAME",
+          "targetFormat": "Dedicated account, not a personal admin account.",
+          "writeTo": [
+            "release password manager",
+            "App Store Connect review notes",
+            "Google Play app access instructions"
+          ],
+          "verification": [
+            "REVIEW_BASE_URL=https://www.zkraiflow.top REVIEW_USERNAME=<account> REVIEW_PASSWORD=<secret> npm run review:seed",
+            "SMOKE_BASE_URL=https://www.zkraiflow.top SMOKE_USERNAME=<account> SMOKE_PASSWORD=<secret> npm run cloud:smoke"
+          ],
+          "doNotStore": [
+            "Real password",
+            "MFA recovery code"
+          ]
+        },
+        {
+          "id": "reviewPasswordSecretRef",
+          "label": "Reviewer password secret reference",
+          "required": true,
+          "currentValue": "TODO_PASSWORD_MANAGER_REFERENCE",
+          "targetFormat": "Password-manager item or hosting secret name, never the real password.",
+          "writeTo": [
+            "release password manager",
+            "private submission checklist"
+          ],
+          "verification": [
+            "npm run review:seed",
+            "npm run cloud:smoke"
+          ],
+          "doNotStore": [
+            "Real password"
+          ]
+        },
+        {
+          "id": "reviewSeedEvidence",
+          "label": "Seeded review data evidence",
+          "required": true,
+          "currentValue": "dry-run-script-ready",
+          "targetFormat": "Successful run log or release checklist note showing demo product, asset, and dry-run batch are present.",
+          "writeTo": [
+            "release checklist outside repository or non-secret evidence note"
+          ],
+          "verification": [
+            "npm run review:seed",
+            "npm run cloud:smoke"
+          ],
+          "doNotStore": [
+            "Private customer product images"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "legal-and-operator",
+      "title": "Legal operator and final privacy wording",
+      "owner": "product-legal",
+      "status": "drafting",
+      "releaseImpact": "Privacy pages, store privacy labels, account deletion wording, and China filings must match the real operator and production data flow.",
+      "fields": [
+        {
+          "id": "operatorLegalName",
+          "label": "Operator legal entity",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/china/operatorName",
+          "currentValue": "TODO_OPERATOR_LEGAL_ENTITY",
+          "targetFormat": "Registered company or individual operator name used for store/deployment records.",
+          "writeTo": [
+            "store/submission-readiness.json#/china/operatorName",
+            "public/legal/privacy.html",
+            "public/legal/terms.html",
+            "public/support.html"
+          ],
+          "verification": [
+            "npm run store:check",
+            "npm run compliance:check"
+          ],
+          "doNotStore": [
+            "Identity document image",
+            "Business license scan unless intentionally public"
+          ]
+        },
+        {
+          "id": "finalProviderList",
+          "label": "Final provider and SDK list",
+          "required": true,
+          "currentValue": "TODO_FINAL_PROVIDER_LIST",
+          "targetFormat": "AI model, video provider, hosting, storage, logging, crash reporting, analytics, payment, push, support, and domestic SDK decisions.",
+          "writeTo": [
+            "store/privacy-data-safety-draft.json",
+            "store/privacy-form-fill-checklist.md",
+            "public/legal/privacy.html"
+          ],
+          "verification": [
+            "npm run store:check",
+            "npm run compliance:check"
+          ],
+          "doNotStore": [
+            "Provider API keys",
+            "Contract documents"
+          ]
+        },
+        {
+          "id": "retentionPolicy",
+          "label": "Retention and deletion policy",
+          "required": true,
+          "currentValue": "TODO_RETENTION_POLICY",
+          "targetFormat": "Retention periods for accounts, uploads, generated outputs, task logs, operational logs, exports, and deletion requests.",
+          "writeTo": [
+            "public/legal/privacy.html",
+            "store/privacy-data-safety-draft.json",
+            "deploy/production-release-runbook.md"
+          ],
+          "verification": [
+            "npm run compliance:check",
+            "npm run store:check"
+          ],
+          "doNotStore": []
+        }
+      ]
+    },
+    {
+      "id": "production-runtime",
+      "title": "Production runtime, storage, and worker settings",
+      "owner": "engineering",
+      "status": "pending-runtime-verification",
+      "releaseImpact": "Public login, task creation, uploads, data rights, and real video generation are not production-safe until runtime variables, persistent storage, and worker paths are verified.",
+      "fields": [
+        {
+          "id": "publicAppOrigin",
+          "label": "PUBLIC_APP_ORIGIN",
+          "required": true,
+          "currentValue": "https://www.zkraiflow.top",
+          "targetFormat": "https://www.zkraiflow.top",
+          "writeTo": [
+            "hosting environment",
+            "deploy/production.env.example"
+          ],
+          "verification": [
+            "npm run public:check",
+            "npm run cloud:check:strict"
+          ],
+          "doNotStore": []
+        },
+        {
+          "id": "corsAllowedOrigins",
+          "label": "CORS_ALLOWED_ORIGINS",
+          "required": true,
+          "currentValue": "https://www.zkraiflow.top,capacitor://localhost,https://localhost",
+          "targetFormat": "Exact allowlist, no wildcard for authenticated APIs.",
+          "writeTo": [
+            "hosting environment",
+            "deploy/production.env.example"
+          ],
+          "verification": [
+            "npm run cloud:check:strict",
+            "npm run cloud:smoke"
+          ],
+          "doNotStore": []
+        },
+        {
+          "id": "persistentStorage",
+          "label": "Persistent run storage",
+          "required": true,
+          "currentValue": "TODO_PRODUCTION_RUN_STORAGE",
+          "targetFormat": "Mounted volume path or object-storage adapter that survives restart.",
+          "writeTo": [
+            "hosting environment RUN_STORAGE_DIR",
+            "deploy/production-release-runbook.md"
+          ],
+          "verification": [
+            "npm run cloud:check:strict",
+            "restart persistence smoke"
+          ],
+          "doNotStore": [
+            "Cloud storage secret key"
+          ]
+        },
+        {
+          "id": "libtvWorker",
+          "label": "libTV worker endpoint and runtime",
+          "required": true,
+          "currentValue": "TODO_LIBTV_WORKER",
+          "targetFormat": "Private worker URL plus cloud-safe register script and database path.",
+          "writeTo": [
+            "hosting environment LIBTV_BRIDGE_URL",
+            "hosting environment LIBTV_REGISTER_SCRIPT",
+            "hosting environment LIBTV_DB_PATH"
+          ],
+          "verification": [
+            "npm run cloud:check:strict",
+            "real video task smoke"
+          ],
+          "doNotStore": [
+            "Worker service token",
+            "Private network credentials"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "native-store-packaging",
+      "title": "Native builds, signing, and store screenshots",
+      "owner": "engineering",
+      "status": "waiting-for-toolchain",
+      "releaseImpact": "App Store and Google Play packages need signed native builds, real-device QA, and final native screenshots.",
+      "fields": [
+        {
+          "id": "androidToolchain",
+          "label": "Android SDK and JDK 17+",
+          "required": true,
+          "currentValue": "TODO_ANDROID_TOOLCHAIN",
+          "targetFormat": "ANDROID_HOME or ANDROID_SDK_ROOT plus JDK 17 or newer.",
+          "writeTo": [
+            "developer machine environment",
+            "CI environment if used"
+          ],
+          "verification": [
+            "npm run capacitor:check",
+            "Android Studio Gradle build"
+          ],
+          "doNotStore": [
+            "Android signing key",
+            "Keystore password"
+          ]
+        },
+        {
+          "id": "iosToolchain",
+          "label": "macOS, Xcode, and Apple signing",
+          "required": true,
+          "currentValue": "TODO_IOS_TOOLCHAIN",
+          "targetFormat": "macOS/Xcode environment with Apple Developer team and signing configured.",
+          "writeTo": [
+            "Xcode project settings",
+            "Apple Developer account"
+          ],
+          "verification": [
+            "npm run capacitor:check on macOS",
+            "Xcode archive/signing validation"
+          ],
+          "doNotStore": [
+            "Apple account password",
+            "Signing certificate private key"
+          ]
+        },
+        {
+          "id": "androidSigning",
+          "label": "Android upload signing key",
+          "required": true,
+          "currentValue": "TODO_ANDROID_UPLOAD_KEYSTORE_SECRET_REF",
+          "targetFormat": "Password-manager or CI secret reference for the Android upload keystore and signing passwords; do not store the real keystore in the repository.",
+          "writeTo": [
+            "release password manager",
+            "CI secret store if release builds are automated",
+            "android/release-signing.properties on secure build machine only"
+          ],
+          "verification": [
+            "npm run native:release-plan",
+            "Android Gradle bundleRelease on secure build machine"
+          ],
+          "doNotStore": [
+            "Android keystore file",
+            "Keystore password",
+            "Key password"
+          ]
+        },
+        {
+          "id": "googlePlayAppSigning",
+          "label": "Google Play App Signing status",
+          "required": true,
+          "currentValue": "TODO_GOOGLE_PLAY_APP_SIGNING_STATUS",
+          "targetFormat": "Play Console app signing enrollment and upload-key status.",
+          "writeTo": [
+            "Google Play Console",
+            "private release checklist"
+          ],
+          "verification": [
+            "npm run native:release-plan",
+            "Play Console release upload validation"
+          ],
+          "doNotStore": [
+            "Play Console password",
+            "Signing certificate private material"
+          ]
+        },
+        {
+          "id": "iosSigning",
+          "label": "Apple Developer signing and App Store record",
+          "required": true,
+          "currentValue": "TODO_APPLE_SIGNING_TEAM_PROFILE",
+          "targetFormat": "Apple Developer Team, distribution certificate reference, App Store provisioning profile, and App Store Connect app record.",
+          "writeTo": [
+            "Apple Developer account",
+            "Xcode signing settings",
+            "App Store Connect"
+          ],
+          "verification": [
+            "npm run native:release-plan",
+            "Xcode archive/signing validation",
+            "App Store Connect build processing"
+          ],
+          "doNotStore": [
+            "Apple account password",
+            "p12 certificate",
+            "Signing certificate private key",
+            "Provisioning profile file"
+          ]
+        },
+        {
+          "id": "nativeStoreScreenshots",
+          "label": "Native App Store and Google Play screenshots",
+          "required": true,
+          "currentValue": "TODO_NATIVE_STORE_SCREENSHOTS",
+          "targetFormat": "Final native screenshots by required device family, using review-safe data and final legal copy.",
+          "writeTo": [
+            "store/screenshots/",
+            "App Store Connect",
+            "Google Play Console"
+          ],
+          "verification": [
+            "npm run screenshots:check",
+            "npm run mobile:qa"
+          ],
+          "doNotStore": [
+            "Private customer assets",
+            "Secrets",
+            "Local filesystem paths in screenshots"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "china-distribution",
+      "title": "China distribution and filing",
+      "owner": "business-legal",
+      "status": "domain-provided-filing-pending",
+      "releaseImpact": "Domestic Android stores and China public distribution need legal operator, ICP filing, APP filing, and display location.",
+      "fields": [
+        {
+          "id": "icpFilingNumber",
+          "label": "ICP filing number",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/china/icpFilingNumber",
+          "currentValue": "TODO_ICP_FILING_NUMBER",
+          "targetFormat": "Valid ICP filing number for www.zkraiflow.top.",
+          "writeTo": [
+            "store/submission-readiness.json#/china/icpFilingNumber",
+            "public/support.html or public legal page display location"
+          ],
+          "verification": [
+            "npm run store:check"
+          ],
+          "doNotStore": []
+        },
+        {
+          "id": "appFilingNumber",
+          "label": "APP filing number",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/china/appFilingNumber",
+          "currentValue": "TODO_APP_FILING_NUMBER",
+          "targetFormat": "Valid APP filing number for mobile app distribution in China.",
+          "writeTo": [
+            "store/submission-readiness.json#/china/appFilingNumber",
+            "public/support.html or in-app settings display location"
+          ],
+          "verification": [
+            "npm run store:check"
+          ],
+          "doNotStore": []
+        },
+        {
+          "id": "filingDisplayLocation",
+          "label": "Filing number display location",
+          "required": true,
+          "currentValueSource": "store/submission-readiness.json#/china/filingDisplayLocation",
+          "currentValue": "TODO_DISPLAY_APP_FILING_NUMBER_IN_APP",
+          "targetFormat": "Public page or Settings location where filing information is visible.",
+          "writeTo": [
+            "store/submission-readiness.json#/china/filingDisplayLocation",
+            "public/support.html",
+            "src/features/settings/SettingsPage.jsx if shown in-app"
+          ],
+          "verification": [
+            "npm run store:check",
+            "npm run mobile:check"
+          ],
+          "doNotStore": []
+        }
+      ]
+    }
+  ],
+  "closeoutCommands": [
+    "npm run owner:brief",
+    "npm run owner:form",
+    "npm run owner:inputs",
+    "npm run legal:finalization-plan",
+    "npm run production:auth-plan",
+    "npm run production:ops-plan",
+    "npm run public:check",
+    "npm run store:check",
+    "npm run store:console-plan",
+    "npm run pilot:readiness",
+    "npm run pilot:feedback",
+    "npm run release:evidence",
+    "npm run screenshots:native-plan",
+    "npm run native:release-plan",
+    "npm run review:access-plan",
+    "npm run china:distribution-plan",
+    "npm run cloud:smoke",
+    "npm run mobile:qa",
+    "npm run release:check"
+  ]
+}

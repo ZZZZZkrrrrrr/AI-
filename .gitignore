@@ -3,6 +3,18 @@
 *.local
 *.secret
 
+# Native release signing secrets
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.xcarchive
+*.ipa
+android/release-signing.properties
+**/release-signing.properties
+**/ExportOptions.plist
+
 # Node / frontend
 node_modules/
 dist/
@@ -11,6 +23,9 @@ dist/
 # Runtime uploads, outputs and logs
 runs/
 outputs/
+04_runtime/
+99_temp/
+01_apps/ai_prompt_video_studio/tmp/
 logs/
 *.log
 *.runtime.log
@@ -28,7 +43,9 @@ vite.runtime.log
 *.db-shm
 database.backup*.sqlite
 n8n_database_backup*.sqlite
-ai_ugc_database/backups/
+ai_database/backups/
+03_database/ai_database/backups/
+90_archive/database_backups/
 
 # Python cache
 __pycache__/
@@ -36,6 +53,17 @@ __pycache__/
 
 # Local libTV state
 libtv_runner/.libtv_config/
+02_services/libtv_runner/.libtv_config/
+
+# Cloudflare Tunnel local runtime
+02_services/cloudflare_tunnel/logs/
+02_services/cloudflare_tunnel/config.yml
+02_services/cloudflare_tunnel/cloudflared.exe
+02_services/cloudflare_tunnel/*.json
+02_services/cloudflare_tunnel/*.pem
+
+# Local CLI binaries
+02_services/libtv_runner/bin/libtv.exe
 
 # OS / editor
 .DS_Store

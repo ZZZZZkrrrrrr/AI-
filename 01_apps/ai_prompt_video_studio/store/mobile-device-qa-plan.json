@@ -1,0 +1,867 @@
+{
+  "schemaVersion": "mobile-device-qa-plan-v1",
+  "updatedAt": "2026-06-10",
+  "status": "internal-ready-with-manual-gates",
+  "objective": "Validate the beginner-friendly mobile web, PWA, and Capacitor app experience before external users or store reviewers use the product.",
+  "manualEvidenceTemplate": {
+    "status": "template-ready-waiting-real-device-results",
+    "templateFile": "store/mobile-device-qa-evidence-template.json",
+    "runbook": "00_docs/MOBILE_DEVICE_QA_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "checkScript": "scripts/check-mobile-qa-evidence-template.mjs",
+    "checkCommand": "npm run mobile:qa:evidence",
+    "publicOrigin": "https://www.zkraiflow.top"
+  },
+  "officialReferences": [
+    {
+      "name": "Apple App Store Connect screenshot specifications",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/",
+      "whyItMatters": "Store screenshots must match accepted device families and avoid misleading preview assets."
+    },
+    {
+      "name": "Google Play preview asset guidelines",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "whyItMatters": "Google Play screenshots and preview graphics must show real app value and meet size and copy rules."
+    },
+    {
+      "name": "web.dev PWA installation guidance",
+      "url": "https://web.dev/learn/pwa/installation",
+      "whyItMatters": "PWA QA must confirm installability, standalone launch, manifest identity, and platform install prompts."
+    },
+    {
+      "name": "Capacitor documentation",
+      "url": "https://capacitorjs.com/docs",
+      "whyItMatters": "Native iOS and Android packages must be validated through Capacitor sync, platform builds, and real-device behavior."
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "whyItMatters": "Mobile QA must keep privacy, account deletion, and data access paths visible to users and reviewers."
+    }
+  ],
+  "requiredScripts": [
+    "mobile:check",
+    "mobile:density",
+    "mobile:qa",
+    "mobile:qa:evidence",
+    "pwa:check",
+    "pilot:feedback",
+    "screenshots:check",
+    "capacitor:check",
+    "store:check",
+    "review:seed:dry",
+    "cloud:smoke",
+    "release:check"
+  ],
+  "deviceMatrix": [
+    {
+      "id": "mobile-web-390",
+      "label": "Small phone mobile web",
+      "channel": "mobile-web",
+      "platform": "web",
+      "viewport": {
+        "width": 390,
+        "height": 844,
+        "deviceScaleFactor": 2
+      },
+      "status": "web-evidence-captured",
+      "evidence": [
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-390/02-home-notifications.png",
+        "store/screenshots/mobile-web-390/03-home-image.png",
+        "store/screenshots/mobile-web-390/04-create-prompt-intent.png",
+        "store/screenshots/mobile-web-390/05-create.png",
+        "store/screenshots/mobile-web-390/06-assets.png",
+        "store/screenshots/mobile-web-390/07-settings.png",
+        "store/screenshots/mobile-web-390/08-pwa-install-guide.png"
+      ]
+    },
+    {
+      "id": "mobile-web-430",
+      "label": "Large phone mobile web",
+      "channel": "mobile-web",
+      "platform": "web",
+      "viewport": {
+        "width": 430,
+        "height": 932,
+        "deviceScaleFactor": 2
+      },
+      "status": "web-evidence-captured",
+      "evidence": [
+        "store/screenshots/mobile-web-430/01-home.png",
+        "store/screenshots/mobile-web-430/02-create.png",
+        "store/screenshots/mobile-web-430/03-assets.png",
+        "store/screenshots/mobile-web-430/04-stitch.png"
+      ]
+    },
+    {
+      "id": "tablet-web-768",
+      "label": "Tablet web",
+      "channel": "tablet-web",
+      "platform": "web",
+      "viewport": {
+        "width": 768,
+        "height": 1024,
+        "deviceScaleFactor": 2
+      },
+      "status": "web-evidence-captured",
+      "evidence": [
+        "store/screenshots/tablet-web-768/01-home.png",
+        "store/screenshots/tablet-web-768/02-create.png",
+        "store/screenshots/tablet-web-768/03-assets.png"
+      ]
+    },
+    {
+      "id": "android-device",
+      "label": "Android phone packaged app",
+      "channel": "capacitor-android",
+      "platform": "android",
+      "status": "blocked-until-toolchain",
+      "blocker": "ANDROID_HOME or ANDROID_SDK_ROOT and JDK 17+ are required before signed Android device validation.",
+      "evidence": [
+        "android/app/build.gradle",
+        "android/app/src/main/AndroidManifest.xml",
+        "capacitor.config.json"
+      ]
+    },
+    {
+      "id": "ios-device",
+      "label": "iPhone packaged app",
+      "channel": "capacitor-ios",
+      "platform": "ios",
+      "status": "blocked-until-macos-xcode",
+      "blocker": "iOS build, signing, and TestFlight/device QA must run on macOS with Xcode.",
+      "evidence": [
+        "ios/App/App/Info.plist",
+        "capacitor.config.json"
+      ]
+    }
+  ],
+  "testSuites": [
+    {
+      "id": "beginner-home",
+      "title": "Beginner home and large button launcher",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run mobile:check",
+        "npm run screenshots:check"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-390/02-home-notifications.png",
+        "store/screenshots/mobile-web-390/03-home-image.png",
+        "00_docs/MOBILE_BUTTON_STYLE_ACCEPTANCE_2026-06-09.md"
+      ],
+      "cases": [
+        {
+          "id": "home-video-mode",
+          "title": "Video mode starts with obvious beginner actions",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open the app on a 390px phone viewport.",
+            "Confirm the Video segment is selected by default.",
+            "Scan the large two-column action cards without reading any help text."
+          ],
+          "expectedResult": "A first-time user can identify the main video actions from icon, label, and badge without using the desktop navigation.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/01-home.png"
+          ]
+        },
+        {
+          "id": "home-image-mode",
+          "title": "Image/text mode switches in place",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Tap the Image/Text segment.",
+            "Confirm the card set changes without page reload.",
+            "Check the prompt-package and product-image entries are visible."
+          ],
+          "expectedResult": "The user sees a simpler image/text task set with large touch targets and no layout jump.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/03-home-image.png"
+          ]
+        },
+        {
+          "id": "home-notifications-panel",
+          "title": "Notification panel opens as a compact mobile card",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open the app on a 390px phone viewport.",
+            "Tap the notification bell in the top bar.",
+            "Confirm the panel stays inside the screen and does not become a right-side strip."
+          ],
+          "expectedResult": "Task reminders open as a compact card below the top bar, with internal scrolling and no overlap with the bottom navigation.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/02-home-notifications.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "intent-navigation",
+      "title": "Guided entry routes to the correct creation step",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run mobile:check",
+        "npm run screenshots:check"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/04-create-prompt-intent.png",
+        "src/App.jsx"
+      ],
+      "cases": [
+        {
+          "id": "prompt-package-intent",
+          "title": "Prompt Package card opens the prompt step",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open home.",
+            "Tap Image/Text.",
+            "Tap Prompt Package."
+          ],
+          "expectedResult": "The create page opens directly on the prompt-package step instead of dropping the user on a generic dashboard.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/04-create-prompt-intent.png"
+          ]
+        },
+        {
+          "id": "product-image-intent",
+          "title": "Product Image card opens the image upload step",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Open home.",
+            "Tap Image/Text.",
+            "Tap Upload Product Image."
+          ],
+          "expectedResult": "The create page focuses on the product-image input so a beginner does not need to understand the full workflow first.",
+          "evidence": [
+            "src/App.jsx"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "operation-density",
+      "title": "Compact operation interface density",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run mobile:density",
+        "npm run mobile:check",
+        "npm run screenshots:check"
+      ],
+      "evidence": [
+        "src/styles.css",
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-390/05-create.png",
+        "store/screenshots/mobile-web-430/02-create.png",
+        "00_docs/MOBILE_OPERATION_DENSITY_ACCEPTANCE_2026-06-10.md"
+      ],
+      "cases": [
+        {
+          "id": "beginner-operation-cards-fit",
+          "title": "Beginner operation cards show more actions without becoming tiny",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open the app on 390px and 430px phone viewports.",
+            "Review the beginner launcher in the default Video mode.",
+            "Confirm action cards, circular icons, labels, and badges fit without large blank areas."
+          ],
+          "expectedResult": "The first screen exposes more useful actions than the earlier oversized version while keeping operation cards finger-friendly.",
+          "evidence": [
+            "src/styles.css",
+            "store/screenshots/mobile-web-390/01-home.png",
+            "00_docs/MOBILE_OPERATION_DENSITY_ACCEPTANCE_2026-06-10.md"
+          ]
+        },
+        {
+          "id": "create-overview-density-fit",
+          "title": "Create and overview controls stay compact on phones",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open production overview and create on a 390px phone viewport.",
+            "Check status cards, create tabs, input step cards, and bottom navigation.",
+            "Confirm the bottom navigation does not consume excessive vertical space."
+          ],
+          "expectedResult": "Overview and create pages keep enough content visible for a beginner to continue without excessive scrolling.",
+          "evidence": [
+            "src/styles.css",
+            "store/screenshots/mobile-web-390/05-create.png",
+            "store/screenshots/mobile-web-430/02-create.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auth-session",
+      "title": "Login, session, and review account path",
+      "status": "blocked-until-review-account",
+      "owner": "product-ops",
+      "requiredDevices": [
+        "mobile-web-390",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run review:seed:dry",
+        "npm run cloud:smoke"
+      ],
+      "evidence": [
+        "store/review-notes-template.json",
+        "scripts/seed-review-demo.mjs",
+        "server.js"
+      ],
+      "cases": [
+        {
+          "id": "review-login",
+          "title": "Dedicated review user can sign in",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "blocked-until-review-account",
+          "steps": [
+            "Open the public HTTPS app.",
+            "Sign in with the dedicated review account.",
+            "Close and reopen the app."
+          ],
+          "expectedResult": "The reviewer remains signed in or is returned to a clear login state without losing the intended task path.",
+          "evidence": [
+            "store/review-notes-template.json"
+          ]
+        },
+        {
+          "id": "session-cookie-security",
+          "title": "Production session uses hardened cookie and origin settings",
+          "channel": "production-cloud",
+          "priority": "P0",
+          "status": "blocked-until-production-origin",
+          "steps": [
+            "Deploy to the final HTTPS origin.",
+            "Run the production smoke test.",
+            "Confirm cookie and CORS settings match the release runbook."
+          ],
+          "expectedResult": "Authenticated mobile sessions work only for allowed production origins and do not rely on localhost.",
+          "evidence": [
+            "deploy/production-release-runbook.md",
+            "deploy/production.env.example"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "upload-create",
+      "title": "Upload and create workflow",
+      "status": "manual-ready",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run mobile:check",
+        "npm run review:seed:dry"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/05-create.png",
+        "scripts/seed-review-demo.mjs",
+        "server.js"
+      ],
+      "cases": [
+        {
+          "id": "upload-product-image",
+          "title": "User can add product image material",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Open Create from the beginner launcher.",
+            "Use the file picker to add a small product image.",
+            "Confirm the file appears in the form or material list."
+          ],
+          "expectedResult": "The user can add material without desktop-only controls, hidden buttons, or text overlap.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/05-create.png"
+          ]
+        },
+        {
+          "id": "dry-run-generation",
+          "title": "User can submit a dry-run generation task",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Fill the minimum product fields.",
+            "Generate or paste a prompt package.",
+            "Submit a dry-run video task."
+          ],
+          "expectedResult": "The task is created, visible in the task list, and does not require a real video provider during review dry-run.",
+          "evidence": [
+            "scripts/seed-review-demo.mjs",
+            "store/review-notes-template.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "assets-results",
+      "title": "Assets, tasks, and results",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "tablet-web-768",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run screenshots:check",
+        "npm run review:seed:dry"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/06-assets.png",
+        "store/screenshots/mobile-web-430/03-assets.png",
+        "store/screenshots/tablet-web-768/03-assets.png"
+      ],
+      "cases": [
+        {
+          "id": "asset-cards",
+          "title": "Assets are usable as mobile cards",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open Assets from the bottom navigation.",
+            "Scan product, prompt, task, and result cards.",
+            "Open a visible asset detail or preview action."
+          ],
+          "expectedResult": "The mobile view does not expose desktop tables as the primary surface and cards remain readable.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/06-assets.png"
+          ]
+        },
+        {
+          "id": "stitch-entry",
+          "title": "Video stitch flow is reachable on mobile",
+          "channel": "mobile-web",
+          "priority": "P1",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open the stitch page from the beginner launcher or route.",
+            "Check the mobile stitch video card list.",
+            "Confirm table-only interactions are not required."
+          ],
+          "expectedResult": "The mobile stitch path can be reviewed without horizontal table scrolling.",
+          "evidence": [
+            "store/screenshots/mobile-web-430/04-stitch.png"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "settings-legal-data-rights",
+      "title": "Settings, legal pages, and data rights",
+      "status": "web-evidence-captured",
+      "owner": "product-legal",
+      "requiredDevices": [
+        "mobile-web-390",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run compliance:check",
+        "npm run store:check",
+        "npm run pilot:feedback"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/07-settings.png",
+        "public/support.html",
+        "public/legal/privacy.html",
+        "public/legal/delete-account.html",
+        "src/features/settings/SettingsPage.jsx",
+        "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md",
+        "scripts/check-pilot-feedback-readiness.mjs"
+      ],
+      "cases": [
+        {
+          "id": "settings-legal-links",
+          "title": "Legal and support links are reachable",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Open Settings.",
+            "Tap privacy, terms, AI disclosure, support, and account deletion links.",
+            "Return to the app after each link."
+          ],
+          "expectedResult": "Users and reviewers can find legal and support information from the mobile app without hidden desktop navigation.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/07-settings.png"
+          ]
+        },
+        {
+          "id": "data-export-delete-request",
+          "title": "Data export and deletion request paths are visible",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Open Settings.",
+            "Start data export.",
+            "Start account deletion/data rights request."
+          ],
+          "expectedResult": "The app presents a clear request state and does not ask users to email support as the only path.",
+          "evidence": [
+            "src/features/settings/SettingsPage.jsx",
+            "server.js"
+          ]
+        },
+        {
+          "id": "pilot-feedback-submit",
+          "title": "Pilot user can submit feedback from mobile settings",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Open Settings on a phone viewport.",
+            "Find the trial feedback card below the app readiness center.",
+            "Submit a short issue with category and severity."
+          ],
+          "expectedResult": "The app records the feedback and returns a visible status without asking the user to upload private screenshots or logs.",
+          "evidence": [
+            "src/features/settings/SettingsPage.jsx",
+            "server.js",
+            "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pwa-install",
+      "title": "PWA install and offline behavior",
+      "status": "manual-ready",
+      "owner": "engineering",
+      "requiredDevices": [
+        "mobile-web-390",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run pwa:check",
+        "npm run pwa:prod-plan",
+        "npm run pwa:public-smoke",
+        "npm run mobile:check"
+      ],
+      "evidence": [
+        "public/manifest.webmanifest",
+        "public/sw.js",
+        "public/offline.html",
+        "store/pwa-production-smoke-plan.json",
+        "store/screenshots/mobile-web-390/08-pwa-install-guide.png",
+        "src/App.jsx"
+      ],
+      "cases": [
+        {
+          "id": "android-install-prompt",
+          "title": "Android browser can install the PWA",
+          "channel": "pwa-android",
+          "priority": "P1",
+          "status": "blocked-until-production-origin",
+          "steps": [
+            "Open the public HTTPS app in Chrome on Android.",
+            "Wait for the install prompt or open browser install menu.",
+            "Install and launch from the home screen."
+          ],
+          "expectedResult": "The app launches in standalone mode with the correct icon, name, start URL, and bottom navigation.",
+          "evidence": [
+            "public/manifest.webmanifest",
+            "public/sw.js"
+          ]
+        },
+        {
+          "id": "ios-add-to-home-screen",
+          "title": "iOS user receives manual install guidance",
+          "channel": "pwa-ios",
+          "priority": "P1",
+          "status": "manual-ready",
+          "steps": [
+            "Open the public HTTPS app in Safari on iPhone.",
+            "Check the app install guidance.",
+            "Add to Home Screen and launch."
+          ],
+          "expectedResult": "The user sees a clear iOS install path and the app respects safe areas after launch.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/08-pwa-install-guide.png",
+            "src/App.jsx",
+            "public/manifest.webmanifest"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "android-native",
+      "title": "Capacitor Android real-device validation",
+      "status": "blocked-until-toolchain",
+      "owner": "engineering",
+      "requiredDevices": [
+        "android-device"
+      ],
+      "automationCommands": [
+        "npm run capacitor:sync",
+        "npm run capacitor:check"
+      ],
+      "evidence": [
+        "android/app/build.gradle",
+        "android/app/src/main/AndroidManifest.xml",
+        "capacitor.config.json",
+        "00_docs/CAPACITOR_PACKAGING_READINESS_2026-06-09.md"
+      ],
+      "cases": [
+        {
+          "id": "android-build-install",
+          "title": "Android package builds and installs",
+          "channel": "capacitor-android",
+          "priority": "P0",
+          "status": "blocked-until-toolchain",
+          "steps": [
+            "Install Android SDK and JDK 17 or newer.",
+            "Run Capacitor sync.",
+            "Build and install the app from Android Studio."
+          ],
+          "expectedResult": "The app installs on a real Android phone or emulator without cleartext traffic, debug WebView, or excessive permissions.",
+          "evidence": [
+            "android/app/build.gradle",
+            "android/app/src/main/AndroidManifest.xml"
+          ]
+        },
+        {
+          "id": "android-native-behavior",
+          "title": "Android hardware and WebView behavior is acceptable",
+          "channel": "capacitor-android",
+          "priority": "P0",
+          "status": "blocked-until-toolchain",
+          "steps": [
+            "Launch the installed app.",
+            "Use back button, file picker, legal links, and settings.",
+            "Rotate once and return to portrait."
+          ],
+          "expectedResult": "Back navigation, file picker, external links, and safe-area spacing behave like a normal Android app.",
+          "evidence": [
+            "capacitor.config.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ios-native",
+      "title": "Capacitor iOS real-device validation",
+      "status": "blocked-until-macos-xcode",
+      "owner": "engineering",
+      "requiredDevices": [
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run capacitor:sync",
+        "npm run capacitor:check"
+      ],
+      "evidence": [
+        "ios/App/App/Info.plist",
+        "capacitor.config.json",
+        "00_docs/CAPACITOR_PACKAGING_READINESS_2026-06-09.md"
+      ],
+      "cases": [
+        {
+          "id": "ios-build-install",
+          "title": "iOS package builds and installs",
+          "channel": "capacitor-ios",
+          "priority": "P0",
+          "status": "blocked-until-macos-xcode",
+          "steps": [
+            "Open the iOS project on macOS with Xcode.",
+            "Configure signing.",
+            "Build and install on iPhone or a store-accurate simulator."
+          ],
+          "expectedResult": "The app launches without broad ATS exceptions and shows the correct display name and launch screen.",
+          "evidence": [
+            "ios/App/App/Info.plist"
+          ]
+        },
+        {
+          "id": "ios-native-behavior",
+          "title": "iOS safe area, file picker, and external links are acceptable",
+          "channel": "capacitor-ios",
+          "priority": "P0",
+          "status": "blocked-until-macos-xcode",
+          "steps": [
+            "Launch the installed app on iPhone.",
+            "Use home, create, assets, settings, and legal links.",
+            "Test file picker and return from external pages."
+          ],
+          "expectedResult": "No content is hidden by the notch, home indicator, browser chrome, or keyboard; file and link flows return cleanly.",
+          "evidence": [
+            "src/styles.css",
+            "capacitor.config.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "store-screenshots",
+      "title": "Store screenshot and preview QA",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "tablet-web-768",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run screenshots:check",
+        "npm run store:check"
+      ],
+      "evidence": [
+        "store/screenshot-plan.json",
+        "store/screenshots/README.md",
+        "store/store-listing-copy-draft.json"
+      ],
+      "cases": [
+        {
+          "id": "web-first-pass-screenshots",
+          "title": "Web first-pass screenshots cover the core mobile story",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Review the mobile-web-390, mobile-web-430, and tablet-web-768 folders.",
+            "Check home, image mode, guided prompt entry, create, assets, settings, and stitch.",
+            "Confirm no TODO URL, local path, secret, or private data is visible."
+          ],
+          "expectedResult": "The web screenshot set can guide final native screenshot capture and copy review.",
+          "evidence": [
+            "store/screenshots/mobile-web-390/01-home.png",
+            "store/screenshots/mobile-web-390/02-home-notifications.png",
+            "store/screenshots/mobile-web-390/03-home-image.png",
+            "store/screenshots/mobile-web-390/04-create-prompt-intent.png"
+          ]
+        },
+        {
+          "id": "native-store-screenshots",
+          "title": "Native store screenshot sets are captured after device builds",
+          "channel": "store-submission",
+          "priority": "P0",
+          "status": "blocked-until-native-build",
+          "steps": [
+            "Build iOS and Android native packages.",
+            "Capture screenshots for required App Store and Google Play device families.",
+            "Check copy, privacy, and reviewer-safe data."
+          ],
+          "expectedResult": "Store-ready screenshots match the native app, accepted dimensions, final locale copy, and privacy requirements.",
+          "evidence": [
+            "store/screenshot-plan.json",
+            "store/store-listing-copy-draft.json"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "accessibility-safe-area",
+      "title": "Touch targets, readability, and safe areas",
+      "status": "web-evidence-captured",
+      "owner": "product-design",
+      "requiredDevices": [
+        "mobile-web-390",
+        "mobile-web-430",
+        "tablet-web-768",
+        "android-device",
+        "ios-device"
+      ],
+      "automationCommands": [
+        "npm run mobile:check",
+        "npm run screenshots:check"
+      ],
+      "evidence": [
+        "src/styles.css",
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-430/01-home.png",
+        "store/screenshots/tablet-web-768/01-home.png"
+      ],
+      "cases": [
+        {
+          "id": "large-touch-targets",
+          "title": "Primary mobile controls are finger-friendly",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "web-evidence-captured",
+          "steps": [
+            "Review home cards, segmented control, bottom navigation, and create tabs.",
+            "Tap each primary control with one hand.",
+            "Check that labels and badges do not resize or overlap."
+          ],
+          "expectedResult": "Buttons feel deliberately large for beginners and stay stable across 390px and 430px phones.",
+          "evidence": [
+            "src/styles.css",
+            "store/screenshots/mobile-web-390/01-home.png"
+          ]
+        },
+        {
+          "id": "safe-area-keyboard",
+          "title": "Bottom navigation, keyboard, and safe areas do not hide content",
+          "channel": "mobile-web",
+          "priority": "P0",
+          "status": "manual-ready",
+          "steps": [
+            "Open create and settings on a phone viewport.",
+            "Focus text fields and scroll to bottom content.",
+            "Check bottom navigation, keyboard, and safe-area spacing."
+          ],
+          "expectedResult": "Important actions remain reachable above the home indicator, browser UI, or virtual keyboard.",
+          "evidence": [
+            "src/styles.css"
+          ]
+        }
+      ]
+    }
+  ],
+  "releaseDecisionRules": [
+    "No P0 web/mobile-web case can be unknown before an external pilot.",
+    "No native app store submission can proceed while android-native, ios-native, or native-store-screenshots remains blocked.",
+    "A blocked manual case is acceptable for internal planning only when it names the exact toolchain, domain, review account, or native-build dependency.",
+    "Screenshots used for stores must come from the final build and must not show local paths, TODO URLs, secrets, private product data, or unreleased legal wording.",
+    "Every release-blocking QA issue must be copied into store/release-blockers-register.json with owner, unblock action, and verification command."
+  ]
+}

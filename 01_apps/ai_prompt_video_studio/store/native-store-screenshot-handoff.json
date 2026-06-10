@@ -1,0 +1,265 @@
+{
+  "schemaVersion": "native-store-screenshot-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-blocked-until-native-build",
+  "objective": "Turn the captured mobile web screenshot baseline into an executable native App Store, Google Play, and domestic Android screenshot handoff once Android/iOS builds are available.",
+  "officialBasis": [
+    {
+      "name": "Apple screenshot specifications",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications",
+      "requirements": [
+        "iPhone 6.9 inch portrait accepted sizes include 1260x2736, 1290x2796, and 1320x2868.",
+        "iPhone 6.5 inch portrait accepted sizes include 1242x2688 and 1284x2778.",
+        "Use real app screenshots for submitted app versions."
+      ]
+    },
+    {
+      "name": "Google Play preview asset guidelines",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "requirements": [
+        "Screenshots must be JPEG or 24-bit PNG without alpha.",
+        "Screenshots must have a minimum dimension of 320px and a maximum dimension of 3840px.",
+        "For apps, provide at least four screenshots with minimum 1080px resolution, using 9:16 portrait or 16:9 landscape."
+      ]
+    }
+  ],
+  "sourceBaseline": {
+    "webScreenshotPlan": "store/screenshot-plan.json",
+    "webFirstPassStatus": "captured-first-pass",
+    "baselineFolders": [
+      "store/screenshots/mobile-web-390",
+      "store/screenshots/mobile-web-430",
+      "store/screenshots/tablet-web-768"
+    ],
+    "baselineRules": [
+      "Use current web captures only as layout and story baseline.",
+      "Final store assets must be recaptured from native Android/iOS builds.",
+      "Do not show local filesystem paths, TODO URLs, secrets, private customer data, or unreleased legal text."
+    ]
+  },
+  "captureSets": [
+    {
+      "id": "ios-iphone-6-9",
+      "platform": "ios",
+      "store": "app-store",
+      "status": "blocked-until-macos-xcode",
+      "minimumShots": 4,
+      "acceptedPortraitSizes": [
+        "1260x2736",
+        "1290x2796",
+        "1320x2868"
+      ],
+      "sourcePlanSet": "ios-app-store-iphone",
+      "captureDevice": "iPhone 6.9 inch device or simulator",
+      "outputFolder": "store/screenshots/ios-app-store-iphone",
+      "requiredScenes": [
+        "home",
+        "create",
+        "assets",
+        "settings"
+      ],
+      "preCaptureGates": [
+        "iOS project opens on macOS with Xcode.",
+        "Signing or simulator launch is validated.",
+        "Review account is seeded or review-safe sample state is available.",
+        "Legal/support pages contain final production text."
+      ]
+    },
+    {
+      "id": "ios-iphone-6-5-fallback",
+      "platform": "ios",
+      "store": "app-store",
+      "status": "optional-if-6-9-provided",
+      "minimumShots": 4,
+      "acceptedPortraitSizes": [
+        "1242x2688",
+        "1284x2778"
+      ],
+      "sourcePlanSet": "ios-app-store-iphone",
+      "captureDevice": "iPhone 6.5 inch device or simulator",
+      "outputFolder": "store/screenshots/ios-app-store-iphone-6-5",
+      "requiredScenes": [
+        "home",
+        "create",
+        "assets",
+        "settings"
+      ],
+      "preCaptureGates": [
+        "Use only if 6.9 inch screenshots are not provided or store console asks for fallback assets.",
+        "Match the same scenes and locale as the 6.9 inch set."
+      ]
+    },
+    {
+      "id": "google-play-phone",
+      "platform": "android",
+      "store": "google-play",
+      "status": "blocked-until-android-toolchain",
+      "minimumShots": 4,
+      "acceptedFormats": [
+        "JPEG",
+        "24-bit PNG without alpha"
+      ],
+      "recommendedPortraitSizes": [
+        "1080x1920",
+        "1440x2560"
+      ],
+      "dimensionRules": [
+        "Minimum dimension is 320px.",
+        "Maximum dimension is 3840px.",
+        "Maximum side cannot be more than twice the minimum side.",
+        "Use 9:16 portrait or 16:9 landscape for recommendation eligibility."
+      ],
+      "sourcePlanSet": "google-play-phone",
+      "captureDevice": "Android phone or emulator from release build",
+      "outputFolder": "store/screenshots/google-play-phone",
+      "requiredScenes": [
+        "home",
+        "create",
+        "assets",
+        "settings"
+      ],
+      "preCaptureGates": [
+        "Android SDK and JDK 17+ are configured.",
+        "Release or review-safe debug build installs on Android.",
+        "Review account is seeded or review-safe sample state is available.",
+        "No debug banners, local URLs, or developer-only text are visible."
+      ]
+    },
+    {
+      "id": "domestic-android-phone",
+      "platform": "android",
+      "store": "domestic-android",
+      "status": "pending-channel-selection",
+      "minimumShots": 4,
+      "recommendedPortraitSizes": [
+        "1080x1920",
+        "1440x2560"
+      ],
+      "sourcePlanSet": "domestic-android-store",
+      "captureDevice": "Android phone or emulator from release build",
+      "outputFolder": "store/screenshots/domestic-android-store",
+      "requiredScenes": [
+        "home",
+        "create",
+        "assets",
+        "settings"
+      ],
+      "preCaptureGates": [
+        "Confirm target domestic Android channels.",
+        "Confirm ICP and APP filing display policy.",
+        "Confirm Chinese store listing copy and privacy materials."
+      ]
+    }
+  ],
+  "sceneMap": [
+    {
+      "id": "home",
+      "title": "AI 视频工作台首页",
+      "baseline": "store/screenshots/mobile-web-390/01-home.png",
+      "storeCaptionKey": "home",
+      "mustShow": [
+        "Video mode",
+        "Beginner-friendly large action buttons",
+        "Bottom navigation"
+      ],
+      "mustHide": [
+        "local paths",
+        "TODO values",
+        "private customer assets"
+      ]
+    },
+    {
+      "id": "create",
+      "title": "创建 AI 视频任务",
+      "baseline": "store/screenshots/mobile-web-390/05-create.png",
+      "storeCaptionKey": "create",
+      "mustShow": [
+        "Product image or prompt inputs",
+        "Dry-run friendly generation controls",
+        "Readable mobile form layout"
+      ],
+      "mustHide": [
+        "real provider secrets",
+        "private product images"
+      ]
+    },
+    {
+      "id": "assets",
+      "title": "素材与生成结果",
+      "baseline": "store/screenshots/mobile-web-390/06-assets.png",
+      "storeCaptionKey": "assets",
+      "mustShow": [
+        "Mobile result cards",
+        "Task or asset status",
+        "Review-safe demo data"
+      ],
+      "mustHide": [
+        "desktop-only tables as primary UI",
+        "private customer outputs"
+      ]
+    },
+    {
+      "id": "settings",
+      "title": "隐私、支持与账号数据",
+      "baseline": "store/screenshots/mobile-web-390/07-settings.png",
+      "storeCaptionKey": "settings",
+      "mustShow": [
+        "App readiness center",
+        "Privacy and support links",
+        "Data export and account deletion entry"
+      ],
+      "mustHide": [
+        "pre-release legal TODOs",
+        "contact placeholders"
+      ]
+    }
+  ],
+  "manualCaptureSteps": [
+    "Run npm run release:check and confirm only owner/toolchain/production warnings remain.",
+    "Seed review-safe data with npm run review:seed after real review credentials exist.",
+    "Build and install the native Android or iOS app.",
+    "Open the same scene order: home, create, assets, settings.",
+    "Capture native screenshots at accepted store sizes.",
+    "Place files in the target output folder using 01-home.png, 02-create.png, 03-assets.png, 04-settings.png.",
+    "Verify no local paths, TODO values, secrets, private customer data, or misleading marketing overlays are visible.",
+    "Update store/screenshot-plan.json set status from blocked/manual-ready to captured only after native assets exist."
+  ],
+  "qualityGates": [
+    {
+      "id": "structure-ready",
+      "status": "ready",
+      "commands": [
+        "npm run screenshots:native-plan",
+        "npm run screenshots:check"
+      ]
+    },
+    {
+      "id": "android-native-capture",
+      "status": "blocked-until-toolchain",
+      "commands": [
+        "npm run capacitor:check",
+        "Android Studio Gradle build",
+        "manual native screenshot capture"
+      ]
+    },
+    {
+      "id": "ios-native-capture",
+      "status": "blocked-until-macos-xcode",
+      "commands": [
+        "npm run capacitor:check on macOS",
+        "Xcode archive/signing validation",
+        "manual native screenshot capture"
+      ]
+    }
+  ],
+  "evidenceFiles": [
+    "store/screenshot-plan.json",
+    "store/store-listing-copy-draft.json",
+    "store/mobile-device-qa-plan.json",
+    "store/screenshots/mobile-web-390/01-home.png",
+    "store/screenshots/mobile-web-390/05-create.png",
+    "store/screenshots/mobile-web-390/06-assets.png",
+    "store/screenshots/mobile-web-390/07-settings.png",
+    "00_docs/NATIVE_STORE_SCREENSHOT_HANDOFF_2026-06-10.md"
+  ]
+}

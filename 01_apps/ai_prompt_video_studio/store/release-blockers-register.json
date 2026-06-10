@@ -1,0 +1,499 @@
+{
+  "schemaVersion": "release-blockers-register-v1",
+  "updatedAt": "2026-06-10",
+  "status": "active",
+  "scope": "External public launch and store submission readiness for mobile web, PWA, Capacitor iOS, Capacitor Android, API, cloud worker, privacy, and store operations.",
+  "summary": {
+    "publicLaunchBlocked": true,
+    "internalPilotBlocked": false,
+    "storeSubmissionBlocked": true,
+    "nativeStoreBuildBlocked": true,
+    "productionCloudBlocked": true
+  },
+  "blockers": [
+    {
+      "id": "public-domain-and-https",
+      "area": "public-web-base",
+      "severity": "launch-blocker",
+      "owner": "business-ops",
+      "status": "public-pages-smoke-passed-pending-auth-cors",
+      "sourceWarnings": [
+        "Public domain is provided as https://www.zkraiflow.top and public pages returned HTTP 200 on 2026-06-09",
+        "Public domain smoke evidence on 2026-06-10 records npm run public:check with 30 passes, 0 blockers, and 2 owner-input warnings",
+        "PWA public asset smoke evidence on 2026-06-10 records npm run pwa:public-smoke with 31 passes, 0 blockers, and 0 warnings",
+        "Authenticated smoke evidence template is ready, but filled authenticated run evidence is still pending",
+        "Unauthenticated cloud smoke against https://www.zkraiflow.top passed 8 checks and 0 failures on 2026-06-09",
+        "PUBLIC_APP_ORIGIN or CORS_ALLOWED_ORIGINS still needs production runtime verification",
+        "Authenticated cloud:smoke still needs a review-safe account against https://www.zkraiflow.top"
+      ],
+      "releaseImpact": "Users and reviewers now have a stable public HTTPS origin, but production auth/CORS and smoke-test evidence must still prove login, API requests, and task paths work from that origin.",
+      "unblockActions": [
+        "Set PUBLIC_APP_ORIGIN=https://www.zkraiflow.top in the production runtime.",
+        "Set CORS_ALLOWED_ORIGINS=https://www.zkraiflow.top,capacitor://localhost,https://localhost.",
+        "Set SMOKE_BASE_URL=https://www.zkraiflow.top with a review-safe account.",
+        "Run npm run production:smoke-template and fill a redacted authenticated smoke evidence record.",
+        "Run authenticated cloud smoke and verify login, health, legal pages, and protected API behavior from the public origin."
+      ],
+      "verificationCommands": [
+        "npm run production:auth-plan",
+        "npm run production:smoke-template",
+        "npm run cloud:smoke",
+        "npm run store:check",
+        "npm run product:report"
+      ],
+      "evidenceFiles": [
+        "deploy/production-auth-cors-handoff.json",
+        "00_docs/PRODUCTION_AUTH_CORS_HANDOFF_2026-06-10.md",
+        "store/authenticated-smoke-evidence-template.json",
+        "00_docs/AUTHENTICATED_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-authenticated-smoke-evidence-template.mjs",
+        "scripts/check-production-auth-cors-plan.mjs",
+        "deploy/production-release-runbook.md",
+        "00_docs/PUBLIC_DOMAIN_READINESS_2026-06-09.md",
+        "00_docs/PUBLIC_DOMAIN_SMOKE_EVIDENCE_2026-06-10.md",
+        "store/evidence/public-domain-smoke-2026-06-10.json",
+        "store/evidence/pwa-public-smoke-2026-06-10.json",
+        "store/submission-readiness.json",
+        "store/launch-action-plan.json"
+      ]
+    },
+    {
+      "id": "support-contact",
+      "area": "contact-and-support",
+      "severity": "store-blocker",
+      "owner": "business-ops",
+      "status": "waiting-for-owner-input",
+      "sourceWarnings": [
+        "Contact email still uses a TODO placeholder",
+        "Contact phone still uses a TODO placeholder",
+        "Review notes status is draft"
+      ],
+      "releaseImpact": "Store records and reviewer escalation paths cannot be completed without monitored support contact details.",
+      "unblockActions": [
+        "Create or choose a monitored support inbox.",
+        "Choose support phone or business contact policy.",
+        "Update public/support.html and store/submission-readiness.json.",
+        "Fill review contact fields in store/review-notes-template.json."
+      ],
+      "verificationCommands": [
+        "npm run store:console-plan",
+        "npm run store:check",
+        "npm run compliance:check"
+      ],
+      "evidenceFiles": [
+        "store/store-console-submission-handoff.json",
+        "00_docs/STORE_CONSOLE_SUBMISSION_HANDOFF_2026-06-10.md",
+        "scripts/check-store-console-submission-plan.mjs",
+        "public/support.html",
+        "store/operator-inputs-register.json",
+        "00_docs/OPERATOR_INPUTS_HANDOFF_2026-06-10.md",
+        "store/review-notes-template.json",
+        "store/submission-readiness.json"
+      ]
+    },
+    {
+      "id": "legal-finalization",
+      "area": "privacy-and-data-safety",
+      "severity": "store-blocker",
+      "owner": "product-legal",
+      "status": "drafting",
+      "sourceWarnings": [
+        "Legal hub still contains pre-release wording",
+        "Privacy policy still contains pre-release wording",
+        "Terms of service still contains pre-release wording",
+        "AI disclosure still contains pre-release wording",
+        "Account deletion page still contains pre-release wording",
+        "Apple privacy nutrition label status is draft",
+        "Google Play Data safety status is draft"
+      ],
+      "releaseImpact": "Privacy pages and store privacy forms may not match production behavior until legal wording, retention periods, and provider disclosures are finalized.",
+      "unblockActions": [
+        "Confirm operator identity and support contacts.",
+        "Confirm final AI/video providers, hosting, storage, logs, crash reporting, analytics, payment, and push notification services.",
+        "Confirm data retention and deletion policy.",
+        "Finalize public legal pages and privacy/data-safety form answers.",
+        "Update privacy statuses to ready after legal review."
+      ],
+      "verificationCommands": [
+        "npm run store:console-plan",
+        "npm run legal:finalization-plan",
+        "npm run compliance:check",
+        "npm run store:check",
+        "npm run product:report"
+      ],
+      "evidenceFiles": [
+        "store/store-console-submission-handoff.json",
+        "00_docs/STORE_CONSOLE_SUBMISSION_HANDOFF_2026-06-10.md",
+        "scripts/check-store-console-submission-plan.mjs",
+        "store/legal-finalization-handoff.json",
+        "00_docs/LEGAL_FINALIZATION_HANDOFF_2026-06-10.md",
+        "scripts/check-legal-finalization-plan.mjs",
+        "store/privacy-data-safety-draft.json",
+        "store/privacy-form-fill-checklist.md",
+        "public/legal/privacy.html",
+        "public/legal/ai-disclosure.html"
+      ]
+    },
+    {
+      "id": "review-demo-account",
+      "area": "review-demo-account",
+      "severity": "store-blocker",
+      "owner": "product-ops",
+      "status": "pending-real-credentials",
+      "sourceWarnings": [
+        "Review demo account status is pending",
+        "Authenticated smoke evidence template is ready, but real review credential and smoke evidence are still pending",
+        "Review notes status is draft"
+      ],
+      "releaseImpact": "Apple and Google reviewers cannot access restricted functionality until a dedicated review account and seeded sample data are ready.",
+      "unblockActions": [
+        "Create a dedicated review account in the review environment.",
+        "Store the real password in the release password manager, not in the repository.",
+        "Run npm run review:seed against the review environment.",
+        "Run npm run production:smoke-template and collect a redacted authenticated smoke result.",
+        "Run npm run cloud:smoke with the same account.",
+        "Paste credentials and instructions into App Store Connect / Play Console during submission."
+      ],
+      "verificationCommands": [
+        "npm run store:console-plan",
+        "npm run review:access-plan",
+        "npm run production:smoke-template",
+        "npm run review:seed:dry",
+        "npm run review:seed",
+        "npm run cloud:smoke",
+        "npm run store:check"
+      ],
+      "evidenceFiles": [
+        "store/store-console-submission-handoff.json",
+        "00_docs/STORE_CONSOLE_SUBMISSION_HANDOFF_2026-06-10.md",
+        "scripts/check-store-console-submission-plan.mjs",
+        "store/review-access-handoff.json",
+        "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md",
+        "store/authenticated-smoke-evidence-template.json",
+        "00_docs/AUTHENTICATED_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-authenticated-smoke-evidence-template.mjs",
+        "scripts/check-review-access-plan.mjs",
+        "scripts/seed-review-demo.mjs",
+        "store/operator-inputs-register.json",
+        "00_docs/OPERATOR_INPUTS_HANDOFF_2026-06-10.md",
+        "store/review-notes-template.json",
+        "store/submission-readiness.json"
+      ]
+    },
+    {
+      "id": "cloud-cors-cookie-origin",
+      "area": "cloud-backend",
+      "severity": "production-blocker",
+      "owner": "engineering",
+      "status": "production-profile-ready-pending-hosting-verification",
+      "sourceWarnings": [
+        "CONSOLE_AUTH_COOKIE_SECURE is not enabled",
+        "PUBLIC_APP_ORIGIN or CORS_ALLOWED_ORIGINS is not set for the current verification environment",
+        "Final origin is https://www.zkraiflow.top",
+        "deploy/production.env.example now passes npm run production:profile"
+      ],
+      "releaseImpact": "Authenticated mobile web/PWA/App sessions are not production-safe until origins and cookies are hardened.",
+      "unblockActions": [
+        "Set NODE_ENV=production.",
+        "Set CONSOLE_AUTH_COOKIE_SECURE=true.",
+        "Choose SameSite=Lax for same-origin or SameSite=None plus Secure=true for cross-origin App/API.",
+        "Set PUBLIC_APP_ORIGIN=https://www.zkraiflow.top.",
+        "Pin CORS_ALLOWED_ORIGINS to https://www.zkraiflow.top plus required Capacitor origins and disable wildcard/authenticated localhost origins for production."
+      ],
+      "verificationCommands": [
+        "npm run production:auth-plan",
+        "npm run production:profile",
+        "npm run cloud:check:strict",
+        "npm run cloud:smoke"
+      ],
+      "evidenceFiles": [
+        "deploy/production-auth-cors-handoff.json",
+        "00_docs/PRODUCTION_AUTH_CORS_HANDOFF_2026-06-10.md",
+        "scripts/check-production-auth-cors-plan.mjs",
+        "deploy/production.env.example",
+        "deploy/production-release-runbook.md",
+        "deploy/cloud-deployment-action-plan.json",
+        "scripts/check-production-profile-readiness.mjs"
+      ]
+    },
+    {
+      "id": "production-observability-rollback",
+      "area": "cloud-operations",
+      "severity": "production-blocker",
+      "owner": "platform",
+      "status": "handoff-ready-pending-hosting-observability-evidence",
+      "sourceWarnings": [
+        "Authenticated cloud smoke still needs a review-safe account against https://www.zkraiflow.top",
+        "Rollback command or platform action is not yet confirmed",
+        "Production log redaction and retention policy still need platform review",
+        "Week-one monitoring ownership is not yet assigned"
+      ],
+      "releaseImpact": "Public launch is risky without a verified health-check surface, authenticated smoke evidence, rollback playbooks, log safety rules, and first-week monitoring ownership.",
+      "unblockActions": [
+        "Confirm hosting health check path and alert target.",
+        "Run authenticated npm run cloud:smoke against https://www.zkraiflow.top with a review-safe account.",
+        "Confirm rollback actions for previous build/container, environment variables, dry-run fallback, and worker concurrency.",
+        "Assign owners for week-one daily monitoring and support inbox review.",
+        "Review log redaction rules before sharing logs with reviewers or support channels."
+      ],
+      "verificationCommands": [
+        "npm run production:ops-plan",
+        "npm run production:auth-plan",
+        "npm run public:check",
+        "npm run cloud:smoke",
+        "npm run product:report"
+      ],
+      "evidenceFiles": [
+        "deploy/production-observability-rollback-plan.json",
+        "00_docs/PRODUCTION_OBSERVABILITY_ROLLBACK_2026-06-10.md",
+        "scripts/check-production-observability-plan.mjs",
+        "deploy/production-release-runbook.md",
+        "deploy/cloud-deployment-action-plan.json",
+        "deploy/production-auth-cors-handoff.json",
+        "scripts/production-smoke-test.mjs"
+      ]
+    },
+    {
+      "id": "persistent-storage",
+      "area": "cloud-backend",
+      "severity": "production-blocker",
+      "owner": "platform",
+      "status": "production-path-template-ready-waiting-volume",
+      "sourceWarnings": [
+        "RUN_STORAGE_DIR is not set in the local development .env",
+        "deploy/production.env.example declares a persistent server path and passes npm run production:profile",
+        "Persistent storage restart evidence template is ready, but filled production restart evidence is still pending"
+      ],
+      "releaseImpact": "Uploads, generated outputs, privacy requests, and review demo data may be lost on restart if storage remains ephemeral.",
+      "unblockActions": [
+        "Choose mounted volume or object storage adapter.",
+        "Set RUN_STORAGE_DIR.",
+        "Run npm run storage:restart-template before collecting production restart evidence.",
+        "Verify uploads, generated files, data exports, and deletion requests survive restart.",
+        "Define backup and retention policy."
+      ],
+      "verificationCommands": [
+        "npm run storage:restart-template",
+        "npm run production:profile",
+        "npm run cloud:check:strict",
+        "npm run cloud:smoke",
+        "npm run review:seed"
+      ],
+      "evidenceFiles": [
+        "deploy/persistent-storage-restart-evidence-template.json",
+        "00_docs/PERSISTENT_STORAGE_RESTART_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-persistent-storage-evidence-template.mjs",
+        "deploy/production.env.example",
+        "deploy/production-release-runbook.md",
+        "deploy/cloud-deployment-action-plan.json",
+        "scripts/check-production-profile-readiness.mjs"
+      ]
+    },
+    {
+      "id": "libtv-worker-migration",
+      "area": "cloud-backend",
+      "severity": "production-blocker",
+      "owner": "engineering",
+      "status": "worker-contract-ready-waiting-target",
+      "sourceWarnings": [
+        "LIBTV_BRIDGE_URL points to localhost",
+        "LIBTV_REGISTER_SCRIPT is a Windows local path",
+        "LIBTV_DB_PATH is a Windows local path",
+        "deploy/production.env.example declares non-local worker/server paths and passes npm run production:profile",
+        "deploy/libtv-worker-api-contract.json defines the private worker API contract",
+        "libTV worker smoke evidence template is ready, but filled worker health, dry-run, idempotency, poll, cancel, failure mapping, result import, and restart evidence are still pending"
+      ],
+      "releaseImpact": "Real video generation cannot be public-ready while it depends on a local desktop service or Windows-only paths.",
+      "unblockActions": [
+        "Choose worker topology: private worker service, co-located process, or queue worker.",
+        "Create LIBTV_WORKER_TOKEN in the hosting secret manager.",
+        "Package Python, ffmpeg, libTV runtime, and storage dependencies.",
+        "Replace localhost and Windows paths with cloud/private service values.",
+        "Run npm run cloud:worker-smoke-template before collecting redacted worker smoke evidence.",
+        "Validate health, submit, poll, cancel, failure, and result import."
+      ],
+      "verificationCommands": [
+        "npm run production:profile",
+        "npm run cloud:worker-contract",
+        "npm run cloud:worker-plan",
+        "npm run cloud:worker-smoke-template",
+        "npm run cloud:check:strict",
+        "npm run cloud:smoke"
+      ],
+      "evidenceFiles": [
+        "deploy/production.env.example",
+        "deploy/production-release-runbook.md",
+        "deploy/cloud-deployment-action-plan.json",
+        "deploy/libtv-worker-api-contract.json",
+        "00_docs/LIBTV_WORKER_API_CONTRACT_2026-06-10.md",
+        "deploy/libtv-worker-smoke-evidence-template.json",
+        "00_docs/LIBTV_WORKER_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-libtv-worker-smoke-evidence-template.mjs",
+        "scripts/check-libtv-worker-contract.mjs",
+        "scripts/check-production-profile-readiness.mjs"
+      ]
+    },
+    {
+      "id": "native-build-toolchains",
+      "area": "native-capacitor-packaging",
+      "severity": "native-store-blocker",
+      "owner": "engineering",
+      "status": "waiting-for-toolchain",
+      "sourceWarnings": [
+        "ANDROID_HOME or ANDROID_SDK_ROOT is not set",
+        "JDK 8 is available, but Android Gradle plugin 8.x builds should use JDK 17 or newer",
+        "iOS build and signing validation must still run on macOS with Xcode",
+        "Native signing credentials and release archive evidence remain pending"
+      ],
+      "releaseImpact": "Native App Store / Google Play builds cannot be signed and validated from the current machine state.",
+      "unblockActions": [
+        "Install Android SDK and set ANDROID_HOME or ANDROID_SDK_ROOT.",
+        "Use JDK 17 or newer for Android Gradle.",
+        "Prepare Android upload keystore outside the repository and enroll or confirm Google Play App Signing.",
+        "Prepare Apple Developer team, distribution certificate, App Store provisioning profile, and App Store Connect app record.",
+        "Run Android Studio Gradle build and device validation.",
+        "Run iOS build/signing validation on macOS with Xcode."
+      ],
+      "verificationCommands": [
+        "npm run native:release-plan",
+        "npm run capacitor:sync",
+        "npm run capacitor:check",
+        "Android Studio Gradle build",
+        "Xcode archive/signing validation"
+      ],
+      "evidenceFiles": [
+        "store/native-release-signing-handoff.json",
+        "00_docs/NATIVE_RELEASE_SIGNING_HANDOFF_2026-06-10.md",
+        "scripts/check-native-release-signing-plan.mjs",
+        "capacitor.config.json",
+        "android/app/build.gradle",
+        "android/app/src/main/AndroidManifest.xml",
+        "android/release-signing.example.properties",
+        "android/.gitignore",
+        "ios/App/App/Info.plist",
+        "ios/App/App.xcodeproj/project.pbxproj",
+        ".gitignore",
+        "store/operator-inputs-register.json",
+        "00_docs/CAPACITOR_PACKAGING_READINESS_2026-06-09.md"
+      ]
+    },
+    {
+      "id": "native-store-screenshots",
+      "area": "store-screenshots",
+      "severity": "store-blocker",
+      "owner": "product-design",
+      "status": "blocked-until-native-build",
+      "sourceWarnings": [
+        "Store screenshot status is pending",
+        "Native store screenshots still wait for iOS/Android builds"
+      ],
+      "releaseImpact": "Store submission cannot use only web-first-pass screenshots; native device families still need store-accurate captures.",
+      "unblockActions": [
+        "Use current web screenshots as layout baseline.",
+        "Capture iOS required device-family screenshots after iOS build validation.",
+        "Capture Google Play Android phone screenshots after Android build validation.",
+        "Confirm screenshots hide private data, local paths, secrets, and TODO URLs."
+      ],
+      "verificationCommands": [
+        "npm run screenshots:native-plan",
+        "npm run screenshots:check",
+        "npm run store:check"
+      ],
+      "evidenceFiles": [
+        "store/native-store-screenshot-handoff.json",
+        "00_docs/NATIVE_STORE_SCREENSHOT_HANDOFF_2026-06-10.md",
+        "scripts/check-native-screenshot-handoff.mjs",
+        "store/screenshot-plan.json",
+        "store/screenshots/README.md",
+        "store/store-listing-copy-draft.json"
+      ]
+    },
+    {
+      "id": "mobile-device-qa-completion",
+      "area": "mobile-device-user-qa",
+      "severity": "launch-blocker",
+      "owner": "product-design",
+      "status": "manual-qa-pending",
+      "sourceWarnings": [
+        "Mobile device QA plan still has blocked Android native validation",
+        "Mobile device QA plan still has blocked iOS native validation",
+        "Mobile QA evidence template is ready, but real tester result records are still pending",
+        "PWA device install evidence template is ready, but Android/iOS install evidence is still pending",
+        "Production PWA install, review account login, and real-device upload/create flows still need manual evidence"
+      ],
+      "releaseImpact": "The current web-first-pass evidence is enough for internal iteration, but external users and store reviewers still need real-device proof for login, upload, install, safe areas, file picker, legal links, and native screenshot paths.",
+      "unblockActions": [
+        "Run npm run mobile:qa and keep the plan current.",
+        "Run npm run mobile:qa:evidence before inviting testers and use store/mobile-device-qa-evidence-template.json for result capture.",
+        "Run npm run pwa:device-template and capture Android/iOS PWA install evidence before expanding the PWA pilot.",
+        "Complete Android real-device QA after Android SDK and JDK 17+ are configured.",
+        "Complete iOS real-device or store-accurate simulator QA on macOS/Xcode.",
+        "Record production PWA install, review login, upload/create, settings/legal, and store screenshot evidence.",
+        "Update store/mobile-device-qa-plan.json statuses from blocked/manual-ready to verified states after evidence is captured."
+      ],
+      "verificationCommands": [
+        "npm run mobile:qa",
+        "npm run mobile:qa:evidence",
+        "npm run pwa:device-template",
+        "npm run release:check",
+        "Android Studio Gradle build",
+        "Xcode archive/signing validation"
+      ],
+      "evidenceFiles": [
+        "store/mobile-device-qa-plan.json",
+        "store/mobile-device-qa-evidence-template.json",
+        "00_docs/MOBILE_DEVICE_QA_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-mobile-qa-evidence-template.mjs",
+        "store/pwa-device-install-evidence-template.json",
+        "00_docs/PWA_DEVICE_INSTALL_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-pwa-device-install-evidence-template.mjs",
+        "00_docs/MOBILE_DEVICE_QA_PLAN_2026-06-09.md",
+        "store/screenshots/README.md",
+        "store/screenshot-plan.json"
+      ]
+    },
+    {
+      "id": "china-filing-and-operator",
+      "area": "china-distribution-compliance",
+      "severity": "domestic-store-blocker",
+      "owner": "business-legal",
+      "status": "domain-provided-filing-pending",
+      "sourceWarnings": [
+        "China app operator legal entity still uses a TODO placeholder",
+        "ICP filing number still uses a TODO placeholder",
+        "APP filing number still uses a TODO placeholder",
+        "China APP filing status is not-started",
+        "APP filing number display location still uses a TODO placeholder"
+      ],
+      "releaseImpact": "Domestic Android store and China public distribution materials cannot be completed without operator and filing information.",
+      "unblockActions": [
+        "Confirm operator legal entity.",
+        "Confirm domain ownership and ICP filing.",
+        "Complete APP filing.",
+        "Add filing display location to support/legal or in-app settings.",
+        "Prepare domestic channel permission and privacy materials."
+      ],
+      "verificationCommands": [
+        "npm run china:distribution-plan",
+        "npm run store:check",
+        "npm run product:report"
+      ],
+      "evidenceFiles": [
+        "store/china-distribution-compliance-handoff.json",
+        "00_docs/CHINA_DISTRIBUTION_COMPLIANCE_HANDOFF_2026-06-10.md",
+        "scripts/check-china-distribution-plan.mjs",
+        "store/submission-readiness.json",
+        "store/operator-inputs-register.json",
+        "00_docs/OPERATOR_INPUTS_HANDOFF_2026-06-10.md",
+        "store/privacy-form-fill-checklist.md",
+        "public/support.html"
+      ]
+    }
+  ],
+  "maintenanceRules": [
+    "Every public-launch warning from product:report should map to at least one blocker item.",
+    "Every blocker must have owner, status, sourceWarnings, unblockActions, verificationCommands, and evidenceFiles.",
+    "Do not mark a blocker resolved until the listed verification commands pass against the intended environment.",
+    "Do not store real passwords, API keys, signing keys, or private customer data in this register."
+  ]
+}

@@ -1,0 +1,322 @@
+{
+  "schemaVersion": "libtv-worker-smoke-evidence-template-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-worker-target",
+  "targetOrigin": "https://www.zkraiflow.top",
+  "workerVisibility": "private-api-to-worker-only",
+  "purpose": "Capture sanitized production or review-environment proof that the libTV worker can run without localhost, Windows desktop paths, browser-visible secrets, or ephemeral storage.",
+  "officialReferences": [
+    {
+      "name": "Dockerfile HEALTHCHECK",
+      "url": "https://docs.docker.com/reference/dockerfile/#healthcheck",
+      "whyItMatters": "Worker containers should expose a reliable health signal before the API sends generation tasks."
+    },
+    {
+      "name": "Kubernetes liveness, readiness, and startup probes",
+      "url": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
+      "whyItMatters": "The worker should distinguish startup, readiness, and restart behavior for long-running media tasks."
+    },
+    {
+      "name": "Cloud Run health checks",
+      "url": "https://cloud.google.com/run/docs/configuring/healthchecks",
+      "whyItMatters": "Managed container deployments need health checks that match platform restart and rollout behavior."
+    },
+    {
+      "name": "Cloud Tasks retry configuration",
+      "url": "https://cloud.google.com/tasks/docs/configuring-queues",
+      "whyItMatters": "If the worker is moved behind a queue, retry limits and idempotency must prevent duplicate paid generation."
+    }
+  ],
+  "requiredInputsOutsideRepository": [
+    {
+      "id": "workerEndpoint",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "Private service URL reachable only by the API service",
+        "Internal load balancer URL",
+        "Managed job or queue target name"
+      ],
+      "doNotStore": [
+        "private network credentials",
+        "raw signed URLs",
+        "unredacted internal hostnames if the platform treats them as sensitive"
+      ]
+    },
+    {
+      "id": "workerTokenSecret",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "Secret manager reference",
+        "Hosting platform secret name",
+        "Rotation owner and rotation interval"
+      ],
+      "doNotStore": [
+        "LIBTV_WORKER_TOKEN value",
+        "provider API keys",
+        "session cookies"
+      ]
+    },
+    {
+      "id": "runtimePackageProof",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "Container image tag plus build log hash",
+        "VM provision checklist",
+        "Managed job runtime manifest"
+      ],
+      "doNotStore": [
+        "full private build logs",
+        "API key environment dumps",
+        "customer media"
+      ]
+    },
+    {
+      "id": "storageTarget",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "Mounted persistent volume path",
+        "Object storage bucket plus prefix",
+        "Managed database reference for task state"
+      ],
+      "doNotStore": [
+        "storage access key",
+        "database password",
+        "private customer files"
+      ]
+    },
+    {
+      "id": "quotaAndCostOwner",
+      "status": "waiting-owner-input",
+      "acceptedShapes": [
+        "Named owner",
+        "Daily generation limit",
+        "Alert channel for paid provider usage"
+      ],
+      "doNotStore": [
+        "billing account secrets",
+        "full provider dashboard exports"
+      ]
+    }
+  ],
+  "smokeScenarios": [
+    {
+      "id": "worker-health-ready",
+      "status": "waiting-worker-target",
+      "request": "GET /healthz from API service or private network",
+      "expected": [
+        "status is ok or ready",
+        "storageWritable is true",
+        "libtvReady is true or dryRunOnly is explicitly true",
+        "ffmpegReady is true when real generation is enabled",
+        "queueDepth is numeric"
+      ],
+      "evidenceRequired": [
+        "redacted health response",
+        "timestamp",
+        "deployment version or image tag"
+      ]
+    },
+    {
+      "id": "unauthorized-access-rejected",
+      "status": "waiting-worker-target",
+      "request": "Call worker without service token or from browser-like client",
+      "expected": [
+        "401 or 403 response",
+        "no task is created",
+        "error response does not reveal secrets or private paths"
+      ],
+      "evidenceRequired": [
+        "redacted rejection response",
+        "confirmation that frontend bundle contains no worker token",
+        "network visibility note"
+      ]
+    },
+    {
+      "id": "submit-dry-run-task",
+      "status": "waiting-worker-target",
+      "request": "POST /tasks with dryRun=true and a review-safe prompt package",
+      "expected": [
+        "workerTaskId is returned",
+        "status starts as queued or running",
+        "taskId is recorded for idempotency",
+        "no paid provider generation is triggered"
+      ],
+      "evidenceRequired": [
+        "redacted request fields",
+        "redacted accepted response",
+        "task event id"
+      ]
+    },
+    {
+      "id": "idempotent-resubmit",
+      "status": "waiting-worker-target",
+      "request": "Repeat submit with the same taskId and idempotency key",
+      "expected": [
+        "same workerTaskId or explicit duplicate-safe response",
+        "no second generation is billed",
+        "event log records duplicate handling"
+      ],
+      "evidenceRequired": [
+        "first submit summary",
+        "second submit summary",
+        "duplicate handling note"
+      ]
+    },
+    {
+      "id": "poll-status-to-terminal",
+      "status": "waiting-worker-target",
+      "request": "GET /tasks/:workerTaskId until succeeded, failed, cancelled, or timed_out",
+      "expected": [
+        "status follows the worker API contract enum",
+        "progress is readable by the API",
+        "terminal result contains resultRefs or a mapped errorCode"
+      ],
+      "evidenceRequired": [
+        "redacted status timeline",
+        "final terminal state",
+        "API task screen or response proof"
+      ]
+    },
+    {
+      "id": "cancel-running-or-queued-task",
+      "status": "waiting-worker-target",
+      "request": "POST /tasks/:workerTaskId/cancel for a queued or controlled long-running dry-run task",
+      "expected": [
+        "cancel request is accepted",
+        "final status is cancelled or already terminal",
+        "mobile task reminder shows a user-readable state"
+      ],
+      "evidenceRequired": [
+        "redacted cancel response",
+        "status after cancel",
+        "user-facing message text"
+      ]
+    },
+    {
+      "id": "failure-code-mapping",
+      "status": "waiting-worker-target",
+      "request": "Trigger a safe synthetic failure such as missing prompt package or invalid asset reference",
+      "expected": [
+        "worker returns a documented errorCode",
+        "API maps the error to a user-readable reason",
+        "logs do not include secrets, tokens, or raw private paths"
+      ],
+      "evidenceRequired": [
+        "redacted failure response",
+        "mapped API error",
+        "log redaction note"
+      ]
+    },
+    {
+      "id": "result-import-to-api",
+      "status": "waiting-worker-target",
+      "request": "Complete a dry-run or review-safe real task and import resultRefs into the API task/result view",
+      "expected": [
+        "resultRefs are stored under RUN_STORAGE_DIR or object storage prefix",
+        "API task view can display or download the result through public-safe URLs",
+        "browser never receives worker storage credentials"
+      ],
+      "evidenceRequired": [
+        "redacted resultRefs",
+        "API task result proof",
+        "storage location class without credentials"
+      ]
+    },
+    {
+      "id": "worker-restart-resume",
+      "status": "waiting-worker-target",
+      "request": "Restart worker during or after a dry-run task, then poll task state again",
+      "expected": [
+        "health check returns ready after restart",
+        "task state remains readable",
+        "persistent storage evidence links to the same run or result"
+      ],
+      "evidenceRequired": [
+        "restart timestamp",
+        "post-restart health response",
+        "post-restart task status"
+      ]
+    }
+  ],
+  "sampleEvidenceRecord": {
+    "schemaVersion": "libtv-worker-smoke-result-v1",
+    "recordedAt": "2026-06-10T00:00:00.000Z",
+    "targetOrigin": "https://www.zkraiflow.top",
+    "environment": "review-or-production",
+    "workerEndpoint": "redacted private worker endpoint or secret-manager alias",
+    "apiOrigin": "https://www.zkraiflow.top",
+    "workerToken": "redacted; store only the secret manager reference",
+    "runtimePackage": {
+      "type": "container-image-or-managed-job",
+      "version": "redacted-image-tag-or-release-id",
+      "pythonReady": true,
+      "ffmpegReady": true,
+      "libtvReady": true
+    },
+    "storage": {
+      "runStorageDir": "/var/lib/ai-video-studio/runs",
+      "storageWritable": true,
+      "restartEvidenceFile": "store/evidence/storage-restart/YYYY-MM-DD/storage-restart-redacted.json"
+    },
+    "verifiedScenarios": [
+      "worker-health-ready",
+      "unauthorized-access-rejected",
+      "submit-dry-run-task",
+      "idempotent-resubmit",
+      "poll-status-to-terminal",
+      "cancel-running-or-queued-task",
+      "failure-code-mapping",
+      "result-import-to-api",
+      "worker-restart-resume"
+    ],
+    "evidenceFiles": [
+      "store/evidence/libtv-worker/YYYY-MM-DD/libtv-worker-smoke-redacted.json"
+    ],
+    "followUpBlockers": [
+      "libtv-worker-migration",
+      "persistent-storage",
+      "production-observability-rollback"
+    ]
+  },
+  "evidenceRules": {
+    "fileNaming": "store/evidence/libtv-worker/YYYY-MM-DD/libtv-worker-smoke-redacted.json",
+    "allowedInRepository": [
+      "redacted endpoint class",
+      "status timeline without tokens",
+      "deployment version or image tag if public-safe",
+      "scenario pass/fail summary",
+      "user-facing error text",
+      "links to public-safe screenshots or logs"
+    ],
+    "doNotStore": [
+      "LIBTV_WORKER_TOKEN value",
+      "provider API keys",
+      "session cookies",
+      "raw private upload files",
+      "customer media",
+      "database password",
+      "storage credentials",
+      "full private internal hostnames if they are sensitive",
+      "raw logs with prompts, tokens, local paths, or user data"
+    ]
+  },
+  "closeoutGates": [
+    "LIBTV_BRIDGE_URL points to a non-local private worker target.",
+    "LIBTV_REGISTER_SCRIPT and LIBTV_DB_PATH are worker/container or managed-service paths, not Windows desktop paths.",
+    "Worker health, unauthorized rejection, dry-run submit, idempotency, poll, cancel, failure mapping, result import, and restart/resume evidence are captured.",
+    "Persistent storage restart evidence links to worker result storage.",
+    "Dry-run fallback remains available for rollback.",
+    "Quota, cost, and first-week monitoring owner are assigned.",
+    "No worker secrets, provider keys, raw customer media, or private credentials are stored in repository evidence."
+  ],
+  "linkedFiles": [
+    "deploy/libtv-worker-smoke-evidence-template.json",
+    "00_docs/LIBTV_WORKER_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "scripts/check-libtv-worker-smoke-evidence-template.mjs",
+    "deploy/libtv-worker-api-contract.json",
+    "deploy/libtv-worker-storage-plan.json",
+    "deploy/cloud-deployment-action-plan.json",
+    "deploy/persistent-storage-restart-evidence-template.json",
+    "deploy/production.env.example"
+  ]
+}

@@ -1,0 +1,310 @@
+{
+  "schemaVersion": "legal-finalization-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-waiting-owner-legal-final",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Finalize public legal pages, Apple privacy details, Google Play Data safety, account deletion disclosures, AI disclosure, support contacts, data retention, and provider disclosures before public launch or store submission.",
+  "notLegalAdvice": true,
+  "officialBasis": [
+    {
+      "name": "Apple App Privacy Details",
+      "url": "https://developer.apple.com/app-store/app-privacy-details/",
+      "requirement": "App Store Connect privacy answers must identify data collected by the app and third-party partners, whether data is linked to users, and whether data is used for tracking."
+    },
+    {
+      "name": "Apple App Review Guidelines 5.1 Privacy",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "requirement": "The app metadata and in-app surfaces must include an accessible privacy policy that clearly identifies collected data, collection methods, use, and third-party sharing."
+    },
+    {
+      "name": "Google Play Data safety section",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "requirement": "Play Console declarations must disclose collected/shared data, security practices, deletion mechanisms, and third-party code behavior."
+    },
+    {
+      "name": "Google Play User Data policy",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10144311",
+      "requirement": "Personal and sensitive user data must be limited to app and service functionality, transmitted securely, and covered by required disclosures and permissions."
+    },
+    {
+      "name": "Google Play app account deletion requirements",
+      "url": "https://support.google.com/googleplay/android-developer/answer/13327111",
+      "requirement": "Apps with account creation must provide both an in-app path and a public web link where users can request account and associated data deletion."
+    },
+    {
+      "name": "CAC AI-generated synthetic content labeling measures",
+      "url": "https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm",
+      "requirement": "China-facing AI-generated content workflows need legal review for visible or implicit AI content labeling obligations."
+    }
+  ],
+  "ownerInputs": [
+    {
+      "id": "contactEmail",
+      "label": "Support email",
+      "currentValue": "TODO_CONTACT_EMAIL",
+      "requiredBefore": [
+        "store submission",
+        "public legal page finalization"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json#/app/contactEmail",
+        "public/support.html",
+        "public/legal/privacy.html",
+        "store/review-notes-template.json"
+      ]
+    },
+    {
+      "id": "contactPhone",
+      "label": "Support phone or business contact",
+      "currentValue": "TODO_CONTACT_PHONE",
+      "requiredBefore": [
+        "store submission",
+        "review escalation"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json#/app/contactPhone",
+        "public/support.html",
+        "store/review-notes-template.json"
+      ]
+    },
+    {
+      "id": "supportSla",
+      "label": "Support response commitment",
+      "currentValue": "TODO_SUPPORT_SLA",
+      "requiredBefore": [
+        "public launch"
+      ],
+      "targetDestinations": [
+        "public/support.html",
+        "store/review-notes-template.json"
+      ]
+    },
+    {
+      "id": "operatorLegalName",
+      "label": "Operator legal entity",
+      "currentValue": "TODO_OPERATOR_LEGAL_ENTITY",
+      "requiredBefore": [
+        "privacy policy final",
+        "terms final",
+        "China distribution"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json#/china/operatorName",
+        "public/legal/privacy.html",
+        "public/legal/terms.html",
+        "public/support.html"
+      ]
+    },
+    {
+      "id": "finalProviderList",
+      "label": "Final provider and SDK list",
+      "currentValue": "TODO_FINAL_PROVIDER_LIST",
+      "requiredBefore": [
+        "Apple privacy label",
+        "Google Data safety",
+        "privacy policy final"
+      ],
+      "targetDestinations": [
+        "store/privacy-data-safety-draft.json",
+        "store/privacy-form-fill-checklist.md",
+        "public/legal/privacy.html"
+      ]
+    },
+    {
+      "id": "retentionPolicy",
+      "label": "Retention and deletion policy",
+      "currentValue": "TODO_RETENTION_POLICY",
+      "requiredBefore": [
+        "privacy policy final",
+        "account deletion page final",
+        "Google data deletion answers"
+      ],
+      "targetDestinations": [
+        "public/legal/privacy.html",
+        "public/legal/delete-account.html",
+        "store/privacy-data-safety-draft.json",
+        "deploy/production-release-runbook.md"
+      ]
+    },
+    {
+      "id": "dataTrainingPolicy",
+      "label": "AI provider data training and retention policy",
+      "currentValue": "TODO_AI_PROVIDER_DATA_TRAINING_POLICY",
+      "requiredBefore": [
+        "privacy policy final",
+        "AI disclosure final",
+        "store review notes final"
+      ],
+      "targetDestinations": [
+        "public/legal/privacy.html",
+        "public/legal/ai-disclosure.html",
+        "store/privacy-data-safety-draft.json"
+      ]
+    },
+    {
+      "id": "aiGeneratedContentLabeling",
+      "label": "AI-generated content labeling policy",
+      "currentValue": "TODO_AI_GENERATED_CONTENT_LABELING_POLICY",
+      "requiredBefore": [
+        "AI disclosure final",
+        "China distribution"
+      ],
+      "targetDestinations": [
+        "public/legal/ai-disclosure.html",
+        "src/shared/compliance/aiEvidencePack.js",
+        "store/china-distribution-compliance-handoff.json"
+      ]
+    },
+    {
+      "id": "accountDeletionHandling",
+      "label": "Account deletion handling and retained-data exceptions",
+      "currentValue": "TODO_ACCOUNT_DELETION_HANDLING",
+      "requiredBefore": [
+        "account deletion page final",
+        "Google Play account deletion form"
+      ],
+      "targetDestinations": [
+        "public/legal/delete-account.html",
+        "store/privacy-data-safety-draft.json",
+        "store/submission-readiness.json#/app/accountDeletionUrl"
+      ]
+    }
+  ],
+  "legalPages": [
+    {
+      "id": "legal-hub",
+      "file": "public/legal/index.html",
+      "currentState": "draft-with-pre-release-wording",
+      "finalizationGate": "Remove pre-release wording only after all linked pages are final."
+    },
+    {
+      "id": "privacy-policy",
+      "file": "public/legal/privacy.html",
+      "currentState": "draft-with-pre-release-wording",
+      "finalizationGate": "Must include final operator, contacts, provider list, data types, sharing, retention, deletion, and user rights."
+    },
+    {
+      "id": "terms-of-service",
+      "file": "public/legal/terms.html",
+      "currentState": "draft-with-pre-release-wording",
+      "finalizationGate": "Must include final operator, user content rights, AI usage restrictions, prohibited conduct, liability, termination, and dispute handling."
+    },
+    {
+      "id": "ai-disclosure",
+      "file": "public/legal/ai-disclosure.html",
+      "currentState": "draft-with-pre-release-wording",
+      "finalizationGate": "Must include final AI provider scope, human review expectations, labeling policy, and user responsibility."
+    },
+    {
+      "id": "account-deletion",
+      "file": "public/legal/delete-account.html",
+      "currentState": "draft-with-pre-release-wording",
+      "finalizationGate": "Must include final request path, identity verification, deletion scope, processing time, retained-data exceptions, and contact channel."
+    },
+    {
+      "id": "support",
+      "file": "public/support.html",
+      "currentState": "draft-contact-placeholders",
+      "finalizationGate": "Must include monitored email, phone/contact policy, support response commitment, privacy/deletion links, and public origin."
+    }
+  ],
+  "storeForms": [
+    {
+      "id": "apple-privacy-details",
+      "status": "draft-waiting-final-provider-retention-review",
+      "sourceDraft": "store/privacy-data-safety-draft.json",
+      "consoleDestination": "App Store Connect App Privacy"
+    },
+    {
+      "id": "google-data-safety",
+      "status": "draft-waiting-final-provider-retention-review",
+      "sourceDraft": "store/privacy-data-safety-draft.json",
+      "consoleDestination": "Play Console Data safety"
+    },
+    {
+      "id": "google-account-deletion",
+      "status": "draft-waiting-final-deletion-process-review",
+      "sourceDraft": "public/legal/delete-account.html",
+      "consoleDestination": "Play Console App content account deletion"
+    },
+    {
+      "id": "review-notes",
+      "status": "draft-waiting-review-account-and-legal-final",
+      "sourceDraft": "store/review-notes-template.json",
+      "consoleDestination": "App Store Connect review information and Google Play app access instructions"
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "legal-pages-final",
+      "status": "blocked-until-owner-legal-final",
+      "requiredEvidence": [
+        "Pre-release wording removed from public legal pages",
+        "Operator and contact fields are final",
+        "Legal reviewer approval recorded outside the repository"
+      ]
+    },
+    {
+      "id": "store-privacy-forms-final",
+      "status": "blocked-until-provider-and-retention-final",
+      "requiredEvidence": [
+        "Apple privacy details approved in App Store Connect",
+        "Google Data safety answers approved in Play Console",
+        "Provider and SDK list matches production implementation"
+      ]
+    },
+    {
+      "id": "account-deletion-ready",
+      "status": "blocked-until-production-deletion-process-verified",
+      "requiredEvidence": [
+        "In-app account deletion/data rights request path works",
+        "Public deletion URL is reachable",
+        "Production deletion workflow removes or anonymizes covered records and files"
+      ]
+    },
+    {
+      "id": "ai-disclosure-final",
+      "status": "blocked-until-ai-provider-labeling-review",
+      "requiredEvidence": [
+        "AI disclosure page matches production provider behavior",
+        "AI evidence pack matches final labeling policy",
+        "China-facing AI labeling requirements reviewed before domestic distribution"
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run legal:finalization-plan",
+    "npm run compliance:check",
+    "npm run store:check",
+    "npm run owner:inputs",
+    "npm run product:report",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "store/legal-finalization-handoff.json",
+    "00_docs/LEGAL_FINALIZATION_HANDOFF_2026-06-10.md",
+    "scripts/check-legal-finalization-plan.mjs",
+    "store/privacy-data-safety-draft.json",
+    "store/privacy-form-fill-checklist.md",
+    "store/submission-readiness.json",
+    "store/release-blockers-register.json",
+    "store/operator-inputs-register.json",
+    "public/legal/index.html",
+    "public/legal/privacy.html",
+    "public/legal/terms.html",
+    "public/legal/ai-disclosure.html",
+    "public/legal/delete-account.html",
+    "public/support.html",
+    "00_docs/COMPLIANCE_RELEASE_CHECKLIST_2026-06-09.md",
+    "00_docs/DATA_RIGHTS_ACCOUNT_DELETION_FLOW_2026-06-09.md",
+    "00_docs/AI_DISCLOSURE_EVIDENCE_PACK_2026-06-09.md"
+  ],
+  "doNotCommit": [
+    "Real legal contracts or settlement documents",
+    "Identity documents or business license scans unless intentionally public",
+    "Provider API keys",
+    "Review account real password",
+    "Apple or Google account credentials",
+    "Private customer assets"
+  ]
+}

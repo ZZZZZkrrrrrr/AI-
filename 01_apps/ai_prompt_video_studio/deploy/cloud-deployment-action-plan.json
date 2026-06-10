@@ -1,0 +1,318 @@
+{
+  "schemaVersion": "cloud-deployment-action-plan-v1",
+  "updatedAt": "2026-06-10",
+  "lastReviewedAt": "2026-06-10",
+  "targetState": "Public HTTPS PWA/API deployment with authenticated CORS, secure cookies, persistent storage, and a non-local libTV worker path.",
+  "runbook": "deploy/production-release-runbook.md",
+  "basis": [
+    {
+      "name": "Capacitor configuration",
+      "url": "https://capacitorjs.com/docs/config",
+      "requirement": "Native shells must be configured with a stable app id, web directory, and origin/API behavior that works on device."
+    },
+    {
+      "name": "MDN Set-Cookie",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie",
+      "requirement": "Production authentication cookies need explicit Secure and SameSite behavior."
+    },
+    {
+      "name": "MDN Access-Control-Allow-Origin",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Allow-Origin",
+      "requirement": "Authenticated APIs should use a controlled origin allowlist rather than wildcard CORS."
+    },
+    {
+      "name": "Google Play User Data policy",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10144311",
+      "requirement": "Production data handling and deletion behavior must match privacy disclosures."
+    },
+    {
+      "name": "Apple App Review Guidelines",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "requirement": "Submitted apps must be stable, complete, and not depend on private local developer services."
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "public-origin-cors",
+      "order": 1,
+      "title": "Public origin and authenticated CORS",
+      "owner": "engineering",
+      "status": "production-profile-ready",
+      "objective": "Pin the browser/PWA/App origins that may call authenticated APIs.",
+      "warningMappings": [
+        "PUBLIC_APP_ORIGIN or CORS_ALLOWED_ORIGINS is not set",
+        "CORS_ALLOW_LOCALHOST is enabled in production"
+      ],
+      "inputs": [
+        "Final public web origin: https://www.zkraiflow.top",
+        "Final API origin if different",
+        "Capacitor WebView origin strategy",
+        "deploy/production-release-runbook.md"
+      ],
+      "productionValues": [
+        "PUBLIC_APP_ORIGIN=https://www.zkraiflow.top",
+        "CORS_ALLOWED_ORIGINS=https://www.zkraiflow.top,capacitor://localhost,https://localhost",
+        "CORS_ALLOW_CREDENTIALS=true",
+        "CORS_ALLOW_LOCALHOST=false"
+      ],
+      "evidence": [
+        "npm run production:profile verifies deploy/production.env.example against https://www.zkraiflow.top",
+        "cloud:check reports CORS allowed origins are configured",
+        "No wildcard CORS origin is used for authenticated endpoints",
+        "Mobile PWA login and task polling work from the public HTTPS origin",
+        "Production runbook explains same-origin and cross-origin deployment choices",
+        "deploy/production-auth-cors-handoff.json records origin and authenticated CORS gates",
+        "npm run production:auth-plan passes"
+      ],
+      "nextActions": [
+        "Confirm the hosting platform uses https://www.zkraiflow.top as the production origin",
+        "Configure environment variables in hosting platform",
+        "Run npm run production:auth-plan before authenticated public smoke testing",
+        "Test login and API requests from web, PWA, and packaged App origin"
+      ]
+    },
+    {
+      "id": "auth-cookie-hardening",
+      "order": 2,
+      "title": "Production authentication cookie hardening",
+      "owner": "engineering",
+      "status": "production-profile-ready",
+      "objective": "Ensure login cookies are safe for HTTPS and appropriate for the selected origin model.",
+      "warningMappings": [
+        "CONSOLE_AUTH_COOKIE_SECURE is not enabled"
+      ],
+      "inputs": [
+        "Same-origin or cross-origin API decision",
+        "HTTPS termination point",
+        "Session length policy"
+      ],
+      "productionValues": [
+        "NODE_ENV=production",
+        "CONSOLE_AUTH_COOKIE_SECURE=true",
+        "CONSOLE_AUTH_COOKIE_SAMESITE=Lax for same-origin",
+        "CONSOLE_AUTH_COOKIE_SAMESITE=None for cross-origin App/API"
+      ],
+      "evidence": [
+        "npm run production:profile verifies CONSOLE_AUTH_COOKIE_SECURE=true and a valid SameSite value",
+        "cloud:check reports Auth cookie Secure flag is enabled or production-defaulted",
+        "SameSite value is valid",
+        "Login persists after app refresh on mobile web and packaged shell",
+        "Production runbook documents SameSite=None plus Secure=true only for cross-origin App/API deployments",
+        "deploy/production-auth-cors-handoff.json records cookie policy and device-session gates",
+        "npm run production:auth-plan passes"
+      ],
+      "nextActions": [
+        "Choose SameSite policy after deployment topology is final",
+        "Set cookie variables in production environment",
+        "Validate login, refresh, logout, and session expiry on device"
+      ]
+    },
+    {
+      "id": "persistent-storage",
+      "order": 3,
+      "title": "Persistent run and asset storage",
+      "owner": "platform",
+      "status": "production-path-template-ready-waiting-volume",
+      "objective": "Move generated runs, uploads, privacy exports, and task artifacts away from ephemeral local storage.",
+      "warningMappings": [
+        "RUN_STORAGE_DIR is not set"
+      ],
+      "inputs": [
+        "Mounted volume path or object storage bucket",
+        "Backup policy",
+        "Retention and deletion policy"
+      ],
+      "productionValues": [
+        "RUN_STORAGE_DIR=/var/lib/ai-video-studio/runs"
+      ],
+      "restartEvidenceTemplate": {
+        "status": "template-ready-waiting-production-volume",
+        "templateFile": "deploy/persistent-storage-restart-evidence-template.json",
+        "runbook": "00_docs/PERSISTENT_STORAGE_RESTART_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "checkScript": "scripts/check-persistent-storage-evidence-template.mjs",
+        "checkCommand": "npm run storage:restart-template",
+        "purpose": "Record sanitized proof that uploads, generated results, exports, deletion requests, and review demo data survive API/worker restart."
+      },
+      "evidence": [
+        "npm run production:profile verifies RUN_STORAGE_DIR is a non-temporary server path",
+        "npm run storage:restart-template verifies the restart evidence template before production evidence is collected",
+        "RUN_STORAGE_DIR is set in production",
+        "Uploads and generated files survive process restart",
+        "Account export and deletion request artifacts are stored in the declared location",
+        "Production runbook defines storage restart verification"
+      ],
+      "nextActions": [
+        "Pick mounted volume or object storage adapter",
+        "Set RUN_STORAGE_DIR",
+        "Run npm run storage:restart-template",
+        "Run create/assets/export smoke test after restart"
+      ]
+    },
+    {
+      "id": "libtv-worker-service",
+      "order": 4,
+      "title": "libTV worker service migration",
+      "owner": "engineering",
+      "status": "worker-contract-ready-waiting-target",
+      "objective": "Replace local Windows libTV paths with a cloud worker, private service, or managed job runner.",
+      "warningMappings": [
+        "LIBTV_BRIDGE_URL points to localhost",
+        "LIBTV_REGISTER_SCRIPT is a Windows local path",
+        "LIBTV_DB_PATH is a Windows local path"
+      ],
+      "inputs": [
+        "Worker deployment target",
+        "Managed database or mounted SQLite path",
+        "Private network or service auth design",
+        "ffmpeg and libTV runtime availability"
+      ],
+      "productionValues": [
+        "LIBTV_BRIDGE_URL=https://libtv-worker.internal.example.com",
+        "LIBTV_WORKER_TOKEN=<hosting-secret>",
+        "LIBTV_REGISTER_SCRIPT=/app/services/libtv_runner/register_task_input.py",
+        "LIBTV_DB_PATH=/data/ai_product.sqlite"
+      ],
+      "workerSmokeEvidenceTemplate": {
+        "status": "template-ready-waiting-worker-target",
+        "templateFile": "deploy/libtv-worker-smoke-evidence-template.json",
+        "runbook": "00_docs/LIBTV_WORKER_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "checkScript": "scripts/check-libtv-worker-smoke-evidence-template.mjs",
+        "checkCommand": "npm run cloud:worker-smoke-template",
+        "purpose": "Record sanitized worker smoke proof before opening real generation to public users."
+      },
+      "evidence": [
+        "deploy/libtv-worker-api-contract.json defines worker endpoints, status enum, error codes, idempotency, auth, and storage references",
+        "npm run cloud:worker-contract passes",
+        "npm run cloud:worker-smoke-template verifies the worker smoke evidence template before production evidence is collected",
+        "npm run production:profile verifies libTV template values are non-local server/worker paths",
+        "cloud:check no longer reports localhost or Windows libTV paths",
+        "Worker health check succeeds from API service",
+        "Video job submit, poll, and result import succeed without local desktop services",
+        "Production runbook defines libTV worker migration and fallback behavior"
+      ],
+      "nextActions": [
+        "Decide worker topology",
+        "Create LIBTV_WORKER_TOKEN in the hosting secret manager",
+        "Package libTV runner dependencies",
+        "Add worker health and retry strategy",
+        "Run npm run cloud:worker-smoke-template",
+        "Run an end-to-end dry-run and then real generation smoke test"
+      ]
+    },
+    {
+      "id": "production-execution-switches",
+      "order": 5,
+      "title": "Production execution switches and limits",
+      "owner": "product-engineering",
+      "status": "release-guard-ready",
+      "objective": "Make the transition from dry-run to real video generation explicit and guarded by conservative runtime limits.",
+      "warningMappings": [
+        "LIBTV_DEFAULT_DRY_RUN is true",
+        "BATCH_MAX_WORKERS is above 5"
+      ],
+      "inputs": [
+        "Billing limits",
+        "Provider quota",
+        "Launch batch size",
+        "Rollback policy"
+      ],
+      "productionValues": [
+        "LIBTV_DEFAULT_DRY_RUN=false only after worker validation",
+        "BATCH_MAX_WORKERS=3",
+        "MODEL_REQUEST_TIMEOUT_MS=360000"
+      ],
+      "evidence": [
+        "npm run production:profile verifies LIBTV_DEFAULT_DRY_RUN=false and BATCH_MAX_WORKERS stays conservative",
+        "Real generation is disabled in staging until smoke tests pass",
+        "Production worker limit is documented and conservative",
+        "Failed jobs surface user-readable errors in mobile UI",
+        "Production runbook documents dry-run and worker limit rollout"
+      ],
+      "nextActions": [
+        "Keep dry-run true until domain, storage, and worker are ready",
+        "Set production worker limit",
+        "Run cost and quota smoke tests before enabling real generation"
+      ]
+    },
+    {
+      "id": "provider-secrets",
+      "order": 6,
+      "title": "Provider secrets and secret hygiene",
+      "owner": "engineering",
+      "status": "template-ready",
+      "objective": "Keep AI provider keys and admin credentials server-side only and rotate them through hosting secrets.",
+      "warningMappings": [
+        "QIANWEN_API_KEY missing",
+        "QIANWEN_VL_API_KEY missing",
+        "ARK_API_KEY missing",
+        "CONSOLE_AUTH_PASSWORD or CONSOLE_AUTH_PASSWORD_SHA256 missing"
+      ],
+      "inputs": [
+        "Provider API keys",
+        "Admin credential policy",
+        "Secret rotation process"
+      ],
+      "productionValues": [
+        "QIANWEN_API_KEY=<hosting-secret>",
+        "QIANWEN_VL_API_KEY=<hosting-secret>",
+        "ARK_API_KEY=<hosting-secret>",
+        "CONSOLE_AUTH_PASSWORD_SHA256=<hosting-secret>"
+      ],
+      "evidence": [
+        "cloud:check reports provider keys are configured in production environment",
+        "Frontend source does not mention private server secret names",
+        "No real secrets are committed to git",
+        "Production runbook blocks committed API keys and plaintext secrets"
+      ],
+      "nextActions": [
+        "Store keys in deployment secret manager",
+        "Use password hash rather than plaintext where possible",
+        "Rotate keys before public launch if any were used locally"
+      ]
+    },
+    {
+      "id": "observability-and-rollback",
+      "order": 7,
+      "title": "Observability, health checks, and rollback",
+      "owner": "platform",
+      "status": "smoke-template-ready",
+      "objective": "Make public deployment operable after release instead of only passing local checks.",
+      "warningMappings": [
+        "Health, deployment smoke test, and rollback evidence"
+      ],
+      "inputs": [
+        "Hosting health check path",
+        "Log retention target",
+        "Release versioning policy",
+        "Rollback procedure"
+      ],
+      "productionValues": [
+        "GET /api/healthz is load balancer health check",
+        "SMOKE_BASE_URL=https://www.zkraiflow.top",
+        "SMOKE_USERNAME=<review-safe-admin-or-demo-account>",
+        "SMOKE_PASSWORD=<hosting-secret>",
+        "PRODUCTION_AUTH_CORS_HANDOFF=deploy/production-auth-cors-handoff.json",
+        "PRODUCTION_OBSERVABILITY_ROLLBACK_PLAN=deploy/production-observability-rollback-plan.json",
+        "Release artifact is built from npm run build",
+        "Rollback target keeps previous dist and server environment"
+      ],
+      "evidence": [
+        "npm run production:profile verifies SMOKE_BASE_URL=https://www.zkraiflow.top and SMOKE_EXPECT_AUTH_REQUIRED=true",
+        "npm run production:auth-plan verifies the production auth/CORS handoff",
+        "npm run production:ops-plan verifies monitoring, rollback, log safety, and incident response gates",
+        "/api/healthz returns ok from public environment",
+        "npm run cloud:smoke passes against the public HTTPS deployment",
+        "Logs capture auth failures, task errors, and worker failures without secrets",
+        "A documented rollback path exists before store review",
+        "Production runbook documents deployment smoke checks and rollback actions",
+        "deploy/production-observability-rollback-plan.json records week-one monitoring and rollback playbooks"
+      ],
+      "nextActions": [
+        "Add hosting health check to deployment platform",
+        "Run npm run production:ops-plan before public launch",
+        "Run npm run cloud:smoke after deployment and before store review",
+        "Document rollback command or platform action"
+      ]
+    }
+  ]
+}

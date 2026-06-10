@@ -1,0 +1,284 @@
+{
+  "schemaVersion": "china-distribution-compliance-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-waiting-owner-filing-inputs",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "scope": "China public web/PWA distribution, domestic Android store preparation, operator identity, ICP filing, APP filing, privacy disclosures, and AI generated content labeling.",
+  "officialBasis": [
+    {
+      "name": "MIIT APP filing notice",
+      "url": "https://www.miit.gov.cn/zwgk/zcwj/wjfb/tz/art/2023/art_920db564162e4312916a01bed6540ad8.html",
+      "whyItMatters": "Mobile apps distributed in China need filing preparation aligned with the operator, domain, network access service, and app distribution channel."
+    },
+    {
+      "name": "MIIT ICP filing service",
+      "url": "https://beian.miit.gov.cn/",
+      "whyItMatters": "Public websites and domains used in China require an ICP filing path and visible filing information after approval."
+    },
+    {
+      "name": "CAC AI generated synthetic content labeling rules",
+      "url": "https://www.cac.gov.cn/2025-03/14/c_1743654684782215.htm",
+      "whyItMatters": "AI-generated or AI-synthetic content workflows need visible and evidence-backed labeling decisions before public distribution."
+    }
+  ],
+  "ownerInputs": [
+    {
+      "id": "operatorLegalName",
+      "currentValue": "TODO_OPERATOR_LEGAL_ENTITY",
+      "source": "store/submission-readiness.json#/china/operatorName",
+      "requiredBefore": [
+        "public China distribution",
+        "domestic Android store submission",
+        "legal page finalization"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json",
+        "public/legal/privacy.html",
+        "public/legal/terms.html",
+        "public/support.html"
+      ]
+    },
+    {
+      "id": "domainOwnershipAndAccessProvider",
+      "currentValue": "www.zkraiflow.top provided, filing owner not confirmed",
+      "source": "owner/business-legal",
+      "requiredBefore": [
+        "ICP filing",
+        "APP filing"
+      ],
+      "targetDestinations": [
+        "MIIT filing portal",
+        "domain registrar records",
+        "hosting provider records"
+      ]
+    },
+    {
+      "id": "icpFilingNumber",
+      "currentValue": "TODO_ICP_FILING_NUMBER",
+      "source": "store/submission-readiness.json#/china/icpFilingNumber",
+      "requiredBefore": [
+        "China public website launch",
+        "domestic Android store submission"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json",
+        "public/support.html or public legal page display area"
+      ]
+    },
+    {
+      "id": "appFilingNumber",
+      "currentValue": "TODO_APP_FILING_NUMBER",
+      "source": "store/submission-readiness.json#/china/appFilingNumber",
+      "requiredBefore": [
+        "China mobile app distribution",
+        "domestic Android store submission"
+      ],
+      "targetDestinations": [
+        "store/submission-readiness.json",
+        "public/support.html or in-app Settings filing display area"
+      ]
+    },
+    {
+      "id": "filingDisplayLocation",
+      "currentValue": "TODO_DISPLAY_APP_FILING_NUMBER_IN_APP",
+      "source": "store/submission-readiness.json#/china/filingDisplayLocation",
+      "requiredBefore": [
+        "public China distribution"
+      ],
+      "targetDestinations": [
+        "public/support.html",
+        "public/legal/index.html",
+        "Settings App readiness/legal area if shown in-app"
+      ]
+    },
+    {
+      "id": "aiGeneratedContentLabeling",
+      "currentValue": "draft-evidence-pack-ready",
+      "source": "00_docs/AI_DISCLOSURE_EVIDENCE_PACK_2026-06-09.md",
+      "requiredBefore": [
+        "public AI generated content release",
+        "domestic store review"
+      ],
+      "targetDestinations": [
+        "public/legal/ai-disclosure.html",
+        "store/privacy-data-safety-draft.json",
+        "generated output evidence pack"
+      ]
+    },
+    {
+      "id": "chinaPrivacyAndPermissionMaterials",
+      "currentValue": "draft-structured",
+      "source": "store/privacy-form-fill-checklist.md",
+      "requiredBefore": [
+        "domestic Android store submission"
+      ],
+      "targetDestinations": [
+        "privacy policy",
+        "permission descriptions",
+        "SDK/provider list",
+        "account deletion path"
+      ]
+    }
+  ],
+  "requiredSurfaces": [
+    {
+      "id": "public-support-page",
+      "file": "public/support.html",
+      "mustEventuallyShow": [
+        "operator legal entity",
+        "ICP filing number after approval",
+        "APP filing number after approval or a clear in-app display location",
+        "support contact"
+      ],
+      "currentState": "placeholder-owner-input-needed"
+    },
+    {
+      "id": "settings-page",
+      "file": "src/features/settings/SettingsPage.jsx",
+      "mustEventuallyShow": [
+        "privacy and support links",
+        "account data export",
+        "account deletion request",
+        "filing display location if public page is not sufficient"
+      ],
+      "currentState": "app-readiness-center-ready-filing-values-pending"
+    },
+    {
+      "id": "legal-pages",
+      "file": "public/legal/index.html",
+      "mustEventuallyShow": [
+        "privacy policy",
+        "terms",
+        "AI disclosure",
+        "account deletion"
+      ],
+      "currentState": "draft-structured-pending-legal-final"
+    },
+    {
+      "id": "domestic-store-console",
+      "file": "store/submission-readiness.json",
+      "mustEventuallyShow": [
+        "operator legal name",
+        "ICP filing number",
+        "APP filing number",
+        "privacy URL",
+        "account deletion URL",
+        "permission and SDK notes"
+      ],
+      "currentState": "tracked-with-todo-values"
+    }
+  ],
+  "filingWorkflow": [
+    {
+      "step": 1,
+      "title": "Confirm operator and domain ownership",
+      "owner": "business-legal",
+      "exitCriteria": [
+        "Operator legal entity is final.",
+        "Domain www.zkraiflow.top ownership and access provider are confirmed.",
+        "Hosting region and public network access provider are known."
+      ]
+    },
+    {
+      "step": 2,
+      "title": "Complete ICP filing path for website/PWA",
+      "owner": "business-legal",
+      "exitCriteria": [
+        "ICP filing number is approved or public China launch remains blocked.",
+        "ICP display location is chosen.",
+        "support/legal page copy is updated after approval."
+      ]
+    },
+    {
+      "step": 3,
+      "title": "Complete APP filing path for packaged app",
+      "owner": "business-legal",
+      "exitCriteria": [
+        "APP filing number is approved before domestic app distribution.",
+        "APP filing display location is documented.",
+        "Domestic store metadata matches operator and filing records."
+      ]
+    },
+    {
+      "step": 4,
+      "title": "Finalize privacy, SDK, permissions, and AI disclosure",
+      "owner": "product-legal",
+      "exitCriteria": [
+        "Final provider and SDK list is confirmed.",
+        "AI generated content disclosure and labeling evidence are final.",
+        "Data retention and deletion policy is final."
+      ]
+    },
+    {
+      "step": 5,
+      "title": "Run release verification",
+      "owner": "product-ops",
+      "exitCriteria": [
+        "npm run china:distribution-plan passes.",
+        "npm run store:check passes with no China TODO warnings.",
+        "npm run compliance:check passes after legal final wording.",
+        "npm run release:check passes against production-ready owner inputs."
+      ]
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "china-public-web",
+      "status": "blocked-until-operator-icp-and-contact-final",
+      "requiredEvidence": [
+        "operatorLegalName",
+        "icpFilingNumber",
+        "filingDisplayLocation",
+        "support contact",
+        "final privacy policy"
+      ]
+    },
+    {
+      "id": "domestic-android-store",
+      "status": "blocked-until-app-filing-native-build-and-store-materials",
+      "requiredEvidence": [
+        "appFilingNumber",
+        "domestic store screenshots",
+        "review account",
+        "permission and SDK notes",
+        "privacy and account deletion URLs"
+      ]
+    },
+    {
+      "id": "ai-generated-content-release",
+      "status": "draft-ready-pending-legal-final",
+      "requiredEvidence": [
+        "public AI disclosure page",
+        "output evidence pack",
+        "human review note",
+        "content labeling policy"
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run china:distribution-plan",
+    "npm run store:check",
+    "npm run compliance:check",
+    "npm run owner:inputs",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "store/submission-readiness.json",
+    "store/operator-inputs-register.json",
+    "store/release-blockers-register.json",
+    "store/privacy-form-fill-checklist.md",
+    "public/support.html",
+    "public/legal/privacy.html",
+    "public/legal/ai-disclosure.html",
+    "00_docs/AI_DISCLOSURE_EVIDENCE_PACK_2026-06-09.md",
+    "00_docs/CHINA_DISTRIBUTION_COMPLIANCE_HANDOFF_2026-06-10.md"
+  ],
+  "doNotCommit": [
+    "business license scan",
+    "identity document image",
+    "filing portal password",
+    "SMS verification code",
+    "provider API keys",
+    "signing credentials"
+  ]
+}

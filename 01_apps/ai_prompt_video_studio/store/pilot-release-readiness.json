@@ -1,0 +1,291 @@
+{
+  "schemaVersion": "pilot-release-readiness-v1",
+  "updatedAt": "2026-06-10",
+  "status": "pilot-ready-with-manual-production-gates",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Create a controlled pilot path for the mobile web and installable PWA experience without treating the product as ready for public launch or app store submission.",
+  "decision": {
+    "recommendedPilotChannels": [
+      "mobile-web",
+      "pwa"
+    ],
+    "notAReleaseApproval": true,
+    "reason": "The mobile beginner UI, public pages, PWA assets, screenshots, and release evidence gates are documented. Public launch, store submission, native builds, authenticated production smoke, storage, worker, legal, contact, and owner inputs remain blocked."
+  },
+  "invitePack": {
+    "status": "template-ready-waiting-named-pilot-owners",
+    "file": "store/pilot-invite-pack.json",
+    "runbook": "00_docs/PILOT_INVITE_PACK_2026-06-10.md",
+    "checkScript": "scripts/check-pilot-invite-pack.mjs",
+    "checkCommand": "npm run pilot:invite-pack",
+    "purpose": "Provide private invite text, tester safety rules, success metrics, stop rules, and evidence outputs for 3-5 friendly testers before any public launch."
+  },
+  "pilotScope": {
+    "allowedAudience": [
+      "Founder and internal operators",
+      "Invited friendly testers",
+      "Design, QA, and store-review preparation users"
+    ],
+    "allowedChannels": [
+      {
+        "id": "mobile-web",
+        "entryUrl": "https://www.zkraiflow.top/",
+        "purpose": "Fastest phone-first trial path for the beginner large-button workflow."
+      },
+      {
+        "id": "pwa",
+        "entryUrl": "https://www.zkraiflow.top/",
+        "purpose": "Home-screen install trial for Android Chrome and iOS Safari before store distribution."
+      }
+    ],
+    "allowedCapabilities": [
+      "Open the beginner mobile home and large action buttons",
+      "Switch image/text and video task modes",
+      "Open the compact task reminder panel",
+      "Review create, assets, stitch, settings, support, privacy, AI disclosure, and account deletion surfaces",
+      "Submit pilot feedback from the mobile settings page and review feedback status",
+      "Run review-safe dry-run tasks only when the environment keeps real generation disabled"
+    ],
+    "notAllowed": [
+      "Do not market this as a public production launch",
+      "Do not submit to App Store, Google Play, or domestic Android stores from this status",
+      "Do not enable paid or public real video generation until worker and persistent storage evidence is complete",
+      "Do not store tester passwords, private uploads, signing keys, API keys, or unredacted logs in the repository",
+      "Do not mark release blockers resolved from pilot feedback alone"
+    ]
+  },
+  "preflightCommands": [
+    "npm run pilot:invite-pack",
+    "npm run pilot:readiness",
+    "npm run pilot:feedback",
+    "npm run mobile:check",
+    "npm run mobile:qa",
+    "npm run public:check",
+    "npm run pwa:prod-plan",
+    "npm run pwa:public-smoke",
+    "npm run release:evidence",
+    "npm run release:check"
+  ],
+  "gates": [
+    {
+      "id": "public-pages-smoke",
+      "title": "Public pages and HTTPS origin",
+      "status": "ready-for-pilot",
+      "owner": "engineering",
+      "requiredBefore": [
+        "mobile-web pilot",
+        "PWA pilot"
+      ],
+      "commands": [
+        "npm run public:check",
+        "npm run pwa:public-smoke"
+      ],
+      "evidence": [
+        "00_docs/PUBLIC_DOMAIN_READINESS_2026-06-09.md",
+        "store/release-channel-plan.json"
+      ],
+      "pilotRule": "The public origin can be used for an invited pilot only while release blockers still remain active."
+    },
+    {
+      "id": "mobile-web-ui",
+      "title": "Beginner mobile UI and notification panel",
+      "status": "ready-for-pilot",
+      "owner": "product-design",
+      "requiredBefore": [
+        "mobile-web pilot"
+      ],
+      "commands": [
+        "npm run mobile:check",
+        "npm run screenshots:check"
+      ],
+      "evidence": [
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-390/02-home-notifications.png",
+        "00_docs/MOBILE_BUTTON_STYLE_ACCEPTANCE_2026-06-09.md"
+      ],
+      "pilotRule": "The notification panel must stay compact on 390px phones and must not cover the bottom navigation."
+    },
+    {
+      "id": "pwa-install-smoke",
+      "title": "PWA install and offline behavior",
+      "status": "pending-production-device-smoke",
+      "owner": "engineering",
+      "requiredBefore": [
+        "PWA pilot beyond internal operators"
+      ],
+      "commands": [
+        "npm run pwa:check",
+        "npm run pwa:prod-plan",
+        "npm run pwa:public-smoke"
+      ],
+      "evidence": [
+        "store/pwa-production-smoke-plan.json",
+        "00_docs/PWA_PRODUCTION_INSTALL_SMOKE_2026-06-10.md",
+        "store/screenshots/mobile-web-390/08-pwa-install-guide.png"
+      ],
+      "pilotRule": "Android install and iOS Add to Home Screen should be captured on real devices before using PWA as the main pilot channel."
+    },
+    {
+      "id": "pilot-feedback-loop",
+      "title": "Pilot feedback intake and triage",
+      "status": "internal-ready",
+      "owner": "product-ops",
+      "requiredBefore": [
+        "friendly-user pilot",
+        "external pilot"
+      ],
+      "commands": [
+        "npm run pilot:feedback",
+        "npm run mobile:check"
+      ],
+      "evidence": [
+        "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md",
+        "scripts/check-pilot-feedback-readiness.mjs",
+        "src/features/settings/SettingsPage.jsx",
+        "server.js"
+      ],
+      "pilotRule": "Every invited pilot should have a visible mobile feedback path and a named human reviewer before testers start."
+    },
+    {
+      "id": "auth-session",
+      "title": "Review-safe login and authenticated smoke",
+      "status": "blocked-until-review-account",
+      "owner": "product-ops",
+      "requiredBefore": [
+        "authenticated pilot",
+        "store reviewer path"
+      ],
+      "commands": [
+        "npm run production:auth-plan",
+        "npm run review:access-plan",
+        "npm run review:seed:dry",
+        "npm run cloud:smoke"
+      ],
+      "evidence": [
+        "store/review-access-handoff.json",
+        "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md",
+        "deploy/production-auth-cors-handoff.json"
+      ],
+      "pilotRule": "Use a dedicated review-safe account and never commit real credentials."
+    },
+    {
+      "id": "storage-worker",
+      "title": "Persistent storage and libTV worker",
+      "status": "blocked-for-real-generation",
+      "owner": "platform",
+      "requiredBefore": [
+        "real video generation",
+        "public launch"
+      ],
+      "commands": [
+        "npm run cloud:worker-plan",
+        "npm run production:profile",
+        "npm run cloud:check:strict"
+      ],
+      "evidence": [
+        "deploy/libtv-worker-storage-plan.json",
+        "00_docs/LIBTV_WORKER_STORAGE_MIGRATION_2026-06-10.md",
+        "deploy/production.env.example"
+      ],
+      "pilotRule": "Keep LIBTV_DEFAULT_DRY_RUN=true until persistent storage and worker smoke evidence are complete."
+    },
+    {
+      "id": "support-legal",
+      "title": "Support, privacy, AI disclosure, and data rights",
+      "status": "waiting-owner-and-legal-finalization",
+      "owner": "product-legal",
+      "requiredBefore": [
+        "external pilot",
+        "store submission"
+      ],
+      "commands": [
+        "npm run legal:finalization-plan",
+        "npm run compliance:check",
+        "npm run store:check"
+      ],
+      "evidence": [
+        "store/legal-finalization-handoff.json",
+        "public/support.html",
+        "public/legal/privacy.html",
+        "public/legal/ai-disclosure.html",
+        "public/legal/delete-account.html"
+      ],
+      "pilotRule": "Do not invite users beyond friendly testers until support contact and legal copy are final enough for real users."
+    },
+    {
+      "id": "rollback-monitoring",
+      "title": "Monitoring, rollback, and incident handling",
+      "status": "handoff-ready-pending-hosting-evidence",
+      "owner": "platform",
+      "requiredBefore": [
+        "external pilot",
+        "public launch"
+      ],
+      "commands": [
+        "npm run production:ops-plan",
+        "npm run production:handoff"
+      ],
+      "evidence": [
+        "deploy/production-observability-rollback-plan.json",
+        "00_docs/PRODUCTION_OBSERVABILITY_ROLLBACK_2026-06-10.md",
+        "deploy/production-release-runbook.md"
+      ],
+      "pilotRule": "Assign a human owner for same-day rollback and support review before inviting testers."
+    },
+    {
+      "id": "privacy-secrets-safety",
+      "title": "Evidence, privacy, and secret-safety rules",
+      "status": "guarded-ready-for-pilot",
+      "owner": "release-ops",
+      "requiredBefore": [
+        "all pilot stages"
+      ],
+      "commands": [
+        "npm run release:evidence",
+        "npm run owner:inputs"
+      ],
+      "evidence": [
+        "store/release-evidence-register.json",
+        "store/evidence/README.md",
+        "00_docs/RELEASE_EVIDENCE_REGISTER_2026-06-10.md",
+        "store/operator-inputs-register.json"
+      ],
+      "pilotRule": "Repository evidence can describe readiness, but private credentials and user assets stay outside the repository."
+    }
+  ],
+  "pilotRunbook": [
+    "Confirm the pilot audience, date range, support owner, and rollback owner.",
+    "Run npm run pilot:readiness and npm run release:check from the app folder.",
+    "Keep the pilot limited to mobile web first; enable PWA install only after device install smoke is captured.",
+    "Set PUBLIC_APP_ORIGIN and CORS_ALLOWED_ORIGINS to https://www.zkraiflow.top in production before authenticated testing.",
+    "Create review-safe credentials in the password manager and run authenticated smoke only after the account exists.",
+    "Keep LIBTV_DEFAULT_DRY_RUN=true until worker, storage, and real generation evidence are complete.",
+    "Collect feedback against the large-button beginner flows, notification panel, install guide, create flow, assets, settings, and legal pages.",
+    "Review /api/support/feedback entries daily during the pilot and close issues only after the fix is verified.",
+    "Log pilot issues as follow-up work; do not close public-launch or store-submission blockers without matching evidence."
+  ],
+  "evidenceFiles": [
+    "store/pilot-release-readiness.json",
+    "store/pilot-invite-pack.json",
+    "00_docs/PILOT_INVITE_PACK_2026-06-10.md",
+    "scripts/check-pilot-invite-pack.mjs",
+    "00_docs/PILOT_RELEASE_READINESS_2026-06-10.md",
+    "scripts/check-pilot-release-readiness.mjs",
+    "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md",
+    "scripts/check-pilot-feedback-readiness.mjs",
+    "store/release-channel-plan.json",
+    "store/release-blockers-register.json",
+    "store/mobile-device-qa-plan.json",
+    "store/pwa-production-smoke-plan.json",
+    "store/release-evidence-register.json",
+    "store/screenshots/mobile-web-390/02-home-notifications.png"
+  ],
+  "doNotStore": [
+    "real tester or reviewer passwords",
+    "API keys or provider tokens",
+    "Android keystores or Apple signing material",
+    "private user uploads or generated videos",
+    "unredacted production logs",
+    "store console screenshots that reveal account, billing, or signing information"
+  ]
+}

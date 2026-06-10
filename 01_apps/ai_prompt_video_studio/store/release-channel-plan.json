@@ -1,0 +1,285 @@
+{
+  "schemaVersion": "app-release-channel-plan-v1",
+  "updatedAt": "2026-06-10",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "recommendedOrder": [
+    "mobile-web",
+    "pwa",
+    "capacitor-android",
+    "capacitor-ios",
+    "domestic-android"
+  ],
+  "decisionSummary": {
+    "currentBestChannel": "mobile-web",
+    "nextBestChannel": "pwa",
+    "nativePackagingPolicy": "Use Capacitor after production auth, storage, privacy forms, review account, and real-device QA are ready. Do not submit a native store build that behaves like a thin web wrapper.",
+    "reason": "The project already has mobile web screenshots, PWA assets, public pages, and Capacitor projects. External release is still gated by production auth/CORS, persistent storage, support contacts, privacy forms, review account, signing, and device validation."
+  },
+  "officialBasis": [
+    {
+      "name": "MDN - Making PWAs installable",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable",
+      "appliesTo": [
+        "pwa",
+        "mobile-web"
+      ],
+      "localRequirement": "Keep manifest, icons, secure production origin, install prompt, offline fallback, and browser-tested mobile UX in the release gate."
+    },
+    {
+      "name": "Capacitor - Development workflow",
+      "url": "https://capacitorjs.com/docs/basics/workflow",
+      "appliesTo": [
+        "capacitor-android",
+        "capacitor-ios"
+      ],
+      "localRequirement": "Build the web app, sync it into native projects, then validate the Android and iOS projects with native toolchains."
+    },
+    {
+      "name": "Apple App Store Review Guidelines - Minimum Functionality",
+      "url": "https://developer.apple.com/app-store/review/guidelines/#minimum-functionality",
+      "appliesTo": [
+        "capacitor-ios"
+      ],
+      "localRequirement": "Treat native iOS submission as blocked until the packaged app proves useful app behavior beyond a basic website shell and reviewer access works."
+    },
+    {
+      "name": "Apple App Privacy Details",
+      "url": "https://developer.apple.com/app-store/app-privacy-details/",
+      "appliesTo": [
+        "capacitor-ios"
+      ],
+      "localRequirement": "Complete privacy nutrition answers from the production data flow before App Store submission."
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "appliesTo": [
+        "capacitor-android",
+        "domestic-android"
+      ],
+      "localRequirement": "Complete Data safety answers for account info, user content, photos/videos, app activity, diagnostics, and deletion behavior."
+    },
+    {
+      "name": "Google Play account deletion requirements",
+      "url": "https://support.google.com/googleplay/android-developer/answer/13327111",
+      "appliesTo": [
+        "capacitor-android"
+      ],
+      "localRequirement": "Keep the public account deletion URL working and linked from store metadata when account creation is enabled."
+    }
+  ],
+  "channels": [
+    {
+      "id": "mobile-web",
+      "title": "Mobile web first release",
+      "stage": 1,
+      "status": "pilot-ready-with-production-auth-gate",
+      "owner": "engineering",
+      "launchUse": "Fastest path for a closed pilot on the public domain.",
+      "targetAudience": "Founder, internal operators, invited early users, and store reviewers before native packaging.",
+      "entryUrl": "https://www.zkraiflow.top/",
+      "mustHaveEvidence": [
+        "store/screenshots/mobile-web-390/01-home.png",
+        "store/screenshots/mobile-web-390/02-home-notifications.png",
+        "store/screenshots/mobile-web-390/03-home-image.png",
+        "00_docs/MOBILE_BUTTON_STYLE_ACCEPTANCE_2026-06-09.md",
+        "00_docs/PUBLIC_DOMAIN_READINESS_2026-06-09.md",
+        "store/pilot-release-readiness.json",
+        "00_docs/PILOT_RELEASE_READINESS_2026-06-10.md",
+        "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md"
+      ],
+      "verificationCommands": [
+        "npm run pilot:readiness",
+        "npm run pilot:feedback",
+        "npm run mobile:check",
+        "npm run mobile:qa",
+        "npm run public:check",
+        "npm run cloud:smoke"
+      ],
+      "openGates": [
+        "Production auth, CORS, and secure cookie smoke test with a review-safe account",
+        "Persistent storage verification",
+        "Support contact and privacy wording finalization"
+      ]
+    },
+    {
+      "id": "pwa",
+      "title": "Installable PWA",
+      "stage": 2,
+      "status": "internal-ready-pending-production-install-smoke",
+      "owner": "engineering",
+      "launchUse": "Install-to-home-screen release for Android Chrome and iOS Safari users before store submission.",
+      "targetAudience": "Pilot users who need a home-screen icon but do not need App Store or Google Play distribution yet.",
+      "entryUrl": "https://www.zkraiflow.top/",
+      "mustHaveEvidence": [
+        "public/manifest.webmanifest",
+        "public/sw.js",
+        "public/offline.html",
+        "public/icons/icon-192.png",
+        "public/icons/icon-512.png",
+        "public/icons/icon-maskable-512.png",
+        "store/pwa-production-smoke-plan.json",
+        "scripts/check-pwa-production-smoke-plan.mjs",
+        "scripts/check-pwa-public-smoke.mjs",
+        "00_docs/PWA_PRODUCTION_INSTALL_SMOKE_2026-06-10.md",
+        "00_docs/PWA_APP_PACKAGING_ROADMAP_2026-06-09.md",
+        "store/pilot-release-readiness.json",
+        "00_docs/PILOT_RELEASE_READINESS_2026-06-10.md",
+        "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md"
+      ],
+      "verificationCommands": [
+        "npm run pilot:readiness",
+        "npm run pilot:feedback",
+        "npm run pwa:check",
+        "npm run pwa:prod-plan",
+        "npm run pwa:public-smoke",
+        "npm run public:check",
+        "npm run screenshots:check",
+        "npm run cloud:smoke"
+      ],
+      "openGates": [
+        "Install prompt and iOS add-to-home-screen smoke on production origin",
+        "Offline page and update prompt verified after deployment",
+        "Authenticated API behavior verified under HTTPS"
+      ]
+    },
+    {
+      "id": "capacitor-android",
+      "title": "Capacitor Android",
+      "stage": 3,
+      "status": "waiting-for-android-toolchain-signing-and-data-safety",
+      "owner": "engineering",
+      "launchUse": "Google Play or direct Android package after mobile web/PWA behavior is stable.",
+      "targetAudience": "Android users who need store distribution, managed installs, or native shell behavior.",
+      "entryUrl": "top.zkraiflow.aivideostudio",
+      "mustHaveEvidence": [
+        "capacitor.config.json",
+        "android/app/build.gradle",
+        "android/app/src/main/AndroidManifest.xml",
+        "00_docs/CAPACITOR_PACKAGING_READINESS_2026-06-09.md",
+        "store/privacy-data-safety-draft.json"
+      ],
+      "verificationCommands": [
+        "npm run build",
+        "npm run capacitor:sync",
+        "npm run capacitor:check",
+        "npm run store:check"
+      ],
+      "openGates": [
+        "Android SDK and JDK 17+ available",
+        "Signing key and package ownership confirmed",
+        "Google Play Data safety answers finalized",
+        "Review account seeded and cloud smoke passed",
+        "Real Android device install, file picker, download/open links, safe area, login, and deletion request verified"
+      ]
+    },
+    {
+      "id": "capacitor-ios",
+      "title": "Capacitor iOS",
+      "stage": 4,
+      "status": "waiting-for-macos-xcode-signing-privacy-and-review-account",
+      "owner": "engineering",
+      "launchUse": "App Store package after native behavior and reviewer path are strong enough for App Review.",
+      "targetAudience": "iPhone/iPad users who need App Store distribution.",
+      "entryUrl": "top.zkraiflow.aivideostudio",
+      "mustHaveEvidence": [
+        "capacitor.config.json",
+        "ios/App/App/Info.plist",
+        "00_docs/CAPACITOR_PACKAGING_READINESS_2026-06-09.md",
+        "store/review-notes-template.json",
+        "store/privacy-data-safety-draft.json"
+      ],
+      "verificationCommands": [
+        "npm run build",
+        "npm run capacitor:sync",
+        "npm run capacitor:check",
+        "npm run store:check"
+      ],
+      "openGates": [
+        "macOS/Xcode archive and signing validation",
+        "Apple Developer account and bundle identifier ownership confirmed",
+        "Apple privacy details finalized",
+        "Review account and reviewer notes completed",
+        "Packaged app demonstrates real workflow value beyond a thin website shell",
+        "iPhone/iPad safe area, file picker, support/legal links, data export, and deletion request verified"
+      ]
+    },
+    {
+      "id": "domestic-android",
+      "title": "Domestic Android store package",
+      "stage": 5,
+      "status": "waiting-for-operator-filings-and-channel-policy",
+      "owner": "business-ops",
+      "launchUse": "China Android channel package after operator filings and legal identity are ready.",
+      "targetAudience": "China Android users reached through domestic app stores or direct enterprise distribution.",
+      "entryUrl": "www.zkraiflow.top",
+      "mustHaveEvidence": [
+        "store/submission-readiness.json",
+        "00_docs/STORE_SUBMISSION_READINESS_2026-06-09.md",
+        "00_docs/COMPLIANCE_RELEASE_CHECKLIST_2026-06-09.md"
+      ],
+      "verificationCommands": [
+        "npm run store:check",
+        "npm run compliance:check",
+        "npm run owner:inputs"
+      ],
+      "openGates": [
+        "Operator legal entity confirmed",
+        "ICP filing and app filing confirmed where required",
+        "Channel-specific privacy and permission disclosures finalized",
+        "Domestic store screenshots and review material prepared"
+      ]
+    }
+  ],
+  "crossChannelGates": [
+    {
+      "id": "production-cloud",
+      "title": "Production cloud behavior",
+      "status": "blocked-until-auth-storage-worker-smoke",
+      "requiredBefore": [
+        "mobile-web",
+        "pwa",
+        "capacitor-android",
+        "capacitor-ios",
+        "domestic-android"
+      ],
+      "evidence": [
+        "deploy/production.env.example",
+        "00_docs/PRODUCTION_DEPLOYMENT_HANDOFF_2026-06-10.md",
+        "deploy/cloud-deployment-action-plan.json"
+      ]
+    },
+    {
+      "id": "privacy-and-support",
+      "title": "Privacy, AI disclosure, and support identity",
+      "status": "blocked-until-owner-and-legal-finalization",
+      "requiredBefore": [
+        "pwa",
+        "capacitor-android",
+        "capacitor-ios",
+        "domestic-android"
+      ],
+      "evidence": [
+        "public/legal/privacy.html",
+        "public/legal/ai-disclosure.html",
+        "public/support.html",
+        "store/privacy-data-safety-draft.json"
+      ]
+    },
+    {
+      "id": "reviewer-path",
+      "title": "Review account and seeded demo path",
+      "status": "blocked-until-real-review-account",
+      "requiredBefore": [
+        "capacitor-android",
+        "capacitor-ios",
+        "domestic-android"
+      ],
+      "evidence": [
+        "store/review-notes-template.json",
+        "scripts/seed-review-demo.mjs",
+        "store/operator-inputs-register.json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,244 @@
+{
+  "schemaVersion": "pilot-invite-pack-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-named-pilot-owners",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "purpose": "Provide a controlled, non-public invite package for beginner-friendly mobile web and PWA pilot testing before public launch or store submission.",
+  "officialReferences": [
+    {
+      "name": "web.dev PWA installation",
+      "url": "https://web.dev/learn/pwa/installation",
+      "appliesTo": [
+        "pwa-install",
+        "home-screen-launch"
+      ]
+    },
+    {
+      "name": "Chrome Lighthouse PWA installability",
+      "url": "https://developer.chrome.com/docs/lighthouse/pwa/installable-manifest",
+      "appliesTo": [
+        "installable-manifest",
+        "pwa-preflight"
+      ]
+    },
+    {
+      "name": "Apple TestFlight beta testing",
+      "url": "https://developer.apple.com/help/app-store-connect/test-a-beta-version/overview-of-testing-with-testflight/",
+      "appliesTo": [
+        "future-ios-native-beta",
+        "not-current-pilot-channel"
+      ]
+    },
+    {
+      "name": "Google Play open, closed, or internal testing",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9845334",
+      "appliesTo": [
+        "future-android-native-beta",
+        "not-current-pilot-channel"
+      ]
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "appliesTo": [
+        "privacy",
+        "tester-data-handling"
+      ]
+    }
+  ],
+  "pilotChannels": [
+    {
+      "id": "mobile-web",
+      "status": "allowed-for-invited-pilot",
+      "entryUrl": "https://www.zkraiflow.top/",
+      "audience": "internal operators and invited friendly testers",
+      "rule": "Use as the first pilot channel because it does not require native signing or store review."
+    },
+    {
+      "id": "pwa",
+      "status": "allowed-after-device-install-smoke",
+      "entryUrl": "https://www.zkraiflow.top/",
+      "audience": "invited Android Chrome and iOS Safari testers",
+      "rule": "Use only after real-device install, standalone launch, and offline fallback evidence are captured."
+    },
+    {
+      "id": "testflight-ios",
+      "status": "blocked-until-ios-build-and-signing",
+      "entryUrl": "App Store Connect TestFlight",
+      "audience": "future iOS native beta testers",
+      "rule": "Do not invite through TestFlight until the iOS Capacitor build, signing, screenshots, and review-safe data are ready."
+    },
+    {
+      "id": "google-play-testing",
+      "status": "blocked-until-android-build-and-signing",
+      "entryUrl": "Google Play Console testing track",
+      "audience": "future Android native beta testers",
+      "rule": "Do not invite through Google Play testing until the Android build, signing, screenshots, and review-safe data are ready."
+    }
+  ],
+  "pilotRoles": [
+    {
+      "id": "pilot-owner",
+      "status": "waiting-owner-input",
+      "responsibilities": [
+        "decide invite list",
+        "pause pilot when P0 issues appear",
+        "approve daily go/no-go"
+      ]
+    },
+    {
+      "id": "support-reviewer",
+      "status": "waiting-owner-input",
+      "responsibilities": [
+        "review feedback daily",
+        "answer tester questions",
+        "copy P0 issues into the release blocker register"
+      ]
+    },
+    {
+      "id": "rollback-owner",
+      "status": "waiting-owner-input",
+      "responsibilities": [
+        "restore the previous deployment",
+        "disable public invites",
+        "confirm dry-run mode stays enabled when worker/storage gates are incomplete"
+      ]
+    }
+  ],
+  "preInviteChecklist": [
+    "npm run pilot:invite-pack",
+    "npm run pilot:readiness",
+    "npm run pilot:feedback",
+    "npm run mobile:qa:evidence",
+    "npm run public:check",
+    "npm run pwa:public-smoke",
+    "npm run release:evidence",
+    "npm run product:report"
+  ],
+  "testerInviteTemplate": {
+    "channel": "private chat or email",
+    "subject": "AI video workspace mobile pilot",
+    "messageBlocks": [
+      "This is an invited pilot, not a public launch.",
+      "Please open https://www.zkraiflow.top on your phone.",
+      "Try to finish one simple task: choose a large button, add a demo product image, generate or paste a prompt, submit a dry-run task, and find the result.",
+      "Please do not upload private product photos, passwords, customer files, or sensitive business data.",
+      "If you get confused, stuck, or see text overlap, submit feedback from the mobile Settings page.",
+      "The test is expected to take 30-45 minutes."
+    ]
+  },
+  "testerSafetyNotice": [
+    "Use demo or non-sensitive product images only.",
+    "Do not enter real platform passwords, payment information, private customer data, or legal documents.",
+    "Real video generation may stay disabled during pilot; dry-run behavior is expected until worker and storage gates close.",
+    "Feedback may be reviewed by the project owner for product improvement.",
+    "Ask the pilot owner to remove your test data if you no longer want it retained."
+  ],
+  "sessionScript": [
+    {
+      "step": 1,
+      "title": "Open the mobile web app",
+      "expectedSignal": "Tester understands this is an AI video workspace from the first screen."
+    },
+    {
+      "step": 2,
+      "title": "Pick a large beginner action",
+      "expectedSignal": "Tester can choose a task without reading a manual."
+    },
+    {
+      "step": 3,
+      "title": "Add demo product material",
+      "expectedSignal": "Upload or file selection works on the phone being tested."
+    },
+    {
+      "step": 4,
+      "title": "Generate or paste a prompt package",
+      "expectedSignal": "Tester can reach the prompt field and understand the next action."
+    },
+    {
+      "step": 5,
+      "title": "Submit a dry-run task",
+      "expectedSignal": "Tester sees a created task or clear status instead of a dead end."
+    },
+    {
+      "step": 6,
+      "title": "Find assets, result, support, privacy, AI disclosure, and deletion/export paths",
+      "expectedSignal": "Tester can find operational and compliance surfaces from mobile navigation."
+    },
+    {
+      "step": 7,
+      "title": "Submit feedback from mobile settings",
+      "expectedSignal": "Feedback is recorded without private screenshots or logs."
+    }
+  ],
+  "successMetrics": [
+    {
+      "id": "task-completion",
+      "target": "at least 3 of 5 testers complete the dry-run path without operator intervention"
+    },
+    {
+      "id": "first-action-clarity",
+      "target": "at least 4 of 5 testers can explain which large button they chose and why"
+    },
+    {
+      "id": "feedback-discoverability",
+      "target": "at least 4 of 5 testers can find the feedback form from mobile settings"
+    },
+    {
+      "id": "compliance-discoverability",
+      "target": "at least 4 of 5 testers can find privacy, AI disclosure, and account deletion or data rights paths"
+    },
+    {
+      "id": "p0-issue-policy",
+      "target": "0 unresolved P0 mobile layout, login, upload, or data-rights issues before expanding the pilot"
+    }
+  ],
+  "stopRules": [
+    "Stop inviting testers if login, upload, data deletion/export, or support feedback fails for two consecutive testers.",
+    "Stop inviting testers if screenshots or feedback reveal private data that was not intended for the repository.",
+    "Stop PWA testing if Android or iOS install launches the wrong origin, wrong icon, wrong name, or blank offline page.",
+    "Stop any native beta preparation if signing credentials, keystores, or review passwords appear in repository evidence.",
+    "Keep real generation disabled if persistent storage, worker health, and rollback evidence are incomplete."
+  ],
+  "feedbackTriage": {
+    "intakePath": "mobile Settings pilot feedback form",
+    "dailyReview": "support-reviewer checks pilot feedback once per test day",
+    "p0Definition": "Tester cannot continue the core path, cannot find data rights/legal/support, or sees a privacy/security issue.",
+    "p1Definition": "Tester can finish but experiences confusing copy, cramped layout, slow step, or unclear status.",
+    "closeoutRule": "A P0 or P1 issue is closed only after the fix is verified on the same channel where it was reported."
+  },
+  "evidenceOutputs": [
+    "store/evidence/mobile-device-qa/YYYY-MM-DD/<device-id>/<case-id>-redacted.png",
+    "store/evidence/mobile-device-qa/YYYY-MM-DD/pilot-summary.json",
+    "store/release-blockers-register.json entries for unresolved P0 or launch-blocking findings",
+    "00_docs/LAUNCH_READINESS_COCKPIT_2026-06-10.md after npm run launch:cockpit"
+  ],
+  "closeoutGates": [
+    "Pilot owner, support reviewer, and rollback owner are named outside placeholder form fields.",
+    "Every invited tester receives the safety notice before testing.",
+    "npm run pilot:invite-pack passes.",
+    "npm run pilot:readiness and npm run release:check pass before invites are sent.",
+    "PWA install invites are not sent until production device install smoke evidence exists.",
+    "Native beta invites are not sent until Android/iOS toolchains, signing, and native QA are complete.",
+    "P0 issues are copied into the release blocker register before more testers are invited."
+  ],
+  "linkedFiles": [
+    "store/pilot-release-readiness.json",
+    "store/mobile-device-qa-evidence-template.json",
+    "store/release-blockers-register.json",
+    "store/release-evidence-register.json",
+    "store/pwa-production-smoke-plan.json",
+    "00_docs/PILOT_RELEASE_READINESS_2026-06-10.md",
+    "00_docs/MOBILE_DEVICE_QA_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "00_docs/PILOT_INVITE_PACK_2026-06-10.md"
+  ],
+  "doNotStore": [
+    "tester private uploads",
+    "review account passwords",
+    "session cookies",
+    "API keys",
+    "Android keystores",
+    "Apple certificates or provisioning profiles",
+    "unredacted production logs"
+  ]
+}

@@ -1,0 +1,350 @@
+{
+  "schemaVersion": "mobile-device-qa-evidence-template-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-real-device-results",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "purpose": "Provide a non-secret, repeatable evidence format for mobile web, PWA, Android, and iOS acceptance before external pilot or store submission.",
+  "officialReferences": [
+    {
+      "name": "Apple App Store Connect screenshot specifications",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/screenshot-specifications/",
+      "appliesTo": [
+        "ios-native-app",
+        "native-store-screenshots"
+      ]
+    },
+    {
+      "name": "Apple App Review Guidelines",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "appliesTo": [
+        "review-account",
+        "legal-links",
+        "data-rights"
+      ]
+    },
+    {
+      "name": "Google Play preview asset guidelines",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "appliesTo": [
+        "android-native-app",
+        "native-store-screenshots"
+      ]
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "appliesTo": [
+        "privacy",
+        "data-rights",
+        "account-deletion"
+      ]
+    },
+    {
+      "name": "web.dev PWA installation",
+      "url": "https://web.dev/learn/pwa/installation",
+      "appliesTo": [
+        "android-pwa",
+        "ios-pwa"
+      ]
+    }
+  ],
+  "evidenceRules": {
+    "repositoryPolicy": "Only sanitized screenshots, redacted notes, command summaries, and test-result JSON files may be committed.",
+    "doNotStore": [
+      "real review account password",
+      "session cookies",
+      "API keys",
+      "signing certificates or keystores",
+      "private customer product images",
+      "unredacted production logs",
+      "store console pages with account, payment, or identity details"
+    ],
+    "requiredRedactions": [
+      "blur account identifiers when not needed for the test",
+      "hide phone numbers, email inboxes, and personal notification content",
+      "crop browser address bars only when the origin has already been recorded in the evidence JSON",
+      "replace real user uploads with prepared demo assets"
+    ],
+    "fileNaming": "store/evidence/mobile-device-qa/YYYY-MM-DD/<device-id>/<case-id>-redacted.png"
+  },
+  "requiredEnvironments": [
+    {
+      "id": "public-mobile-web",
+      "target": "https://www.zkraiflow.top",
+      "status": "public-origin-ready-pending-authenticated-user-proof",
+      "requiredBefore": [
+        "external mobile web pilot",
+        "PWA pilot"
+      ]
+    },
+    {
+      "id": "review-account",
+      "target": "production or review environment",
+      "status": "blocked-until-real-review-account",
+      "requiredBefore": [
+        "authenticated smoke",
+        "App Store review",
+        "Google Play review"
+      ]
+    },
+    {
+      "id": "android-native-build",
+      "target": "Capacitor Android package",
+      "status": "blocked-until-android-toolchain",
+      "requiredBefore": [
+        "Google Play submission",
+        "native Android screenshots"
+      ]
+    },
+    {
+      "id": "ios-native-build",
+      "target": "Capacitor iOS package",
+      "status": "blocked-until-macos-xcode",
+      "requiredBefore": [
+        "App Store submission",
+        "native iOS screenshots"
+      ]
+    }
+  ],
+  "testPacket": {
+    "targetTesterCount": 5,
+    "minimumNonTechnicalTesterCount": 3,
+    "testWindow": "one focused 30-45 minute session per tester",
+    "testerBrief": "Ask testers to complete one product-image to prompt/video dry-run path without explaining the UI first.",
+    "passDefinition": "A tester can finish the assigned path, find support/legal/data-rights entries, and recover from mistakes without desktop-only instructions."
+  },
+  "deviceEvidenceTargets": [
+    {
+      "id": "mobile-web-public",
+      "linkedPlanDevices": [
+        "mobile-web-390",
+        "mobile-web-430"
+      ],
+      "status": "web-evidence-captured-waiting-public-user-proof",
+      "minimumEvidence": [
+        "home screenshot at public origin",
+        "create workflow screenshot",
+        "settings/legal screenshot",
+        "tester outcome note"
+      ]
+    },
+    {
+      "id": "android-chrome-pwa",
+      "linkedPlanDevices": [
+        "android-device"
+      ],
+      "status": "pending-real-device",
+      "minimumEvidence": [
+        "install or add-to-home-screen entry",
+        "standalone launch screenshot",
+        "offline fallback screenshot",
+        "upload/create result note"
+      ]
+    },
+    {
+      "id": "ios-safari-pwa",
+      "linkedPlanDevices": [
+        "ios-device"
+      ],
+      "status": "pending-real-device",
+      "minimumEvidence": [
+        "Safari add-to-home-screen flow",
+        "standalone launch screenshot",
+        "safe-area screenshot",
+        "legal/data-rights result note"
+      ]
+    },
+    {
+      "id": "android-native-app",
+      "linkedPlanDevices": [
+        "android-device"
+      ],
+      "status": "blocked-until-toolchain",
+      "minimumEvidence": [
+        "signed or debug build identifier",
+        "installed app launch screenshot",
+        "file picker screenshot",
+        "back navigation result note",
+        "store screenshot capture set"
+      ]
+    },
+    {
+      "id": "ios-native-app",
+      "linkedPlanDevices": [
+        "ios-device"
+      ],
+      "status": "blocked-until-macos-xcode",
+      "minimumEvidence": [
+        "Xcode archive or device run identifier",
+        "installed app launch screenshot",
+        "file picker screenshot",
+        "safe-area result note",
+        "store screenshot capture set"
+      ]
+    }
+  ],
+  "caseEvidenceRows": [
+    {
+      "suiteId": "beginner-home",
+      "caseId": "home-video-mode",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public",
+        "android-chrome-pwa",
+        "ios-safari-pwa"
+      ],
+      "status": "web-evidence-captured-waiting-real-device"
+    },
+    {
+      "suiteId": "beginner-home",
+      "caseId": "home-image-mode",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public"
+      ],
+      "status": "web-evidence-captured-waiting-real-device"
+    },
+    {
+      "suiteId": "beginner-home",
+      "caseId": "home-notifications-panel",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public"
+      ],
+      "status": "web-evidence-captured-waiting-real-device"
+    },
+    {
+      "suiteId": "intent-navigation",
+      "caseId": "prompt-package-intent",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public"
+      ],
+      "status": "web-evidence-captured-waiting-real-device"
+    },
+    {
+      "suiteId": "upload-create",
+      "caseId": "upload-product-image",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public",
+        "android-chrome-pwa",
+        "ios-safari-pwa",
+        "android-native-app",
+        "ios-native-app"
+      ],
+      "status": "manual-ready-waiting-real-device"
+    },
+    {
+      "suiteId": "upload-create",
+      "caseId": "dry-run-generation",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public",
+        "android-chrome-pwa",
+        "ios-safari-pwa",
+        "android-native-app",
+        "ios-native-app"
+      ],
+      "status": "manual-ready-waiting-review-account"
+    },
+    {
+      "suiteId": "settings-legal-data-rights",
+      "caseId": "settings-legal-links",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public",
+        "android-chrome-pwa",
+        "ios-safari-pwa",
+        "android-native-app",
+        "ios-native-app"
+      ],
+      "status": "web-evidence-captured-waiting-real-device"
+    },
+    {
+      "suiteId": "settings-legal-data-rights",
+      "caseId": "data-export-delete-request",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public"
+      ],
+      "status": "manual-ready-waiting-real-device"
+    },
+    {
+      "suiteId": "pwa-install",
+      "caseId": "android-install-prompt",
+      "priority": "P1",
+      "requiredTargets": [
+        "android-chrome-pwa"
+      ],
+      "status": "blocked-until-production-origin"
+    },
+    {
+      "suiteId": "pwa-install",
+      "caseId": "ios-add-to-home-screen",
+      "priority": "P1",
+      "requiredTargets": [
+        "ios-safari-pwa"
+      ],
+      "status": "manual-ready-waiting-real-device"
+    },
+    {
+      "suiteId": "android-native",
+      "caseId": "android-build-install",
+      "priority": "P0",
+      "requiredTargets": [
+        "android-native-app"
+      ],
+      "status": "blocked-until-toolchain"
+    },
+    {
+      "suiteId": "ios-native",
+      "caseId": "ios-build-install",
+      "priority": "P0",
+      "requiredTargets": [
+        "ios-native-app"
+      ],
+      "status": "blocked-until-macos-xcode"
+    },
+    {
+      "suiteId": "accessibility-safe-area",
+      "caseId": "safe-area-keyboard",
+      "priority": "P0",
+      "requiredTargets": [
+        "mobile-web-public",
+        "ios-safari-pwa",
+        "ios-native-app"
+      ],
+      "status": "manual-ready-waiting-real-device"
+    }
+  ],
+  "sampleEvidenceRecord": {
+    "schemaVersion": "mobile-device-qa-result-v1",
+    "capturedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "testerId": "T01-redacted",
+    "deviceTarget": "mobile-web-public",
+    "suiteId": "upload-create",
+    "caseId": "upload-product-image",
+    "result": "pass | fail | blocked",
+    "publicOrigin": "https://www.zkraiflow.top",
+    "evidenceFiles": [
+      "store/evidence/mobile-device-qa/YYYY-MM-DD/mobile-web-public/upload-product-image-redacted.png"
+    ],
+    "notes": "Short sanitized note. Do not include account secrets or private uploads.",
+    "followUpIssue": "release-blockers-register id or none"
+  },
+  "closeoutGates": [
+    "Every P0 mobile-web-public row has a pass result from at least one non-technical tester.",
+    "Android and iOS native rows remain blocked for planning only until toolchain evidence exists.",
+    "No public or store launch proceeds with unredacted screenshots, local URLs, or secret-like material.",
+    "PWA install evidence includes launch-from-home-screen behavior on Android and iOS.",
+    "Failed or blocked P0 results are copied to store/release-blockers-register.json before inviting external users."
+  ],
+  "closeoutCommands": [
+    "npm run mobile:qa",
+    "npm run mobile:qa:evidence",
+    "npm run pwa:prod-plan",
+    "npm run release:evidence",
+    "npm run product:report"
+  ]
+}

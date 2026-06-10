@@ -1,0 +1,215 @@
+{
+  "schemaVersion": "review-access-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-waiting-real-credentials",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Provide a complete, non-secret handoff for App Store, Google Play, and domestic store reviewers to access restricted app functionality with a dedicated review account and seeded demo data.",
+  "officialBasis": [
+    {
+      "name": "Apple App Review",
+      "url": "https://developer.apple.com/app-store/review/",
+      "requirement": "Provide account information and review instructions in App Review Information when restricted functionality requires a login or special setup."
+    },
+    {
+      "name": "Google Play login credentials for app access",
+      "url": "https://support.google.com/googleplay/android-developer/answer/15748846",
+      "requirement": "Restricted apps must provide valid, reusable, always-accessible credentials and instructions so reviewers can access all functionality."
+    },
+    {
+      "name": "Google Play prepare your app for review",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9859455",
+      "requirement": "App content and app access instructions must explain privacy policy, restricted areas, permissions, and special reviewer access."
+    }
+  ],
+  "credentialPolicy": {
+    "accountStatus": "pending-real-credentials",
+    "usernamePlaceholder": "TODO_REVIEW_USERNAME",
+    "passwordSecretRefPlaceholder": "TODO_REVIEW_PASSWORD_SECRET_REF",
+    "mfaPolicy": "disabled-for-review-account",
+    "accountRole": "reviewer",
+    "credentialRules": [
+      "Use a dedicated review account, not a personal admin account.",
+      "Keep the account reusable, valid, and accessible regardless of reviewer location.",
+      "Disable MFA, OTP, geo-gates, device binding, and expiring passwords for the review account.",
+      "Store the real password only in the release password manager or store console fields, never in this repository.",
+      "If credentials change, rerun review seeding and cloud smoke before submitting an update."
+    ],
+    "notForRepository": [
+      "Real review password",
+      "MFA recovery codes",
+      "Password manager export",
+      "Private customer data",
+      "Provider API keys"
+    ]
+  },
+  "authenticatedSmokeEvidence": {
+    "status": "template-ready-waiting-review-account-and-production-run",
+    "templateFile": "store/authenticated-smoke-evidence-template.json",
+    "runbook": "00_docs/AUTHENTICATED_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "checkScript": "scripts/check-authenticated-smoke-evidence-template.mjs",
+    "checkCommand": "npm run production:smoke-template",
+    "purpose": "Record sanitized proof for login, session cookie, CORS, protected APIs, and review-safe data rights paths after the real review account exists."
+  },
+  "seedDataPlan": {
+    "script": "npm run review:seed",
+    "dryRunScript": "npm run review:seed:dry",
+    "requiredEnvironment": [
+      "REVIEW_BASE_URL=https://www.zkraiflow.top",
+      "REVIEW_USERNAME=<dedicated review account>",
+      "REVIEW_PASSWORD=<from password manager>"
+    ],
+    "seededArtifacts": [
+      {
+        "id": "review-demo-product-001",
+        "type": "product",
+        "purpose": "Safe demo product for selection, prompt, and dry-run video workflow review."
+      },
+      {
+        "id": "review-demo-account-001",
+        "type": "account-asset",
+        "purpose": "Safe account/persona asset for reviewer path."
+      },
+      {
+        "id": "Review demo dry-run batch",
+        "type": "batch",
+        "purpose": "Dry-run task evidence without paid real video execution."
+      }
+    ],
+    "successEvidence": [
+      "Review account login succeeds.",
+      "Demo product appears in selection/assets data.",
+      "Demo account asset appears in account assets.",
+      "Dry-run batch is created and visible in the task list.",
+      "Data rights request API is accessible to the review account."
+    ]
+  },
+  "reviewerPath": [
+    {
+      "step": 1,
+      "screen": "Home",
+      "instruction": "Open the app and confirm the beginner-friendly Video mode buttons are visible.",
+      "expected": "One-click video, Batch generation, Image-to-video, Stitch, Assets, and My data entries are visible."
+    },
+    {
+      "step": 2,
+      "screen": "Home",
+      "instruction": "Switch to Image/Text mode and tap Prompt Package.",
+      "expected": "Create opens directly on the prompt package step."
+    },
+    {
+      "step": 3,
+      "screen": "Create",
+      "instruction": "Review product image, product information, prompt package, and dry-run video generation controls.",
+      "expected": "Reviewer can inspect the workflow without real paid video execution."
+    },
+    {
+      "step": 4,
+      "screen": "Assets",
+      "instruction": "Open generated asset/result cards.",
+      "expected": "Mobile cards are visible and desktop tables are hidden on phone widths."
+    },
+    {
+      "step": 5,
+      "screen": "Stitch",
+      "instruction": "Open video stitching page.",
+      "expected": "Reviewer can see the mobile stitching workflow and existing task/result cards."
+    },
+    {
+      "step": 6,
+      "screen": "My",
+      "instruction": "Open App readiness, support, privacy, data export, and account deletion entries.",
+      "expected": "Reviewer can inspect compliance, support, and data rights flows."
+    }
+  ],
+  "storeSubmissionFields": {
+    "apple": {
+      "reviewInformationFields": [
+        "contactFirstName",
+        "contactLastName",
+        "contactPhone",
+        "contactEmail",
+        "demoUsername",
+        "demoPassword",
+        "notesForReview"
+      ],
+      "notesSource": "store/review-notes-template.json#/appleReviewInformation/notesForReviewDraft"
+    },
+    "googlePlay": {
+      "appAccessFields": [
+        "instructionName",
+        "username",
+        "password",
+        "additionalInstructions"
+      ],
+      "notesSource": "store/review-notes-template.json#/googlePlayAppAccess/additionalInstructionsDraft"
+    },
+    "domesticAndroidStores": {
+      "fields": [
+        "review account username",
+        "review password or private submission channel",
+        "test instructions",
+        "support contact",
+        "privacy policy URL",
+        "account deletion URL"
+      ],
+      "notesSource": "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md"
+    }
+  },
+  "verificationGates": [
+    {
+      "id": "template-structure",
+      "status": "ready",
+      "commands": [
+        "npm run review:access-plan",
+        "npm run store:check"
+      ],
+      "evidence": [
+        "store/review-access-handoff.json",
+        "store/review-notes-template.json"
+      ]
+    },
+    {
+      "id": "seed-dry-run",
+      "status": "ready",
+      "commands": [
+        "npm run review:seed:dry"
+      ],
+      "evidence": [
+        "scripts/seed-review-demo.mjs"
+      ]
+    },
+    {
+      "id": "review-account-real-seed",
+      "status": "blocked-until-real-credentials",
+      "commands": [
+        "REVIEW_BASE_URL=https://www.zkraiflow.top REVIEW_USERNAME=<account> REVIEW_PASSWORD=<secret> npm run review:seed"
+      ],
+      "evidence": [
+        "release password manager item",
+        "review environment seed run log"
+      ]
+    },
+    {
+      "id": "authenticated-public-smoke",
+      "status": "blocked-until-real-credentials",
+      "commands": [
+        "SMOKE_BASE_URL=https://www.zkraiflow.top SMOKE_USERNAME=<account> SMOKE_PASSWORD=<secret> npm run cloud:smoke"
+      ],
+      "evidence": [
+        "cloud smoke run log",
+        "review account session test"
+      ]
+    }
+  ],
+  "evidenceFiles": [
+    "store/review-notes-template.json",
+    "store/authenticated-smoke-evidence-template.json",
+    "00_docs/AUTHENTICATED_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "scripts/check-authenticated-smoke-evidence-template.mjs",
+    "scripts/seed-review-demo.mjs",
+    "store/screenshots/mobile-web-390/01-home.png",
+    "store/screenshots/mobile-web-390/02-home-notifications.png",
+    "store/screenshots/mobile-web-390/04-create-prompt-intent.png",
+    "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md"
+  ]
+}

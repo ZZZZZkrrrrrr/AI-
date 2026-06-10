@@ -1,0 +1,76 @@
+{
+  "name": "AI 视频工作台",
+  "short_name": "AI 视频",
+  "description": "面向短视频带货生产的 AI 提示词、视频生成与任务管理工作台。",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "browser"],
+  "background_color": "#eef1ef",
+  "theme_color": "#126a63",
+  "orientation": "any",
+  "categories": ["productivity", "business", "video"],
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "创建 AI 视频任务",
+      "short_name": "创建",
+      "description": "打开单条视频创建流程。",
+      "url": "/#/studio",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "查看素材与输出",
+      "short_name": "素材",
+      "description": "打开素材、任务和生成结果。",
+      "url": "/#/assets",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "我的与合规",
+      "short_name": "我的",
+      "description": "打开模型中心、帮助、隐私和数据权利入口。",
+      "url": "/#/settings",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

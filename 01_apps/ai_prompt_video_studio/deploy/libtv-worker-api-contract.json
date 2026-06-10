@@ -1,0 +1,236 @@
+{
+  "schemaVersion": "libtv-worker-api-contract-v1",
+  "updatedAt": "2026-06-10",
+  "targetOrigin": "https://www.zkraiflow.top",
+  "visibility": "private-api-to-worker-only",
+  "objective": "Define the minimum private worker API needed to move libTV, ffmpeg, long-running video generation, and result import away from the local desktop path before public real-generation launch.",
+  "security": {
+    "allowedCallers": [
+      "node-api-service"
+    ],
+    "browserAccess": "forbidden",
+    "auth": "private-network-and-bearer-service-token",
+    "tokenHeader": "authorization",
+    "tokenFormat": "Bearer <LIBTV_WORKER_TOKEN>",
+    "secretRules": [
+      "Do not expose LIBTV_WORKER_TOKEN to browser, PWA, or Capacitor WebView code.",
+      "Do not return local filesystem paths, database paths, provider keys, or storage credentials to public clients.",
+      "Only the API service may translate worker resultRefs into user-visible downloads or previews."
+    ]
+  },
+  "statusEnum": [
+    "accepted",
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled"
+  ],
+  "errorCodes": [
+    {
+      "code": "VALIDATION_ERROR",
+      "userVisible": true,
+      "meaning": "The task payload is missing required product assets, prompt package data, or generation options."
+    },
+    {
+      "code": "ASSET_UNAVAILABLE",
+      "userVisible": true,
+      "meaning": "The worker cannot read one or more API-provided asset references."
+    },
+    {
+      "code": "COMPLIANCE_BLOCKED",
+      "userVisible": true,
+      "meaning": "libTV or the configured provider rejected the task for compliance reasons."
+    },
+    {
+      "code": "PROVIDER_FAILED",
+      "userVisible": true,
+      "meaning": "The downstream AI/video provider failed after the worker accepted the task."
+    },
+    {
+      "code": "WORKER_RUNTIME_ERROR",
+      "userVisible": false,
+      "meaning": "The worker, libTV runtime, ffmpeg, storage, or database layer failed unexpectedly."
+    },
+    {
+      "code": "TIMEOUT",
+      "userVisible": true,
+      "meaning": "The task exceeded the configured wait or generation time limit."
+    },
+    {
+      "code": "CANCELLED_BY_USER",
+      "userVisible": true,
+      "meaning": "The API requested cancellation before the task completed."
+    }
+  ],
+  "idempotency": {
+    "key": "taskId",
+    "header": "idempotency-key",
+    "rule": "POST /tasks must return the existing workerTaskId when the same taskId is submitted again by the API."
+  },
+  "timeouts": {
+    "healthCheckMs": 5000,
+    "submitTaskMs": 30000,
+    "statusPollMs": 10000,
+    "defaultGenerationMaxSeconds": 1800,
+    "pilotMaxConcurrentTasks": 3
+  },
+  "storageContract": {
+    "inputRefs": "API-owned references under RUN_STORAGE_DIR or signed internal references readable by the worker.",
+    "resultRefs": "Opaque references returned to the API service only. Public clients never receive worker-local paths.",
+    "requiredResultFields": [
+      "type",
+      "ref",
+      "mimeType",
+      "sizeBytes",
+      "createdAt"
+    ],
+    "retention": "Follow the production retention policy recorded in owner inputs before public launch."
+  },
+  "endpoints": [
+    {
+      "id": "worker-health",
+      "method": "GET",
+      "path": "/healthz",
+      "auth": "private-network-or-service-token",
+      "timeoutMs": 5000,
+      "responseFields": [
+        "ok",
+        "status",
+        "version",
+        "storageWritable",
+        "libtvReady",
+        "ffmpegReady",
+        "queueDepth",
+        "checkedAt"
+      ],
+      "successExample": {
+        "ok": true,
+        "status": "ready",
+        "version": "2026.06.worker",
+        "storageWritable": true,
+        "libtvReady": true,
+        "ffmpegReady": true,
+        "queueDepth": 0,
+        "checkedAt": "2026-06-10T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "submit-generation-task",
+      "method": "POST",
+      "path": "/tasks",
+      "auth": "service-token",
+      "timeoutMs": 30000,
+      "requiredRequestFields": [
+        "taskId",
+        "runDir",
+        "productAssetRefs",
+        "promptPackage",
+        "videoMode",
+        "dryRun",
+        "operatorUserId"
+      ],
+      "optionalRequestFields": [
+        "waitForVideo",
+        "model",
+        "resolution",
+        "maxWaitSeconds",
+        "autoCompliance",
+        "searchEnabled",
+        "callbackUrl",
+        "metadata"
+      ],
+      "responseFields": [
+        "workerTaskId",
+        "status",
+        "acceptedAt",
+        "deduplicated"
+      ],
+      "statusCodes": {
+        "202": "accepted",
+        "200": "deduplicated existing task",
+        "400": "validation error",
+        "401": "missing or invalid service token",
+        "409": "task cannot be accepted because the existing task has conflicting payload",
+        "503": "worker unavailable"
+      }
+    },
+    {
+      "id": "read-worker-task-status",
+      "method": "GET",
+      "path": "/tasks/:workerTaskId",
+      "auth": "service-token",
+      "timeoutMs": 10000,
+      "responseFields": [
+        "workerTaskId",
+        "taskId",
+        "status",
+        "progress",
+        "phase",
+        "resultRefs",
+        "errorCode",
+        "errorMessage",
+        "retryable",
+        "startedAt",
+        "updatedAt",
+        "completedAt"
+      ],
+      "statusCodes": {
+        "200": "status returned",
+        "401": "missing or invalid service token",
+        "404": "worker task not found"
+      }
+    },
+    {
+      "id": "cancel-worker-task",
+      "method": "POST",
+      "path": "/tasks/:workerTaskId/cancel",
+      "auth": "service-token",
+      "timeoutMs": 10000,
+      "requiredRequestFields": [
+        "reason",
+        "requestedBy"
+      ],
+      "responseFields": [
+        "workerTaskId",
+        "status",
+        "cancelledAt"
+      ],
+      "statusCodes": {
+        "200": "cancelled or already terminal",
+        "401": "missing or invalid service token",
+        "404": "worker task not found",
+        "409": "task cannot be cancelled in current state"
+      }
+    }
+  ],
+  "apiIntegrationRules": [
+    "The Node API keeps the user-facing task ID and maps it to workerTaskId server-side.",
+    "Mobile notifications and task cards must show normalized statuses only: queued, running, succeeded, failed, cancelled.",
+    "Worker errorCode values must be mapped to user-readable Chinese messages before reaching the mobile UI.",
+    "The API should poll worker status for pilot release; callbacks can be added later after network routing is stable.",
+    "Real generation remains gated by LIBTV_DEFAULT_DRY_RUN=false only after worker health, storage restart, and rollback checks pass."
+  ],
+  "acceptanceChecks": [
+    {
+      "id": "contract-static-check",
+      "command": "npm run cloud:worker-contract",
+      "evidence": "Contract schema, endpoints, auth, status enum, and failure mappings are valid."
+    },
+    {
+      "id": "cloud-plan-check",
+      "command": "npm run cloud:worker-plan",
+      "evidence": "Worker/storage migration plan references this contract."
+    },
+    {
+      "id": "strict-cloud-check",
+      "command": "npm run cloud:check:strict",
+      "evidence": "Production environment no longer points to localhost or Windows worker paths."
+    },
+    {
+      "id": "public-smoke",
+      "command": "npm run cloud:smoke",
+      "evidence": "Public HTTPS deployment and authenticated API smoke pass."
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "schemaVersion": "store-listing-copy-draft-v1",
+  "updatedAt": "2026-06-09",
+  "status": "draft-structured",
+  "sourceDataFiles": [
+    "store/screenshot-plan.json",
+    "store/privacy-data-safety-draft.json",
+    "store/privacy-form-fill-checklist.md",
+    "store/review-notes-template.json"
+  ],
+  "officialBasis": [
+    {
+      "name": "Apple App Store Connect app information",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/",
+      "notes": [
+        "App name must be 2 to 30 characters.",
+        "Subtitle must be no longer than 30 characters.",
+        "Privacy Policy URL is required for iOS apps."
+      ]
+    },
+    {
+      "name": "Apple App Store Connect screenshots and previews",
+      "url": "https://developer.apple.com/help/app-store-connect/manage-app-information/upload-app-previews-and-screenshots/",
+      "notes": [
+        "Use current app screens for screenshots and previews.",
+        "Prepare device-family screenshots after the native build is validated."
+      ]
+    },
+    {
+      "name": "Google Play create and set up your app",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9859152",
+      "notes": [
+        "Google Play app name has a 30 character limit.",
+        "Short description has an 80 character limit.",
+        "Full description has a 4000 character limit.",
+        "Support email is required."
+      ]
+    },
+    {
+      "name": "Google Play preview assets",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "notes": [
+        "Feature graphic must be 1024 by 500 px, JPEG or 24-bit PNG without alpha.",
+        "Screenshots should show actual app experience.",
+        "Apps should provide at least four 1080 px screenshots for stronger placement eligibility.",
+        "Avoid store ranking claims, promotional pricing, and call-to-action phrases."
+      ]
+    }
+  ],
+  "positioning": {
+    "primaryUser": "电商小白、商品运营、短视频运营和小团队创作者",
+    "jobToBeDone": "把商品图、商品信息、提示词和生成结果整理成一个可追踪的 AI 短视频生产流程。",
+    "valueProposition": "用手机端大按钮入口降低操作门槛，把商品图、提示词、视频生成、批量任务、素材结果和数据权利集中到同一个工作台。",
+    "notPositionedAs": [
+      "公开内容社区",
+      "素材交易平台",
+      "广告投放平台",
+      "承诺自动发布或保证转化的营销工具"
+    ],
+    "tone": [
+      "清晰",
+      "具体",
+      "面向新手",
+      "避免夸大 AI 能力",
+      "避免使用第一、最佳、免费、限时等敏感营销词"
+    ]
+  },
+  "locales": {
+    "zh-CN": {
+      "status": "draft",
+      "selectedName": "AI短视频工作台",
+      "nameAlternatives": [
+        "AI短视频工作台",
+        "AI商品视频助手",
+        "AI图文视频工作台"
+      ],
+      "apple": {
+        "subtitle": "商品图到短视频工作台",
+        "promotionalText": "从商品图、提示词到视频结果，用更清晰的手机端入口管理 AI 短视频生产流程。",
+        "keywords": "AI视频,短视频,商品图,提示词,电商,素材,批量生成,视频拼接,工作台",
+        "description": "AI短视频工作台面向电商运营、短视频创作者和刚开始使用 AI 工具的团队。\n\n你可以在手机端通过大按钮入口选择图文或视频工作流，上传商品图和商品信息，整理提示词包，发起视频任务，查看素材与生成结果，并在设置中管理隐私、帮助和数据请求。\n\n核心能力：\n- 图文和视频模式分开，入口更清晰。\n- 支持商品图、提示词包、素材和任务结果整理。\n- 支持视频生成、批量任务和视频拼接工作流。\n- 保留任务状态、生成结果和合规预检信息，便于复盘。\n- 提供隐私政策、AI 生成内容说明、数据导出和删除请求入口。\n\n适合需要把 AI 生产流程规范起来的商品运营、内容运营和小团队。生成内容发布前仍需人工审核，确保素材授权、商品描述和平台规则合规。"
+      },
+      "googlePlay": {
+        "shortDescription": "面向电商新手的 AI 商品图、提示词和短视频工作台。",
+        "fullDescription": "AI短视频工作台帮助电商运营、短视频创作者和小团队，把商品图、提示词、视频任务和生成结果整理成一个更容易操作的流程。\n\n手机端首页使用图文和视频双模式入口。新手可以先选择要做的事情，再进入对应流程：上传商品图、整理素材、生成提示词包、发起视频任务、批量处理、查看结果或进入设置管理数据。\n\n主要功能：\n- 商品图和提示词包整理\n- AI 视频任务创建和结果管理\n- 批量生成流程\n- 视频拼接入口\n- 素材和生成结果卡片\n- 隐私政策、AI 生成内容说明、数据导出和删除请求\n\n适用场景：\n- 商品运营整理短视频素材\n- 小团队建立 AI 生成流程\n- 新手从商品图开始制作视频脚本和素材\n- 需要保留任务状态和结果记录的运营流程\n\n说明：AI 生成结果可能需要人工检查。用户应确保上传图片、文案、商标、肖像、音乐和商品信息拥有合法使用权，并在发布前确认内容符合平台规则。"
+      },
+      "domesticAndroid": {
+        "shortDescription": "商品图、提示词、视频生成和素材结果统一管理。",
+        "fullDescription": "AI短视频工作台是一款面向电商运营和短视频创作者的 AI 工作流工具。应用提供手机端大按钮入口，帮助用户从商品图、商品信息和提示词包开始，逐步完成视频任务创建、批量处理、素材管理、结果查看和数据请求。\n\n应用不定位为内容社区或广告投放平台。用户上传素材和生成内容后，应自行确认授权、商品描述真实性和发布平台规则。应用提供 AI 生成内容说明、隐私政策、用户协议、账号删除和数据导出入口。"
+      },
+      "screenshotCaptions": [
+        {
+          "shotId": "home",
+          "title": "视频模式大按钮入口",
+          "overlay": "先选要做的视频任务",
+          "altText": "Mobile home screen showing large beginner-friendly buttons for AI video workflows."
+        },
+        {
+          "shotId": "home-image",
+          "title": "图文模式入口",
+          "overlay": "商品图、素材和提示词分开管理",
+          "altText": "Mobile home screen in image mode with upload, assets, prompts, and data buttons."
+        },
+        {
+          "shotId": "create-prompt-intent",
+          "title": "直达提示词包步骤",
+          "overlay": "从首页进入对应步骤",
+          "altText": "Create workflow focused on the prompt package step after tapping the prompt button."
+        },
+        {
+          "shotId": "create",
+          "title": "创建 AI 视频任务",
+          "overlay": "填写商品信息并生成任务",
+          "altText": "Task creation page for product information, prompts, and AI video generation."
+        },
+        {
+          "shotId": "assets",
+          "title": "素材与结果卡片",
+          "overlay": "查看任务状态和生成结果",
+          "altText": "Assets page showing cards for materials, task status, and generated results."
+        },
+        {
+          "shotId": "settings",
+          "title": "隐私、帮助与数据请求",
+          "overlay": "用户数据入口集中管理",
+          "altText": "Settings page showing support, privacy policy, data export, and deletion request entries."
+        }
+      ],
+      "featureGraphic": {
+        "requiredSize": "1024x500",
+        "concept": "中心展示手机端大按钮工作台，左右用商品图、提示词卡片、视频结果卡片做轻量场景补充。",
+        "headline": "商品图到 AI 短视频工作台",
+        "safeAreaNotes": "核心 UI、标题和品牌信息放在画面中心区域，边缘只放弱化背景元素，避免被 Google Play 版式裁切。",
+        "altText": "AI video workflow studio showing a mobile dashboard with product image, prompt, and video result cards."
+      }
+    },
+    "en-US": {
+      "status": "draft",
+      "selectedName": "AI Prompt Video Studio",
+      "nameAlternatives": [
+        "AI Prompt Video Studio",
+        "AI Product Video Studio",
+        "Prompt Video Workflow"
+      ],
+      "apple": {
+        "subtitle": "AI video workflow studio",
+        "promotionalText": "Organize product images, prompts, AI video tasks, results, and data controls in one mobile workflow studio.",
+        "keywords": "AI video,prompts,product images,short video,ecommerce,assets,batch,stitch,workflow",
+        "description": "AI Prompt Video Studio helps ecommerce operators, short-form video creators, and small teams organize AI-assisted product video workflows.\n\nThe mobile experience starts with clear image and video modes. Users can upload product images, manage prompt packages, create AI video tasks, process batches, review generated results, and access privacy, support, export, and deletion controls from the settings area.\n\nKey capabilities:\n- Separate image and video modes for clearer entry points.\n- Product image, prompt package, material, and task result organization.\n- AI video task creation, batch workflows, and video stitching entry points.\n- Task status, generated result, and compliance evidence review.\n- Privacy policy, AI content disclosure, data export, and deletion request access.\n\nAI-generated output should be reviewed before publication. Users are responsible for confirming rights to uploaded assets, product claims, brand materials, and publishing compliance."
+      },
+      "googlePlay": {
+        "shortDescription": "Organize product images, prompts, AI video tasks, and results.",
+        "fullDescription": "AI Prompt Video Studio helps ecommerce operators, short-form video creators, and small teams manage AI-assisted product video workflows.\n\nThe mobile home screen uses large task buttons and separate image/video modes so users can start with the action they need: upload product images, organize materials, prepare prompt packages, create video tasks, process batches, review results, or manage data controls.\n\nMain features:\n- Product image and prompt package organization\n- AI video task creation and result management\n- Batch workflow support\n- Video stitching entry point\n- Material and generated-result cards\n- Privacy policy, AI content disclosure, data export, and deletion request access\n\nUse cases:\n- Ecommerce teams organizing short-form video materials\n- Small teams standardizing AI generation workflows\n- Beginners starting from product images and prompt packages\n- Operators who need task status and result records\n\nAI output may require human review. Users should confirm rights to uploaded images, copy, trademarks, likenesses, music, and product information before publishing generated content."
+      },
+      "screenshotCaptions": [
+        {
+          "shotId": "home",
+          "title": "Video mode task buttons",
+          "overlay": "Start with the task you need",
+          "altText": "Mobile home screen with large buttons for AI video workflows."
+        },
+        {
+          "shotId": "home-image",
+          "title": "Image mode workspace",
+          "overlay": "Images, assets, prompts",
+          "altText": "Image mode home screen with upload, asset, prompt, and data buttons."
+        },
+        {
+          "shotId": "create-prompt-intent",
+          "title": "Prompt package entry",
+          "overlay": "Jump from home into the matching step",
+          "altText": "Create workflow focused on prompt package setup."
+        },
+        {
+          "shotId": "create",
+          "title": "Create AI video tasks",
+          "overlay": "Turn product inputs into a task",
+          "altText": "Create page for product details, prompts, and AI video tasks."
+        },
+        {
+          "shotId": "assets",
+          "title": "Materials and results",
+          "overlay": "Review task status and outputs",
+          "altText": "Assets page showing materials, task status, and generated output cards."
+        },
+        {
+          "shotId": "settings",
+          "title": "Privacy and support",
+          "overlay": "Support, export, deletion",
+          "altText": "Settings page with support, privacy, data export, and deletion request entries."
+        }
+      ],
+      "featureGraphic": {
+        "requiredSize": "1024x500",
+        "concept": "Show the mobile task-button dashboard in the center, supported by product image, prompt, and generated-result cards.",
+        "headline": "AI product video workflow studio",
+        "safeAreaNotes": "Keep the phone UI and headline centered. Use edges only for quiet background shapes or cropped workflow cards.",
+        "altText": "AI product video workflow studio with a mobile task dashboard and product workflow cards."
+      }
+    }
+  },
+  "globalScreenshotRules": [
+    "Use current real app screens from the production build.",
+    "Prioritize actual UI in the first three screenshots.",
+    "Do not expose private user data, local file paths, API keys, TODO URLs, or real customer assets.",
+    "Keep text overlays short and under 20 percent of the screenshot area.",
+    "Do not use device frames for Google Play screenshots unless a target channel explicitly allows them.",
+    "Clean notification bars before capture; do not show unrelated notifications or service provider icons.",
+    "Localize overlay text and alt text for each submitted market.",
+    "Do not use ranking claims, award claims, download/install CTAs, price claims, or time-sensitive copy."
+  ],
+  "reviewWarnings": [
+    "Final app name must be confirmed before creating store records.",
+    "Descriptions must be updated when production features, providers, permissions, or data flows change.",
+    "Do not claim fully automatic publishing, guaranteed conversion, guaranteed compliance, or guaranteed video quality.",
+    "If paid plans, subscriptions, credits, or team collaboration are added, store copy and policy disclosures must be updated.",
+    "If analytics, ads, social login, push notifications, camera, microphone, or photo library plugins are added, screenshots and privacy disclosures must be re-reviewed.",
+    "Domestic Android stores may require a Chinese app name, operator details, ICP filing, APP filing, permission screenshots, and AI generated content disclosure."
+  ],
+  "forbiddenClaims": [
+    "Best",
+    "#1",
+    "Top",
+    "New",
+    "Free",
+    "Discount",
+    "Sale",
+    "Million Downloads",
+    "Download now",
+    "Install now",
+    "Try now",
+    "Guaranteed sales",
+    "Guaranteed compliance",
+    "Fully automatic publishing"
+  ]
+}

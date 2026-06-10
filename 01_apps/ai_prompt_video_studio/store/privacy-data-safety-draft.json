@@ -1,0 +1,601 @@
+{
+  "schemaVersion": "store-privacy-data-safety-draft-v1",
+  "updatedAt": "2026-06-09",
+  "status": "draft",
+  "scope": {
+    "surfaces": [
+      "mobile web",
+      "PWA",
+      "Capacitor iOS app",
+      "Capacitor Android app"
+    ],
+    "currentAssumptions": [
+      "No advertising SDK is planned.",
+      "No third-party analytics SDK is currently declared.",
+      "AI model and video generation providers are called from the server side only.",
+      "Android native package currently declares INTERNET permission only.",
+      "Future photo library, file saving, share, camera, microphone, push notification, or analytics plugins must be reviewed before release."
+    ],
+    "notLegalAdvice": true
+  },
+  "officialBasis": [
+    {
+      "name": "Apple App Privacy Details",
+      "url": "https://developer.apple.com/app-store/app-privacy-details/",
+      "appliesTo": [
+        "data collection",
+        "third-party partner practices",
+        "data linked to user",
+        "tracking",
+        "privacy policy and privacy choices links"
+      ]
+    },
+    {
+      "name": "Google Play Data safety section",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "appliesTo": [
+        "data collected",
+        "data shared",
+        "collection purposes",
+        "encryption in transit",
+        "data deletion"
+      ]
+    },
+    {
+      "name": "Google Play User Data policy",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10144311",
+      "appliesTo": [
+        "user data handling",
+        "third-party code responsibility",
+        "clear and accurate disclosure",
+        "account deletion"
+      ]
+    },
+    {
+      "name": "Google Play app account deletion requirements",
+      "url": "https://support.google.com/googleplay/android-developer/answer/13327111",
+      "appliesTo": [
+        "in-app deletion request",
+        "public web deletion link",
+        "account and associated data deletion"
+      ]
+    }
+  ],
+  "dataFlows": [
+    {
+      "id": "account-auth",
+      "name": "Account and authentication",
+      "dataTypes": [
+        "username",
+        "display name",
+        "user id",
+        "role",
+        "session cookie",
+        "password hash",
+        "created and updated timestamps"
+      ],
+      "source": "User registration and login forms plus server session management.",
+      "purpose": [
+        "account management",
+        "authentication",
+        "authorization",
+        "security",
+        "app functionality"
+      ],
+      "collected": true,
+      "linkedToUser": true,
+      "shared": false,
+      "sharingNotes": "Do not share with advertising, analytics, or data broker services. Hosting and database infrastructure may process this data as service providers.",
+      "storedWhere": [
+        "server user database",
+        "server in-memory or persistent session store",
+        "browser session cookie"
+      ],
+      "retention": "Keep while the account exists. Retain limited security records only if required by law, dispute handling, fraud prevention, or operational security.",
+      "exportAndDeletion": "Covered by /api/account/export and /api/account/data-rights-request. Production deletion workflow must remove or anonymize associated account records after verification.",
+      "appleDraft": {
+        "categories": [
+          "Identifiers",
+          "Contact Info"
+        ],
+        "purposes": [
+          "App Functionality"
+        ],
+        "linkedToUser": true,
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "Personal info",
+          "App info and performance"
+        ],
+        "purposes": [
+          "Account management",
+          "App functionality",
+          "Security, fraud prevention, and compliance"
+        ],
+        "collected": true,
+        "shared": false,
+        "optional": false
+      }
+    },
+    {
+      "id": "user-uploaded-content",
+      "name": "User uploaded product materials",
+      "dataTypes": [
+        "product images",
+        "prompt pack files",
+        "product names",
+        "product categories",
+        "selling points",
+        "free-form notes",
+        "reference assets",
+        "person or account asset images"
+      ],
+      "source": "Create flow, batch import, assets library, selection-product material upload, and account/person asset upload.",
+      "purpose": [
+        "AI image understanding",
+        "prompt generation",
+        "video generation",
+        "asset library",
+        "task recovery",
+        "app functionality"
+      ],
+      "collected": true,
+      "linkedToUser": true,
+      "shared": true,
+      "sharingNotes": "May be sent to configured AI model, image understanding, video generation, storage, or hosting providers only to complete user-requested tasks.",
+      "storedWhere": [
+        "server run storage",
+        "local or cloud object storage in production",
+        "task and asset database records"
+      ],
+      "retention": "Keep until the user deletes the account/data or until the published retention schedule removes old runs and assets.",
+      "exportAndDeletion": "Account export should include asset metadata. Production deletion workflow must remove stored files, database rows, and provider-side retained files where supported.",
+      "appleDraft": {
+        "categories": [
+          "Photos or Videos",
+          "User Content"
+        ],
+        "purposes": [
+          "App Functionality",
+          "Product Personalization"
+        ],
+        "linkedToUser": true,
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "Photos and videos",
+          "Files and docs",
+          "App activity"
+        ],
+        "purposes": [
+          "App functionality",
+          "Personalization"
+        ],
+        "collected": true,
+        "shared": true,
+        "optional": false
+      }
+    },
+    {
+      "id": "ai-generated-content",
+      "name": "AI generated prompts and video results",
+      "dataTypes": [
+        "image recognition output",
+        "final prompt",
+        "video task result",
+        "video links",
+        "generated file metadata",
+        "compliance precheck",
+        "evidence pack"
+      ],
+      "source": "AI workflow execution, video runs, batch jobs, LibTV jobs, and generated output listing.",
+      "purpose": [
+        "content generation",
+        "result display",
+        "download",
+        "workflow audit",
+        "compliance evidence",
+        "app functionality"
+      ],
+      "collected": true,
+      "linkedToUser": true,
+      "shared": true,
+      "sharingNotes": "Generated content may be returned by third-party AI/video services and stored by configured cloud infrastructure for display and download.",
+      "storedWhere": [
+        "server run storage",
+        "task database",
+        "output files",
+        "provider-side task result storage depending on production provider"
+      ],
+      "retention": "Keep while needed for user history, downloads, issue review, and compliance evidence. Final retention period is a release blocker.",
+      "exportAndDeletion": "Account export includes task and output summaries. Production deletion workflow must delete or unlink generated content where possible.",
+      "appleDraft": {
+        "categories": [
+          "User Content"
+        ],
+        "purposes": [
+          "App Functionality"
+        ],
+        "linkedToUser": true,
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "Files and docs",
+          "Photos and videos",
+          "App activity"
+        ],
+        "purposes": [
+          "App functionality"
+        ],
+        "collected": true,
+        "shared": true,
+        "optional": false
+      }
+    },
+    {
+      "id": "workflow-activity",
+      "name": "Workflow activity and usage records",
+      "dataTypes": [
+        "task ids",
+        "batch ids",
+        "task status",
+        "model token usage",
+        "operation timestamps",
+        "error messages",
+        "run configuration",
+        "selected workflow mode"
+      ],
+      "source": "Task APIs, batch APIs, run history, video-run history, compliance check, and server logs.",
+      "purpose": [
+        "task progress",
+        "cost and quota management",
+        "support",
+        "reliability",
+        "security",
+        "app functionality"
+      ],
+      "collected": true,
+      "linkedToUser": true,
+      "shared": false,
+      "sharingNotes": "Do not share with advertising or tracking partners. Cloud logging/hosting vendors may process this data as service providers.",
+      "storedWhere": [
+        "server database",
+        "run storage",
+        "application logs"
+      ],
+      "retention": "Keep for operational troubleshooting, quota reconciliation, and user task history. Production retention window must be published.",
+      "exportAndDeletion": "Export includes summaries. Deletion workflow must remove user-linked task records unless retained for legitimate security, legal, or billing reasons.",
+      "appleDraft": {
+        "categories": [
+          "Usage Data",
+          "Diagnostics"
+        ],
+        "purposes": [
+          "App Functionality"
+        ],
+        "linkedToUser": true,
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "App activity",
+          "App info and performance"
+        ],
+        "purposes": [
+          "App functionality",
+          "Security, fraud prevention, and compliance"
+        ],
+        "collected": true,
+        "shared": false,
+        "optional": false
+      }
+    },
+    {
+      "id": "diagnostics",
+      "name": "Diagnostics and technical health data",
+      "dataTypes": [
+        "crash or error details",
+        "health check status",
+        "browser or device basics",
+        "server timing",
+        "configuration readiness",
+        "request failure details"
+      ],
+      "source": "Server health checks, app error handling, operational logs, and release readiness checks.",
+      "purpose": [
+        "stability",
+        "debugging",
+        "security",
+        "service availability",
+        "app functionality"
+      ],
+      "collected": true,
+      "linkedToUser": "sometimes",
+      "shared": false,
+      "sharingNotes": "Production hosting, observability, and crash-reporting vendors must be added here if enabled.",
+      "storedWhere": [
+        "application logs",
+        "health check responses",
+        "future observability system if selected"
+      ],
+      "retention": "Keep for a short operational window. Final log retention and redaction policy is a release blocker.",
+      "exportAndDeletion": "Generally not user-facing unless linked to an account. User-linked diagnostics should be removable or anonymized during account deletion.",
+      "appleDraft": {
+        "categories": [
+          "Diagnostics"
+        ],
+        "purposes": [
+          "App Functionality"
+        ],
+        "linkedToUser": "sometimes",
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "App info and performance",
+          "Device or other IDs"
+        ],
+        "purposes": [
+          "App functionality",
+          "Security, fraud prevention, and compliance"
+        ],
+        "collected": true,
+        "shared": false,
+        "optional": false
+      }
+    },
+    {
+      "id": "local-preferences",
+      "name": "Local app preferences",
+      "dataTypes": [
+        "theme",
+        "PWA install prompt dismissal",
+        "model settings draft",
+        "scoring profile",
+        "home mode",
+        "notification preference",
+        "daily execution state"
+      ],
+      "source": "Browser localStorage and in-app settings.",
+      "purpose": [
+        "local personalization",
+        "workflow convenience",
+        "app functionality"
+      ],
+      "collected": false,
+      "linkedToUser": false,
+      "shared": false,
+      "sharingNotes": "Currently stored on device only unless a future sync feature sends these preferences to the server.",
+      "storedWhere": [
+        "browser localStorage"
+      ],
+      "retention": "Controlled by browser storage clearing or app reinstall. Must be reviewed if synced to cloud later.",
+      "exportAndDeletion": "Not included in server export because it is not currently collected by the server.",
+      "appleDraft": {
+        "categories": [
+          "Not Collected"
+        ],
+        "purposes": [
+          "App Functionality"
+        ],
+        "linkedToUser": false,
+        "tracking": false
+      },
+      "googleDraft": {
+        "categories": [
+          "Not collected"
+        ],
+        "purposes": [
+          "App functionality"
+        ],
+        "collected": false,
+        "shared": false,
+        "optional": true
+      }
+    }
+  ],
+  "applePrivacyNutritionLabelDraft": {
+    "status": "draft",
+    "tracking": false,
+    "trackingNotes": "No advertising SDK, advertising identifier use, data broker sharing, or cross-app targeted advertising is currently planned. Re-review before adding analytics, ads, social login, or attribution SDKs.",
+    "dataLinkedToUser": [
+      "Identifiers",
+      "Contact Info",
+      "Photos or Videos",
+      "User Content",
+      "Usage Data",
+      "Diagnostics"
+    ],
+    "dataNotLinkedToUser": [],
+    "notCollected": [
+      "Health and Fitness",
+      "Financial Info",
+      "Location",
+      "Contacts",
+      "Browsing History",
+      "Search History",
+      "Purchases",
+      "Sensitive Info"
+    ],
+    "purposes": [
+      "App Functionality",
+      "Product Personalization"
+    ],
+    "reviewBeforeSubmission": [
+      "Confirm whether username can contain email and whether Apple should treat it as Contact Info.",
+      "Confirm whether production logs store IP address or device identifiers.",
+      "Confirm every AI, hosting, storage, observability, and payment provider before App Store Connect submission.",
+      "Confirm no third-party code collects data for analytics, advertising, or tracking."
+    ]
+  },
+  "googlePlayDataSafetyDraft": {
+    "status": "draft",
+    "accountCreation": true,
+    "inAppDeletionRequest": true,
+    "webDeletionUrl": "https://www.zkraiflow.top/legal/delete-account.html",
+    "encryptionInTransit": "required-for-production",
+    "dataShared": true,
+    "dataSharingNotes": "User-uploaded and AI-generated content may be shared with service providers only to deliver AI/video generation and hosting. No advertising or data broker sharing is planned.",
+    "dataTypes": [
+      {
+        "category": "Personal info",
+        "types": [
+          "Name or username",
+          "User IDs"
+        ],
+        "collected": true,
+        "shared": false,
+        "purposes": [
+          "Account management",
+          "App functionality"
+        ]
+      },
+      {
+        "category": "Photos and videos",
+        "types": [
+          "Photos",
+          "Videos"
+        ],
+        "collected": true,
+        "shared": true,
+        "purposes": [
+          "App functionality",
+          "Personalization"
+        ]
+      },
+      {
+        "category": "Files and docs",
+        "types": [
+          "Files and docs"
+        ],
+        "collected": true,
+        "shared": true,
+        "purposes": [
+          "App functionality"
+        ]
+      },
+      {
+        "category": "App activity",
+        "types": [
+          "App interactions",
+          "Other user-generated content"
+        ],
+        "collected": true,
+        "shared": false,
+        "purposes": [
+          "App functionality"
+        ]
+      },
+      {
+        "category": "App info and performance",
+        "types": [
+          "Crash logs",
+          "Diagnostics",
+          "Other app performance data"
+        ],
+        "collected": true,
+        "shared": false,
+        "purposes": [
+          "App functionality",
+          "Security, fraud prevention, and compliance"
+        ]
+      }
+    ],
+    "reviewBeforeSubmission": [
+      "Confirm the public web deletion URL remains reachable: https://www.zkraiflow.top/legal/delete-account.html.",
+      "Confirm HTTPS is enforced for every production API endpoint.",
+      "Confirm whether production logs collect IP address and whether that should be declared.",
+      "Confirm all service providers and SDKs, including AI model providers, storage, hosting, observability, crash reporting, payment, and analytics if added.",
+      "Add the Analytics purpose only if production user activity is collected to understand app usage or performance beyond task operation, quota, support, or security needs.",
+      "Confirm that account deletion removes associated user data or clearly discloses lawful retention exceptions."
+    ]
+  },
+  "thirdPartyReview": [
+    {
+      "name": "React",
+      "type": "frontend framework",
+      "dataCollectionRisk": "none-known",
+      "releaseStatus": "ok"
+    },
+    {
+      "name": "Vite",
+      "type": "build tooling",
+      "dataCollectionRisk": "none-known",
+      "releaseStatus": "ok"
+    },
+    {
+      "name": "lucide-react",
+      "type": "icon library",
+      "dataCollectionRisk": "none-known",
+      "releaseStatus": "ok"
+    },
+    {
+      "name": "xlsx",
+      "type": "document parsing library",
+      "dataCollectionRisk": "parses user-provided spreadsheet files in app workflow; no separate network transfer is declared by the library itself",
+      "releaseStatus": "needs-production-review"
+    },
+    {
+      "name": "Capacitor core/android/ios",
+      "type": "native container",
+      "dataCollectionRisk": "container itself does not add analytics in current project; native permissions and plugins must be reviewed whenever added",
+      "releaseStatus": "native-project-generated"
+    },
+    {
+      "name": "Production AI model and video providers",
+      "type": "server-side service providers",
+      "dataCollectionRisk": "may receive user uploads, prompts, task parameters, and generated outputs to service user requests",
+      "releaseStatus": "provider-list-required"
+    }
+  ],
+  "permissions": [
+    {
+      "platform": "Android",
+      "permission": "INTERNET",
+      "declared": true,
+      "purpose": "Connect to the app server, authentication APIs, AI workflow APIs, support/legal pages, and generated result downloads.",
+      "storeDisclosureNeeded": true
+    },
+    {
+      "platform": "Android/iOS",
+      "permission": "Photo library or file picker",
+      "declared": "future-review",
+      "purpose": "Upload product images or save generated results if native plugins are added.",
+      "storeDisclosureNeeded": true
+    },
+    {
+      "platform": "Android/iOS",
+      "permission": "Camera",
+      "declared": false,
+      "purpose": "Not currently required. Add only if users can take product photos inside the app.",
+      "storeDisclosureNeeded": true
+    },
+    {
+      "platform": "Android/iOS",
+      "permission": "Microphone",
+      "declared": false,
+      "purpose": "Not currently required.",
+      "storeDisclosureNeeded": true
+    },
+    {
+      "platform": "Android/iOS",
+      "permission": "Push notifications",
+      "declared": false,
+      "purpose": "Not currently required. Review if task completion notifications are added.",
+      "storeDisclosureNeeded": true
+    }
+  ],
+  "releaseBlockers": [
+    "Replace every TODO public URL, contact email, and support phone before store submission.",
+    "Publish final privacy policy, terms, AI disclosure, support, and account deletion pages on HTTPS.",
+    "Confirm the final AI/video providers, hosting, storage, logging, crash reporting, payment, analytics, and domestic distribution SDK list.",
+    "Define and publish retention periods for accounts, uploaded files, generated outputs, task history, logs, and deletion requests.",
+    "Verify production account deletion removes account data and associated files or clearly discloses any lawful retention exceptions.",
+    "Confirm production HTTPS, secure cookies, CORS origins, and server-side secret handling.",
+    "Re-run privacy review whenever native permissions, analytics, ads, attribution, social login, payment, push notification, camera, microphone, or location features are added."
+  ]
+}

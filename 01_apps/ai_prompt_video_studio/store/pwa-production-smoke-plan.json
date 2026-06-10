@@ -1,0 +1,244 @@
+{
+  "schemaVersion": "pwa-production-smoke-plan-v1",
+  "updatedAt": "2026-06-10",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "status": "public-assets-smoke-passed-pending-production-device-smoke",
+  "purpose": "Define the production-domain PWA installation, offline, update, and authenticated mobile-web checks that must pass before using the public PWA as an external pilot channel.",
+  "officialBasis": [
+    {
+      "name": "MDN - Making PWAs installable",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable",
+      "localRequirement": "Verify installable manifest, icons, HTTPS origin, install prompt behavior, and standalone launch."
+    },
+    {
+      "name": "MDN - Service Worker API",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API",
+      "localRequirement": "Verify cached shell, offline fallback, update lifecycle, and no mutation API caching."
+    },
+    {
+      "name": "web.dev - Define your app icons",
+      "url": "https://web.dev/learn/pwa/web-app-manifest#icons",
+      "localRequirement": "Keep 192px, 512px, and maskable icons available for install surfaces."
+    }
+  ],
+  "preflightCommands": [
+    "npm run pwa:check",
+    "npm run public:check",
+    "npm run pwa:public-smoke",
+    "npm run mobile:check",
+    "npm run screenshots:check",
+    "npm run cloud:smoke"
+  ],
+  "publicAssetSmokeEvidence": {
+    "status": "passed",
+    "lastVerifiedAt": "2026-06-10T08:30:00+08:00",
+    "command": "npm run pwa:public-smoke",
+    "publicOrigin": "https://www.zkraiflow.top",
+    "passes": 31,
+    "blockers": 0,
+    "warnings": 0,
+    "evidenceFile": "store/evidence/pwa-public-smoke-2026-06-10.json",
+    "conclusion": "Production PWA public assets are reachable and structurally valid on the public HTTPS domain. Device install, offline relaunch, update cycle, and authenticated session evidence still require real device or review-account validation."
+  },
+  "deviceInstallEvidenceTemplate": {
+    "status": "template-ready-waiting-production-device-results",
+    "templateFile": "store/pwa-device-install-evidence-template.json",
+    "runbook": "00_docs/PWA_DEVICE_INSTALL_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "checkScript": "scripts/check-pwa-device-install-evidence-template.mjs",
+    "checkCommand": "npm run pwa:device-template",
+    "purpose": "Record sanitized Android Chrome and iOS Safari install, home-screen launch, offline, update, and safe-area evidence before expanding PWA pilot usage."
+  },
+  "requiredPublicAssets": [
+    {
+      "path": "/manifest.webmanifest",
+      "type": "application/manifest+json",
+      "expectations": [
+        "display is standalone",
+        "start_url is /",
+        "scope is /",
+        "at least 192, 512, and maskable icons are present",
+        "shortcuts include create, assets, and settings"
+      ]
+    },
+    {
+      "path": "/sw.js",
+      "type": "javascript",
+      "expectations": [
+        "install event precaches app shell",
+        "activate event clears stale caches",
+        "fetch event handles navigation fallback",
+        "message event can trigger SKIP_WAITING for user-confirmed updates"
+      ]
+    },
+    {
+      "path": "/offline.html",
+      "type": "text/html",
+      "expectations": [
+        "offline state is clear to non-technical users",
+        "page can be served when navigation fetch fails"
+      ]
+    },
+    {
+      "path": "/icons/icon-192.png",
+      "type": "image/png",
+      "expectations": [
+        "icon loads from production origin"
+      ]
+    },
+    {
+      "path": "/icons/icon-512.png",
+      "type": "image/png",
+      "expectations": [
+        "icon loads from production origin"
+      ]
+    },
+    {
+      "path": "/icons/icon-maskable-512.png",
+      "type": "image/png",
+      "expectations": [
+        "maskable icon loads from production origin"
+      ]
+    }
+  ],
+  "deviceMatrix": [
+    {
+      "id": "android-chrome",
+      "label": "Android Chrome",
+      "status": "pending-production-origin",
+      "viewport": "phone",
+      "mustPass": [
+        "beforeinstallprompt is shown after user engagement",
+        "Install button opens browser install UI",
+        "Installed app launches standalone from home screen",
+        "Bottom navigation, beginner cards, and notification card fit the screen",
+        "Login/session works against the production origin",
+        "Offline relaunch shows cached shell or offline page",
+        "A deployed update shows the in-app update banner and reloads cleanly"
+      ],
+      "evidenceNeeded": [
+        "Android Chrome install prompt screenshot",
+        "Installed home-screen icon screenshot",
+        "Standalone launched home screenshot",
+        "Offline fallback screenshot",
+        "Update banner screenshot"
+      ]
+    },
+    {
+      "id": "ios-safari",
+      "label": "iOS Safari",
+      "status": "pending-production-origin",
+      "viewport": "phone",
+      "mustPass": [
+        "Safari guidance card tells user to use Share then Add to Home Screen",
+        "Added home-screen app launches standalone or browser-compatible view",
+        "Safe-area spacing does not overlap iOS bars",
+        "Login/session works against the production origin",
+        "Offline relaunch shows cached shell or offline page",
+        "Public support, privacy, AI disclosure, and account deletion pages open"
+      ],
+      "evidenceNeeded": [
+        "iOS Safari add-to-home-screen guide screenshot",
+        "iOS home-screen icon screenshot",
+        "iOS standalone launched home screenshot",
+        "iOS legal/support page screenshot"
+      ]
+    },
+    {
+      "id": "desktop-chrome",
+      "label": "Desktop Chrome installability",
+      "status": "optional-for-pilot",
+      "viewport": "desktop",
+      "mustPass": [
+        "Manifest and service worker are recognized",
+        "Install entry is available when Chrome considers the app installable",
+        "Desktop installed window still presents the production console correctly"
+      ],
+      "evidenceNeeded": [
+        "Chrome installability inspection screenshot"
+      ]
+    }
+  ],
+  "manualTestCases": [
+    {
+      "id": "public-asset-preflight",
+      "priority": "P0",
+      "status": "automated-public-smoke-passed",
+      "steps": [
+        "Run npm run pwa:check locally.",
+        "Run npm run public:check against https://www.zkraiflow.top.",
+        "Confirm manifest, service worker, offline page, icons, legal pages, and health check load."
+      ],
+      "expectedResult": "Public PWA assets and legal/support pages load from HTTPS with no blocking errors."
+    },
+    {
+      "id": "android-install",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Open https://www.zkraiflow.top/ in Android Chrome.",
+        "Wait for the in-app install banner or browser install entry.",
+        "Tap install, complete browser install, and launch from the home screen."
+      ],
+      "expectedResult": "The app opens as an installed standalone experience and starts on the beginner-friendly mobile home."
+    },
+    {
+      "id": "ios-add-to-home-screen",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Open https://www.zkraiflow.top/ in iOS Safari.",
+        "Confirm the app shows the add-to-home-screen guidance card.",
+        "Use Share > Add to Home Screen, then launch from the home screen."
+      ],
+      "expectedResult": "The app opens from the iOS home screen without layout overlap or missing public pages."
+    },
+    {
+      "id": "offline-navigation",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Launch the PWA once online and open the home, create, assets, and settings routes.",
+        "Turn on airplane mode.",
+        "Relaunch and navigate to a previously opened route."
+      ],
+      "expectedResult": "The cached shell or offline page is shown clearly; create/generation actions do not pretend to run while offline."
+    },
+    {
+      "id": "update-banner",
+      "priority": "P1",
+      "status": "pending-deployment-cycle",
+      "steps": [
+        "Install or open the current PWA.",
+        "Deploy a version with a changed service worker cache version.",
+        "Reload once, wait for update detection, then tap the in-app update banner."
+      ],
+      "expectedResult": "The update banner appears only when a new worker is waiting, and tapping it activates the new worker and reloads once."
+    },
+    {
+      "id": "authenticated-pwa-session",
+      "priority": "P0",
+      "status": "blocked-until-review-account",
+      "steps": [
+        "Log in with the review-safe account on the production origin.",
+        "Create a dry-run task, open assets/results, and open support/legal/data rights pages.",
+        "Close and relaunch the installed PWA."
+      ],
+      "expectedResult": "Session behavior, secure cookies, CORS, and protected API calls remain stable after relaunch."
+    }
+  ],
+  "evidenceFiles": [
+    "public/manifest.webmanifest",
+    "public/sw.js",
+    "public/offline.html",
+    "scripts/check-pwa-public-smoke.mjs",
+    "scripts/check-pwa-device-install-evidence-template.mjs",
+    "store/pwa-device-install-evidence-template.json",
+    "00_docs/PWA_DEVICE_INSTALL_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "store/evidence/pwa-public-smoke-2026-06-10.json",
+    "00_docs/PWA_PUBLIC_SMOKE_EVIDENCE_2026-06-10.md",
+    "store/screenshots/mobile-web-390/08-pwa-install-guide.png",
+    "store/release-channel-plan.json",
+    "00_docs/APP_RELEASE_CHANNEL_DECISION_2026-06-10.md",
+    "00_docs/PWA_PRODUCTION_INSTALL_SMOKE_2026-06-10.md"
+  ]
+}

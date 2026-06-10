@@ -1,0 +1,361 @@
+{
+  "schemaVersion": "store-console-submission-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-waiting-owner-console-finalization",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Map the current project artifacts to App Store Connect, Google Play Console, and domestic Android store submission fields so the remaining owner inputs, production evidence, native builds, screenshots, privacy forms, and review access can be closed without storing secrets in the repository.",
+  "officialBasis": [
+    {
+      "name": "Apple App Store Connect app information",
+      "url": "https://developer.apple.com/help/app-store-connect/reference/app-information/",
+      "requirement": "App information, localizations, support, privacy, age rating, build, screenshots, review details, and availability must be completed in App Store Connect before submission."
+    },
+    {
+      "name": "Apple App Review Guidelines",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "requirement": "Submitted apps must provide useful functionality, accurate metadata, review access, privacy disclosures, and any needed special instructions."
+    },
+    {
+      "name": "Apple App Privacy Details",
+      "url": "https://developer.apple.com/app-store/app-privacy-details/",
+      "requirement": "Privacy answers must identify data collected by the app and integrated third-party partners and must stay accurate when practices change."
+    },
+    {
+      "name": "Apple app previews and screenshots",
+      "url": "https://developer.apple.com/help/app-store-connect/manage-app-information/upload-app-previews-and-screenshots/",
+      "requirement": "Screenshots should come from the real app experience and match the submitted app version."
+    },
+    {
+      "name": "Google Play create and set up your app",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9859152",
+      "requirement": "Google Play setup requires store listing, contact details, category, declarations, content rating, app content, release, and review material."
+    },
+    {
+      "name": "Google Play Data safety",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10787469",
+      "requirement": "Data safety answers must disclose collected and shared data, security practices, purposes, and deletion support."
+    },
+    {
+      "name": "Google Play app access credentials",
+      "url": "https://support.google.com/googleplay/android-developer/answer/15748846",
+      "requirement": "Apps with restricted functionality must provide credentials or instructions that let Google reviewers access the restricted areas."
+    },
+    {
+      "name": "Google Play preview assets",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9866151",
+      "requirement": "Preview assets, feature graphic, screenshots, and store listing media must meet Play Console format and content rules."
+    }
+  ],
+  "consoleTargets": [
+    {
+      "id": "app-store-connect",
+      "platform": "ios",
+      "status": "blocked-until-native-build-signing-owner-inputs",
+      "requiredBeforeSubmission": [
+        "Apple Developer team and App Store Connect app record",
+        "App name, subtitle, category, age rating, support URL, privacy URL",
+        "Final legal pages and Apple App Privacy answers",
+        "Signed build uploaded and processed",
+        "Native iPhone/iPad screenshots",
+        "Review contact and demo account instructions",
+        "Export compliance answer"
+      ]
+    },
+    {
+      "id": "google-play-console",
+      "platform": "android",
+      "status": "blocked-until-native-build-signing-owner-inputs",
+      "requiredBeforeSubmission": [
+        "Google Play developer account and app record",
+        "App name, short description, full description, category, support email, privacy URL",
+        "Final Google Data safety and app access instructions",
+        "Android App Bundle uploaded and signed through Play App Signing",
+        "Google Play phone screenshots and feature graphic",
+        "Content rating, target audience, ads declaration, and data deletion answers"
+      ]
+    },
+    {
+      "id": "domestic-android-stores",
+      "platform": "android",
+      "status": "blocked-until-operator-filing-channel-selection",
+      "requiredBeforeSubmission": [
+        "Operator legal entity",
+        "ICP filing and APP filing information",
+        "Channel-specific privacy, permission, SDK, and AI-generated content disclosures",
+        "Signed Android package and domestic screenshots",
+        "Support contact and filing display location"
+      ]
+    }
+  ],
+  "consoleSections": [
+    {
+      "id": "app-identity-and-records",
+      "status": "partially-ready-waiting-final-owner-name",
+      "destinations": [
+        "App Store Connect App Information",
+        "Google Play Console App setup",
+        "Domestic Android channel app profile"
+      ],
+      "sourceFiles": [
+        "store/submission-readiness.json",
+        "capacitor.config.json",
+        "android/app/build.gradle",
+        "ios/App/App.xcodeproj/project.pbxproj",
+        "store/native-release-signing-handoff.json"
+      ],
+      "currentEvidence": [
+        "Capacitor appId, Android applicationId, and iOS bundle id are top.zkraiflow.aivideostudio.",
+        "Public origin is https://www.zkraiflow.top.",
+        "Final consumer-facing app name still needs owner approval."
+      ],
+      "openInputs": [
+        "Final App Store name",
+        "Final Google Play name",
+        "Domestic Chinese app name if used",
+        "Developer account ownership confirmation"
+      ]
+    },
+    {
+      "id": "listing-copy-and-media",
+      "status": "draft-structured-waiting-native-screenshots",
+      "destinations": [
+        "App Store Connect Product Page",
+        "Google Play Main Store Listing",
+        "Domestic Android listing pages"
+      ],
+      "sourceFiles": [
+        "store/store-listing-copy-draft.json",
+        "store/screenshot-plan.json",
+        "store/native-store-screenshot-handoff.json",
+        "store/screenshots/README.md"
+      ],
+      "currentEvidence": [
+        "Chinese and English listing copy drafts exist.",
+        "Mobile web screenshot baseline exists.",
+        "Native store screenshots are still blocked until Android/iOS builds are validated."
+      ],
+      "openInputs": [
+        "Final listing copy approval",
+        "Native iOS screenshot set",
+        "Native Android screenshot set",
+        "Google Play 1024x500 feature graphic",
+        "Domestic channel media requirements"
+      ]
+    },
+    {
+      "id": "privacy-data-safety-and-legal",
+      "status": "draft-structured-waiting-owner-legal-final",
+      "destinations": [
+        "App Store Connect App Privacy",
+        "Google Play Data safety",
+        "Google Play Account deletion",
+        "Public legal pages"
+      ],
+      "sourceFiles": [
+        "store/privacy-data-safety-draft.json",
+        "store/privacy-form-fill-checklist.md",
+        "store/legal-finalization-handoff.json",
+        "public/legal/privacy.html",
+        "public/legal/terms.html",
+        "public/legal/ai-disclosure.html",
+        "public/legal/delete-account.html"
+      ],
+      "currentEvidence": [
+        "Apple and Google privacy/data-safety drafts are mapped.",
+        "Public privacy, terms, AI disclosure, and account deletion pages exist.",
+        "Legal pages still contain pre-release wording and final operator/provider/retention inputs are pending."
+      ],
+      "openInputs": [
+        "Operator legal entity",
+        "Final provider and SDK list",
+        "Retention and deletion policy",
+        "AI provider data training/retention policy",
+        "Final legal approval"
+      ]
+    },
+    {
+      "id": "review-access-and-demo-data",
+      "status": "template-ready-waiting-real-review-credentials",
+      "destinations": [
+        "App Store Connect Review Information",
+        "Google Play App access",
+        "Domestic Android reviewer notes"
+      ],
+      "sourceFiles": [
+        "store/review-notes-template.json",
+        "store/review-access-handoff.json",
+        "scripts/seed-review-demo.mjs",
+        "store/operator-inputs-register.json"
+      ],
+      "currentEvidence": [
+        "Review notes and app access instructions are drafted.",
+        "Review demo seeding dry-run exists.",
+        "Real review username and password secret reference are not yet provided."
+      ],
+      "openInputs": [
+        "Dedicated review account username",
+        "Password manager reference",
+        "Seed run evidence against production/review environment",
+        "Authenticated cloud smoke evidence"
+      ]
+    },
+    {
+      "id": "native-builds-and-signing",
+      "status": "handoff-ready-waiting-toolchain-signing-credentials",
+      "destinations": [
+        "App Store Connect Builds",
+        "Google Play Production/Internal Testing release",
+        "Domestic Android package upload"
+      ],
+      "sourceFiles": [
+        "store/native-release-signing-handoff.json",
+        "capacitor.config.json",
+        "android/release-signing.example.properties",
+        "android/app/build.gradle",
+        "ios/App/App.xcodeproj/project.pbxproj"
+      ],
+      "currentEvidence": [
+        "Native projects and signing handoff exist.",
+        "Release signing secrets are protected by git ignore rules.",
+        "Android SDK/JDK17, Apple signing, Play App Signing, and upload evidence are pending."
+      ],
+      "openInputs": [
+        "Android SDK and JDK 17+",
+        "Android upload keystore secret reference",
+        "Google Play App Signing status",
+        "Apple Developer Team and signing profile",
+        "Signed AAB and iOS archive upload evidence"
+      ]
+    },
+    {
+      "id": "production-runtime-and-operations",
+      "status": "handoff-ready-pending-hosting-smoke-evidence",
+      "destinations": [
+        "Public launch checklist",
+        "Store review notes",
+        "Week-one operations checklist"
+      ],
+      "sourceFiles": [
+        "deploy/production-auth-cors-handoff.json",
+        "deploy/production-observability-rollback-plan.json",
+        "deploy/cloud-deployment-action-plan.json",
+        "deploy/production.env.example",
+        "scripts/production-smoke-test.mjs"
+      ],
+      "currentEvidence": [
+        "Public domain and unauthenticated smoke are documented.",
+        "Production auth/CORS, observability, rollback, storage, and worker plans exist.",
+        "Authenticated cloud smoke and persistent storage/worker evidence are still pending."
+      ],
+      "openInputs": [
+        "Production runtime variables",
+        "Persistent storage path or object storage adapter",
+        "libTV worker topology",
+        "Authenticated cloud smoke result",
+        "Monitoring and rollback owner"
+      ]
+    },
+    {
+      "id": "ratings-declarations-and-availability",
+      "status": "waiting-owner-console-finalization",
+      "destinations": [
+        "App Store age rating and export compliance",
+        "Google Play content rating, target audience, ads, app category, and availability",
+        "Domestic Android compliance forms"
+      ],
+      "sourceFiles": [
+        "store/submission-readiness.json",
+        "store/china-distribution-compliance-handoff.json",
+        "store/privacy-data-safety-draft.json",
+        "store/operator-inputs-register.json"
+      ],
+      "currentEvidence": [
+        "Category and privacy assumptions are drafted.",
+        "China distribution handoff exists.",
+        "Console-only declarations still need owner/account-holder final answers."
+      ],
+      "openInputs": [
+        "Apple age rating questionnaire answers",
+        "Apple export compliance answer",
+        "Google Play content rating questionnaire answers",
+        "Target audience and ads declaration",
+        "Launch countries/regions",
+        "Pricing/free-vs-paid decision"
+      ]
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "console-records-ready",
+      "status": "blocked-until-owner-account-records",
+      "requiredEvidence": [
+        "Apple App Store Connect app record exists.",
+        "Google Play Console app record exists.",
+        "Final app names and developer account ownership are confirmed."
+      ]
+    },
+    {
+      "id": "metadata-final",
+      "status": "blocked-until-copy-support-legal-final",
+      "requiredEvidence": [
+        "Support email and phone are real.",
+        "Listing copy is approved.",
+        "Legal pages and privacy/data-safety answers are final."
+      ]
+    },
+    {
+      "id": "reviewer-path-ready",
+      "status": "blocked-until-review-account-smoke",
+      "requiredEvidence": [
+        "Review account exists outside the repository.",
+        "Review demo seed succeeded against the review environment.",
+        "Authenticated cloud smoke passed with the same account."
+      ]
+    },
+    {
+      "id": "native-upload-ready",
+      "status": "blocked-until-signed-builds-and-native-screenshots",
+      "requiredEvidence": [
+        "Signed Android App Bundle uploaded or ready to upload.",
+        "iOS archive uploaded and processed in App Store Connect.",
+        "Native store screenshots are captured at required device sizes."
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run store:console-plan",
+    "npm run store:check",
+    "npm run legal:finalization-plan",
+    "npm run review:access-plan",
+    "npm run native:release-plan",
+    "npm run screenshots:native-plan",
+    "npm run production:ops-plan",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "store/store-console-submission-handoff.json",
+    "00_docs/STORE_CONSOLE_SUBMISSION_HANDOFF_2026-06-10.md",
+    "scripts/check-store-console-submission-plan.mjs",
+    "store/submission-readiness.json",
+    "store/store-listing-copy-draft.json",
+    "store/privacy-data-safety-draft.json",
+    "store/privacy-form-fill-checklist.md",
+    "store/review-notes-template.json",
+    "store/review-access-handoff.json",
+    "store/native-release-signing-handoff.json",
+    "store/native-store-screenshot-handoff.json",
+    "deploy/production-auth-cors-handoff.json",
+    "deploy/production-observability-rollback-plan.json",
+    "store/operator-inputs-register.json",
+    "store/release-blockers-register.json"
+  ],
+  "doNotCommit": [
+    "Apple ID or Google account password",
+    "Real review account password",
+    "Signing keys, certificates, profiles, or keystores",
+    "Provider API keys",
+    "Private customer uploads",
+    "Private console screenshots containing account or payment details",
+    "Unredacted production logs"
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "schemaVersion": "production-auth-cors-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-pending-hosting-authenticated-smoke",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Make production authentication, CORS, cookies, public origin, and authenticated smoke-test evidence explicit before external launch or store review.",
+  "officialBasis": [
+    {
+      "name": "MDN Set-Cookie",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie",
+      "requirement": "Production login cookies need intentional HttpOnly, Secure, Path, lifetime, and SameSite behavior. SameSite=None must be paired with Secure."
+    },
+    {
+      "name": "MDN Access-Control-Allow-Origin",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Access-Control-Allow-Origin",
+      "requirement": "Credentialed CORS must use explicit allowed origins instead of wildcard Access-Control-Allow-Origin."
+    },
+    {
+      "name": "Capacitor configuration",
+      "url": "https://capacitorjs.com/docs/config",
+      "requirement": "Native app packaging must use a stable app id, web directory, and origin/API behavior that works in the packaged WebView."
+    },
+    {
+      "name": "Google Play User Data policy",
+      "url": "https://support.google.com/googleplay/android-developer/answer/10144311",
+      "requirement": "Production user data handling must match the public disclosures and use secure transmission."
+    },
+    {
+      "name": "Apple App Review Guidelines",
+      "url": "https://developer.apple.com/app-store/review/guidelines/",
+      "requirement": "Submitted apps must be stable, complete, and not depend on private local developer services."
+    }
+  ],
+  "runtimeValues": [
+    {
+      "key": "NODE_ENV",
+      "expectedTemplateValue": "production",
+      "requiredInHosting": true,
+      "releaseReason": "Enables production defaults and prevents local/dev assumptions."
+    },
+    {
+      "key": "PUBLIC_APP_ORIGIN",
+      "expectedTemplateValue": "https://www.zkraiflow.top",
+      "requiredInHosting": true,
+      "releaseReason": "Defines the canonical web/PWA origin used by public URLs, smoke tests, and CORS checks."
+    },
+    {
+      "key": "CORS_ALLOWED_ORIGINS",
+      "expectedTemplateValue": "https://www.zkraiflow.top,capacitor://localhost,https://localhost",
+      "requiredInHosting": true,
+      "releaseReason": "Pins authenticated API callers to the public web/PWA origin and required packaged-app origins."
+    },
+    {
+      "key": "CORS_ALLOW_CREDENTIALS",
+      "expectedTemplateValue": "true",
+      "requiredInHosting": true,
+      "releaseReason": "Allows browser/PWA/App requests to include login cookies."
+    },
+    {
+      "key": "CORS_ALLOW_LOCALHOST",
+      "expectedTemplateValue": "false",
+      "requiredInHosting": true,
+      "releaseReason": "Prevents dev-only localhost origins from remaining enabled in production."
+    },
+    {
+      "key": "CONSOLE_AUTH_REQUIRED",
+      "expectedTemplateValue": "true",
+      "requiredInHosting": true,
+      "releaseReason": "Keeps the workflow console protected before public launch."
+    },
+    {
+      "key": "CONSOLE_AUTH_ALLOW_REGISTRATION",
+      "expectedTemplateValue": "false",
+      "requiredInHosting": true,
+      "releaseReason": "Keeps first public release limited to controlled accounts until signup policy is ready."
+    },
+    {
+      "key": "CONSOLE_AUTH_COOKIE_SECURE",
+      "expectedTemplateValue": "true",
+      "requiredInHosting": true,
+      "releaseReason": "Ensures login cookies are only sent over HTTPS."
+    },
+    {
+      "key": "CONSOLE_AUTH_COOKIE_SAMESITE",
+      "expectedTemplateValue": "Lax",
+      "requiredInHosting": true,
+      "releaseReason": "Same-origin web/PWA can use Lax. Cross-origin remote API needs SameSite=None plus Secure=true."
+    },
+    {
+      "key": "SMOKE_BASE_URL",
+      "expectedTemplateValue": "https://www.zkraiflow.top",
+      "requiredInHosting": false,
+      "releaseReason": "Targets post-deploy verification at the real public domain."
+    },
+    {
+      "key": "SMOKE_EXPECT_AUTH_REQUIRED",
+      "expectedTemplateValue": "true",
+      "requiredInHosting": false,
+      "releaseReason": "Prevents a smoke test from passing if public auth is accidentally disabled."
+    }
+  ],
+  "originModels": [
+    {
+      "id": "same-origin-web-pwa",
+      "status": "recommended-first-release",
+      "description": "Serve web/PWA and API under https://www.zkraiflow.top so login cookies are same-site and CORS remains simple.",
+      "cookiePolicy": "CONSOLE_AUTH_COOKIE_SAMESITE=Lax and CONSOLE_AUTH_COOKIE_SECURE=true",
+      "corsPolicy": "CORS_ALLOWED_ORIGINS includes https://www.zkraiflow.top and no wildcard."
+    },
+    {
+      "id": "capacitor-remote-api",
+      "status": "allowed-after-device-validation",
+      "description": "Packaged app WebView calls a remote API directly from a Capacitor origin.",
+      "cookiePolicy": "Use SameSite=None only when required, always with Secure=true, and validate on Android/iOS devices.",
+      "corsPolicy": "CORS_ALLOWED_ORIGINS includes the actual packaged-app origins required by the WebView."
+    },
+    {
+      "id": "split-web-api-domain",
+      "status": "avoid-for-first-release-unless-needed",
+      "description": "Web/PWA and API are deployed on different HTTPS domains.",
+      "cookiePolicy": "Requires cross-site credential validation, SameSite=None, Secure=true, and CSRF review.",
+      "corsPolicy": "Every accepted origin must be explicitly listed and tested with credentials."
+    }
+  ],
+  "smokeGates": [
+    {
+      "id": "public-health",
+      "status": "public-unauthenticated-smoke-passed",
+      "command": "npm run public:check",
+      "requiredEvidence": [
+        "https://www.zkraiflow.top/api/healthz returns ok=true",
+        "Health response reports authRequired=true",
+        "Root, support, legal pages, and manifest are public"
+      ]
+    },
+    {
+      "id": "authenticated-login",
+      "status": "blocked-until-review-account",
+      "command": "SMOKE_BASE_URL=https://www.zkraiflow.top SMOKE_USERNAME=<account> SMOKE_PASSWORD=<secret> npm run cloud:smoke",
+      "requiredEvidence": [
+        "Login returns a session cookie",
+        "/api/auth/session reports authenticated=true",
+        "Protected account/data-rights APIs work with the session"
+      ]
+    },
+    {
+      "id": "cors-credentials",
+      "status": "pending-hosting-runtime",
+      "command": "npm run production:auth-plan",
+      "requiredEvidence": [
+        "Production CORS allowlist contains https://www.zkraiflow.top",
+        "Wildcard CORS is not used for authenticated APIs",
+        "Credentialed requests work from mobile web/PWA and packaged app origins"
+      ]
+    },
+    {
+      "id": "cookie-persistence",
+      "status": "pending-real-device",
+      "command": "npm run mobile:qa",
+      "requiredEvidence": [
+        "Login remains valid after refresh on mobile web",
+        "Login remains valid after closing/reopening installed PWA",
+        "Packaged app login persists according to selected SameSite strategy"
+      ]
+    },
+    {
+      "id": "logout-and-expiry",
+      "status": "pending-authenticated-smoke",
+      "command": "npm run cloud:smoke",
+      "requiredEvidence": [
+        "Logout clears the session",
+        "Expired sessions are rejected",
+        "Users are not silently treated as admin"
+      ]
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "hosting-env-final",
+      "status": "blocked-until-hosting-values-verified",
+      "requiredEvidence": [
+        "Hosting platform has the required runtime values",
+        "Production profile template matches the selected public origin",
+        "No real secrets are committed to the repository"
+      ]
+    },
+    {
+      "id": "authenticated-smoke-final",
+      "status": "blocked-until-review-account-cloud-smoke",
+      "requiredEvidence": [
+        "A review-safe account exists",
+        "SMOKE_USERNAME and SMOKE_PASSWORD are injected from secret storage",
+        "npm run cloud:smoke passes against https://www.zkraiflow.top"
+      ]
+    },
+    {
+      "id": "device-session-final",
+      "status": "blocked-until-mobile-device-session-qa",
+      "requiredEvidence": [
+        "Mobile browser session works",
+        "Installed PWA session works",
+        "Android/iOS packaged app session works after native build validation"
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run production:auth-plan",
+    "npm run production:profile",
+    "npm run cloud:check:strict",
+    "npm run public:check",
+    "npm run cloud:smoke",
+    "npm run mobile:qa",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "deploy/production-auth-cors-handoff.json",
+    "00_docs/PRODUCTION_AUTH_CORS_HANDOFF_2026-06-10.md",
+    "scripts/check-production-auth-cors-plan.mjs",
+    "deploy/production.env.example",
+    "deploy/production-release-runbook.md",
+    "deploy/cloud-deployment-action-plan.json",
+    "store/release-blockers-register.json",
+    "store/launch-action-plan.json",
+    "store/operator-inputs-register.json",
+    "scripts/check-production-profile-readiness.mjs",
+    "scripts/check-cloud-readiness.mjs",
+    "scripts/production-smoke-test.mjs"
+  ],
+  "doNotCommit": [
+    "Real admin password",
+    "Review account password",
+    "Session cookie values",
+    "Provider API keys",
+    "Private hosting tokens",
+    "Internal-only worker URLs if they reveal private network details"
+  ]
+}

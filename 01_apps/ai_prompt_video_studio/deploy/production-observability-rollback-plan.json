@@ -1,0 +1,364 @@
+{
+  "schemaVersion": "production-observability-rollback-plan-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-pending-hosting-observability-evidence",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Make the first public release operable after deployment by defining health checks, smoke evidence, monitoring signals, rollback switches, log boundaries, and incident response before external users or store reviewers rely on the app.",
+  "releasePrinciples": [
+    "Do not launch publicly without a known rollback path.",
+    "Do not enable real paid video generation until worker health, storage persistence, and provider quota are verified.",
+    "Do not log API keys, passwords, full cookies, private customer uploads, or unredacted personal data.",
+    "Treat public health, authenticated smoke, PWA install, account deletion, storage persistence, and worker queue health as separate release gates.",
+    "Keep the first release conservative: limited concurrency, review-safe account, dry-run fallback, and daily monitoring during week one."
+  ],
+  "healthSurfaces": [
+    {
+      "id": "api-healthz",
+      "url": "https://www.zkraiflow.top/api/healthz",
+      "currentEvidence": "public:check verifies the public health endpoint returns ok=true and status=ready",
+      "mustShow": [
+        "service identity",
+        "ready status",
+        "authRequired status",
+        "safe non-secret runtime summary"
+      ],
+      "mustNotShow": [
+        "API keys",
+        "password hashes",
+        "session cookies",
+        "internal filesystem paths beyond safe operational summaries"
+      ]
+    },
+    {
+      "id": "public-pages",
+      "url": "https://www.zkraiflow.top/",
+      "currentEvidence": "public:check and pwa:public-smoke verify public root, support, legal pages, manifest, and PWA assets",
+      "mustShow": [
+        "root app shell",
+        "support page",
+        "privacy policy",
+        "terms",
+        "AI disclosure",
+        "account deletion page",
+        "PWA manifest"
+      ],
+      "mustNotShow": [
+        "local development URLs",
+        "TODO public URLs",
+        "private reviewer credentials",
+        "local filesystem paths"
+      ]
+    },
+    {
+      "id": "authenticated-smoke",
+      "url": "https://www.zkraiflow.top/api/auth/session",
+      "currentEvidence": "blocked until review-safe account is available",
+      "mustShow": [
+        "login succeeds with review-safe account",
+        "session endpoint returns authenticated=true",
+        "runtime config endpoint hides private keys",
+        "account data rights endpoint works"
+      ],
+      "mustNotShow": [
+        "real user accounts",
+        "private customer data",
+        "real passwords in logs or repository"
+      ]
+    },
+    {
+      "id": "worker-and-storage",
+      "url": "private worker health endpoint or cloud provider dashboard",
+      "currentEvidence": "blocked until libTV worker and persistent storage are configured",
+      "mustShow": [
+        "worker health",
+        "queue depth",
+        "last successful dry-run or real generation",
+        "persistent storage survives restart",
+        "failed job reason is visible without secrets"
+      ],
+      "mustNotShow": [
+        "provider API keys",
+        "private network credentials",
+        "private uploaded source files in public logs"
+      ]
+    }
+  ],
+  "monitoringSignals": [
+    {
+      "id": "availability",
+      "owner": "platform",
+      "frequency": "daily during week one, then release cadence",
+      "signals": [
+        "public root HTTP status",
+        "/api/healthz HTTP status",
+        "PWA manifest reachability",
+        "legal/support page reachability"
+      ],
+      "evidenceCommand": "npm run public:check"
+    },
+    {
+      "id": "authentication",
+      "owner": "engineering",
+      "frequency": "daily during week one and after auth changes",
+      "signals": [
+        "login success rate",
+        "session refresh success",
+        "logout success",
+        "unexpected unauthenticated API access"
+      ],
+      "evidenceCommand": "npm run cloud:smoke"
+    },
+    {
+      "id": "creation-workflow",
+      "owner": "product-engineering",
+      "frequency": "daily during week one",
+      "signals": [
+        "task creation success",
+        "batch dry-run success",
+        "upload success",
+        "task failure reason distribution"
+      ],
+      "evidenceCommand": "npm run review:seed:dry"
+    },
+    {
+      "id": "storage",
+      "owner": "platform",
+      "frequency": "after deploy, after restart, and daily during week one",
+      "signals": [
+        "RUN_STORAGE_DIR mounted",
+        "uploads survive restart",
+        "generated outputs survive restart",
+        "data-rights request artifacts survive restart",
+        "storage capacity trend"
+      ],
+      "evidenceCommand": "npm run production:profile"
+    },
+    {
+      "id": "worker",
+      "owner": "engineering",
+      "frequency": "daily during week one after real generation is enabled",
+      "signals": [
+        "libTV worker health",
+        "queue depth",
+        "provider error rate",
+        "generation timeout rate",
+        "cost/quota usage"
+      ],
+      "evidenceCommand": "npm run cloud:worker-plan"
+    },
+    {
+      "id": "privacy-ops",
+      "owner": "product-legal",
+      "frequency": "daily during week one and weekly after launch",
+      "signals": [
+        "account export request count",
+        "account deletion request count",
+        "open data-rights queue",
+        "support inbox response time",
+        "legal page reachability"
+      ],
+      "evidenceCommand": "npm run compliance:check"
+    }
+  ],
+  "rollbackPlaybooks": [
+    {
+      "id": "web-pwa-blank-screen",
+      "trigger": "Public root or PWA shell fails to load after deploy.",
+      "rollbackActions": [
+        "Rollback to previous static dist/container artifact.",
+        "Keep public legal/support pages available.",
+        "Run npm run public:check after rollback.",
+        "Record failed release version, rollback time, and impacted surfaces."
+      ],
+      "verification": [
+        "Root page loads",
+        "PWA manifest loads",
+        "mobile screenshots baseline still reflects usable UI"
+      ]
+    },
+    {
+      "id": "auth-cookie-cors-failure",
+      "trigger": "Login fails, sessions disappear after refresh, or credentialed CORS is rejected.",
+      "rollbackActions": [
+        "Restore last known good PUBLIC_APP_ORIGIN and CORS_ALLOWED_ORIGINS.",
+        "Restore last known good CONSOLE_AUTH_COOKIE_SECURE and CONSOLE_AUTH_COOKIE_SAMESITE.",
+        "Keep CONSOLE_AUTH_REQUIRED=true.",
+        "Run npm run production:auth-plan and authenticated npm run cloud:smoke."
+      ],
+      "verification": [
+        "Login succeeds",
+        "Session endpoint returns authenticated=true",
+        "Logout clears the session"
+      ]
+    },
+    {
+      "id": "worker-or-provider-failure",
+      "trigger": "Real video generation fails, queue grows, provider errors spike, or cost/quota is abnormal.",
+      "rollbackActions": [
+        "Set LIBTV_DEFAULT_DRY_RUN=true.",
+        "Reduce BATCH_MAX_WORKERS to 1 or 2.",
+        "Keep uploads, prompt generation, and dry-run flows available.",
+        "Record failed provider, error type, queue impact, and cost impact."
+      ],
+      "verification": [
+        "Dry-run task creation works",
+        "Failed jobs show user-readable errors",
+        "No new real generation jobs are submitted while paused"
+      ]
+    },
+    {
+      "id": "storage-persistence-failure",
+      "trigger": "Uploads, generated outputs, review seed data, or data-rights records disappear after restart.",
+      "rollbackActions": [
+        "Stop public expansion and store submission.",
+        "Restore RUN_STORAGE_DIR to the last known persistent volume path.",
+        "Recover files from backup if available.",
+        "Run upload, dry-run, export, and deletion-request smoke tests."
+      ],
+      "verification": [
+        "Files survive restart",
+        "Account export does not expose secrets",
+        "Deletion requests remain visible to admins"
+      ]
+    },
+    {
+      "id": "privacy-or-deletion-flow-failure",
+      "trigger": "Privacy page, support page, or account deletion request flow becomes unreachable or inaccurate.",
+      "rollbackActions": [
+        "Pause store submission and public marketing.",
+        "Restore last known good legal/support page build.",
+        "Keep a monitored support contact available.",
+        "Run npm run compliance:check and npm run public:check."
+      ],
+      "verification": [
+        "Privacy, terms, AI disclosure, support, and delete-account pages load",
+        "In-app data rights entry works",
+        "Support contact is visible"
+      ]
+    }
+  ],
+  "logSafetyRules": [
+    "Never log provider API keys.",
+    "Never log plaintext passwords or password hashes.",
+    "Never log full session cookies.",
+    "Never log private uploaded source files or customer assets in public logs.",
+    "Redact Authorization, Cookie, Set-Cookie, and provider secret headers.",
+    "Keep data-rights and deletion-request logs limited to request id, status, operator, and timestamps.",
+    "If a log sample is attached to a store review or support ticket, remove account identifiers and private file paths first."
+  ],
+  "incidentResponse": [
+    {
+      "severity": "P0",
+      "examples": [
+        "login unavailable",
+        "private data exposed",
+        "account deletion unavailable",
+        "real generation charging unexpectedly"
+      ],
+      "response": [
+        "Stop rollout or pause public promotion.",
+        "Apply the matching rollback playbook.",
+        "Capture timeline and impacted users.",
+        "Notify operator/legal owner if privacy or deletion is affected."
+      ]
+    },
+    {
+      "severity": "P1",
+      "examples": [
+        "video generation failure spike",
+        "PWA install failure",
+        "support/legal page intermittent failure"
+      ],
+      "response": [
+        "Keep read-only/legal surfaces online.",
+        "Reduce worker concurrency or enable dry-run fallback.",
+        "Run public and authenticated smoke tests after mitigation."
+      ]
+    },
+    {
+      "severity": "P2",
+      "examples": [
+        "copy mismatch",
+        "non-critical screenshot outdated",
+        "minor mobile layout issue"
+      ],
+      "response": [
+        "Fix in normal release cadence.",
+        "Update screenshots and docs when the user-facing behavior changes."
+      ]
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "health-and-smoke-evidence",
+      "status": "blocked-until-authenticated-public-smoke",
+      "requiredEvidence": [
+        "npm run public:check passes against https://www.zkraiflow.top",
+        "authenticated npm run cloud:smoke passes with a review-safe account",
+        "health endpoint reports ready and authRequired=true"
+      ]
+    },
+    {
+      "id": "rollback-path-ready",
+      "status": "blocked-until-platform-rollback-action-confirmed",
+      "requiredEvidence": [
+        "Previous build/container rollback action is documented",
+        "Environment-variable rollback is documented",
+        "LIBTV_DEFAULT_DRY_RUN fallback is documented",
+        "Rollback owner is assigned"
+      ]
+    },
+    {
+      "id": "log-safety-ready",
+      "status": "blocked-until-log-redaction-reviewed",
+      "requiredEvidence": [
+        "Log safety rules are accepted by engineering",
+        "No committed scripts print secrets",
+        "Support/store evidence logs are redacted before sharing"
+      ]
+    },
+    {
+      "id": "week-one-monitoring-ready",
+      "status": "blocked-until-monitoring-owner-confirmed",
+      "requiredEvidence": [
+        "Daily week-one checklist owner assigned",
+        "Support inbox owner assigned",
+        "Worker/storage capacity checks assigned"
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run production:ops-plan",
+    "npm run production:auth-plan",
+    "npm run production:profile",
+    "npm run public:check",
+    "npm run cloud:smoke",
+    "npm run cloud:worker-plan",
+    "npm run compliance:check",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "deploy/production-observability-rollback-plan.json",
+    "00_docs/PRODUCTION_OBSERVABILITY_ROLLBACK_2026-06-10.md",
+    "scripts/check-production-observability-plan.mjs",
+    "deploy/production-release-runbook.md",
+    "deploy/cloud-deployment-action-plan.json",
+    "deploy/production-auth-cors-handoff.json",
+    "deploy/libtv-worker-storage-plan.json",
+    "scripts/production-smoke-test.mjs",
+    "scripts/check-public-domain-readiness.mjs",
+    "scripts/check-production-profile-readiness.mjs",
+    "scripts/check-cloud-worker-plan.mjs",
+    "store/release-blockers-register.json",
+    "store/operator-inputs-register.json"
+  ],
+  "doNotCommit": [
+    "Raw production logs containing user data",
+    "Session cookies",
+    "API keys",
+    "Plaintext passwords",
+    "Private provider dashboards",
+    "Private customer uploads",
+    "Unredacted support tickets"
+  ]
+}

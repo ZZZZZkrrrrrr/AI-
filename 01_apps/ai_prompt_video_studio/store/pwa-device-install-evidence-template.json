@@ -1,0 +1,212 @@
+{
+  "schemaVersion": "pwa-device-install-evidence-template-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-production-device-results",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "purpose": "Define the sanitized evidence needed to prove Android Chrome and iOS Safari PWA install, home-screen launch, offline relaunch, update banner, and beginner mobile layout before using PWA as the main external pilot channel.",
+  "officialReferences": [
+    {
+      "name": "MDN Making PWAs installable",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable",
+      "whyItMatters": "The installed experience depends on a valid manifest, HTTPS origin, icons, and service worker behavior."
+    },
+    {
+      "name": "web.dev PWA installation",
+      "url": "https://web.dev/learn/pwa/installation",
+      "whyItMatters": "Install prompts and home-screen launch behavior vary by browser and should be verified on real devices."
+    },
+    {
+      "name": "Chrome installable manifest audit",
+      "url": "https://developer.chrome.com/docs/lighthouse/pwa/installable-manifest",
+      "whyItMatters": "Chrome installability checks depend on manifest fields, icons, and service worker availability."
+    },
+    {
+      "name": "MDN Service Worker API",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API",
+      "whyItMatters": "Offline navigation and update behavior rely on service worker lifecycle correctness."
+    }
+  ],
+  "requiredDevices": [
+    {
+      "id": "android-chrome",
+      "status": "pending-real-device",
+      "minimumVersionPolicy": "Use a current stable Android Chrome on a real phone or trusted emulator.",
+      "mustCapture": [
+        "browser install entry or install prompt",
+        "installed home-screen icon",
+        "standalone home launch",
+        "bottom navigation and beginner cards on first screen",
+        "offline relaunch or offline fallback",
+        "update banner after a deployed update"
+      ]
+    },
+    {
+      "id": "ios-safari",
+      "status": "pending-real-device",
+      "minimumVersionPolicy": "Use a current stable iOS Safari on iPhone; add iPad after phone evidence is clean.",
+      "mustCapture": [
+        "in-app Add to Home Screen guidance",
+        "Safari Share menu path or tester note",
+        "home-screen icon",
+        "home-screen launch result",
+        "safe-area spacing on home/settings",
+        "support/privacy/AI disclosure/account deletion page access"
+      ]
+    }
+  ],
+  "deviceTestCases": [
+    {
+      "id": "android-install-home-launch",
+      "deviceId": "android-chrome",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Open https://www.zkraiflow.top/ in Android Chrome.",
+        "Install from the browser install UI or in-app prompt.",
+        "Launch from the home-screen icon.",
+        "Confirm the first screen is the beginner large-button mobile home."
+      ],
+      "expectedEvidence": [
+        "install prompt or browser install menu screenshot",
+        "home-screen icon screenshot",
+        "standalone launched home screenshot"
+      ]
+    },
+    {
+      "id": "ios-add-home-launch",
+      "deviceId": "ios-safari",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Open https://www.zkraiflow.top/ in iOS Safari.",
+        "Confirm Add to Home Screen guidance is visible.",
+        "Use Share > Add to Home Screen.",
+        "Launch from the home-screen icon and inspect safe areas."
+      ],
+      "expectedEvidence": [
+        "Add to Home Screen guidance screenshot",
+        "home-screen icon screenshot",
+        "launched app safe-area screenshot"
+      ]
+    },
+    {
+      "id": "offline-relaunch",
+      "deviceId": "android-chrome",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Open home, create, assets, and settings while online.",
+        "Turn on airplane mode.",
+        "Relaunch the installed PWA.",
+        "Confirm cached shell or offline page is understandable and online-only actions are not presented as submitted."
+      ],
+      "expectedEvidence": [
+        "offline relaunch screenshot",
+        "offline message screenshot",
+        "tester note for create/generation behavior"
+      ]
+    },
+    {
+      "id": "ios-public-pages",
+      "deviceId": "ios-safari",
+      "priority": "P0",
+      "status": "pending-production-device",
+      "steps": [
+        "Launch the iOS home-screen app.",
+        "Open Settings.",
+        "Open support, privacy, AI disclosure, and account deletion pages.",
+        "Return to the app after each page."
+      ],
+      "expectedEvidence": [
+        "settings screenshot",
+        "support or privacy page screenshot",
+        "tester note confirming return path"
+      ]
+    },
+    {
+      "id": "update-banner",
+      "deviceId": "android-chrome",
+      "priority": "P1",
+      "status": "pending-deployment-cycle",
+      "steps": [
+        "Install or open the current PWA.",
+        "Deploy a build with a changed service worker cache version.",
+        "Reload once and wait for update detection.",
+        "Tap the update banner and confirm one clean reload."
+      ],
+      "expectedEvidence": [
+        "update banner screenshot",
+        "post-update home screenshot",
+        "tester note confirming a single reload"
+      ]
+    },
+    {
+      "id": "authenticated-relaunch",
+      "deviceId": "android-chrome",
+      "priority": "P0",
+      "status": "blocked-until-review-account",
+      "steps": [
+        "Sign in with the review-safe account on the production origin.",
+        "Close the installed PWA.",
+        "Launch from the home-screen icon again.",
+        "Confirm session state and protected app paths behave as expected."
+      ],
+      "expectedEvidence": [
+        "redacted signed-in home screenshot",
+        "redacted protected path screenshot",
+        "authenticated smoke evidence reference"
+      ]
+    }
+  ],
+  "sampleEvidenceRecord": {
+    "schemaVersion": "pwa-device-install-result-v1",
+    "capturedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "publicOrigin": "https://www.zkraiflow.top",
+    "deviceId": "android-chrome",
+    "caseId": "android-install-home-launch",
+    "result": "pass | fail | blocked",
+    "browser": "Chrome stable or Safari stable",
+    "osVersion": "redacted major version is enough",
+    "displayModeObserved": "standalone | browser | unknown",
+    "evidenceFiles": [
+      "store/evidence/pwa-device/YYYY-MM-DD/android-chrome/android-install-home-launch-redacted.png"
+    ],
+    "notes": "Short sanitized note. Do not include private notifications, account secrets, or user uploads.",
+    "followUpBlocker": "release-blockers-register id or none"
+  },
+  "evidenceRules": {
+    "fileNaming": "store/evidence/pwa-device/YYYY-MM-DD/<device-id>/<case-id>-redacted.png",
+    "allowedInRepository": [
+      "redacted screenshots",
+      "pass/fail/blocker result JSON",
+      "browser and major OS version",
+      "display mode summary",
+      "linked blocker ids"
+    ],
+    "doNotStore": [
+      "private notifications",
+      "tester phone number",
+      "review account password",
+      "session cookie",
+      "private product uploads",
+      "unredacted browser profile information"
+    ]
+  },
+  "closeoutGates": [
+    "Android install, home-screen icon, standalone launch, and offline relaunch evidence are captured.",
+    "iOS Add to Home Screen, home-screen launch, safe-area, and public legal/support evidence are captured.",
+    "PWA update banner is verified in at least one deployment cycle before public pilot expansion.",
+    "Authenticated relaunch remains blocked until review account and authenticated smoke evidence exist.",
+    "Any failed P0 case is copied into store/release-blockers-register.json before inviting more testers."
+  ],
+  "linkedFiles": [
+    "store/pwa-production-smoke-plan.json",
+    "public/manifest.webmanifest",
+    "public/sw.js",
+    "public/offline.html",
+    "store/screenshots/mobile-web-390/08-pwa-install-guide.png",
+    "store/authenticated-smoke-evidence-template.json",
+    "00_docs/PWA_DEVICE_INSTALL_EVIDENCE_TEMPLATE_2026-06-10.md",
+    "scripts/check-pwa-device-install-evidence-template.mjs"
+  ]
+}

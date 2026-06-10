@@ -1,0 +1,200 @@
+{
+  "schemaVersion": "store-submission-readiness-v1",
+  "updatedAt": "2026-06-10",
+  "app": {
+    "name": "AI Prompt Video Studio",
+    "subtitle": "AI short video workflow studio",
+    "category": "Productivity",
+    "descriptionStatus": "draft",
+    "storeListingCopyStatus": "draft-structured",
+    "storeListingCopyFile": "store/store-listing-copy-draft.json",
+    "supportUrl": "https://www.zkraiflow.top/support.html",
+    "marketingUrl": "https://www.zkraiflow.top/",
+    "privacyPolicyUrl": "https://www.zkraiflow.top/legal/privacy.html",
+    "accountDeletionUrl": "https://www.zkraiflow.top/legal/delete-account.html",
+    "contactEmail": "TODO_CONTACT_EMAIL",
+    "contactPhone": "TODO_CONTACT_PHONE"
+  },
+  "review": {
+    "demoAccountStatus": "pending",
+    "reviewNotesStatus": "draft",
+    "reviewNotesFile": "store/review-notes-template.json",
+    "reviewAccessPlanStatus": "handoff-ready-waiting-real-credentials",
+    "reviewAccessPlanFile": "store/review-access-handoff.json",
+    "reviewAccessRunbook": "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md",
+    "demoAccountPlanStatus": "template-ready",
+    "demoSeedDataStatus": "script-ready",
+    "demoSeedDataScript": "scripts/seed-review-demo.mjs",
+    "minimumFunctionalityNotes": "Mobile PWA shell, create flow, task/assets cards, settings/legal/data rights entry, and video stitch page are implemented. Capacitor dependencies and native Android/iOS project templates are generated; signing, store screenshots, and device validation remain pending."
+  },
+  "privacy": {
+    "legalFinalizationStatus": "handoff-ready-waiting-owner-legal-final",
+    "legalFinalizationFile": "store/legal-finalization-handoff.json",
+    "legalFinalizationRunbook": "00_docs/LEGAL_FINALIZATION_HANDOFF_2026-06-10.md",
+    "dataSafetyDraftStatus": "draft-structured",
+    "dataSafetyDraftFile": "store/privacy-data-safety-draft.json",
+    "formFillChecklistStatus": "draft-structured",
+    "formFillChecklistFile": "store/privacy-form-fill-checklist.md",
+    "applePrivacyNutritionLabel": {
+      "status": "draft",
+      "tracking": "none-planned",
+      "thirdPartyPartnerReviewStatus": "pending",
+      "dataTypes": [
+        "Account info",
+        "User content",
+        "Product images",
+        "Prompts",
+        "Generated video metadata",
+        "Diagnostics"
+      ]
+    },
+    "googleDataSafety": {
+      "status": "draft",
+      "accountCreation": true,
+      "inAppDeletionRequest": true,
+      "webDeletionUrl": "https://www.zkraiflow.top/legal/delete-account.html",
+      "encryptionInTransit": "required-for-production",
+      "dataTypes": [
+        "Account info",
+        "Files and docs",
+        "Photos and videos",
+        "App activity",
+        "Diagnostics"
+      ]
+    },
+    "thirdPartySdks": [
+      {
+        "name": "React",
+        "type": "frontend framework",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "Vite",
+        "type": "build tooling",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "lucide-react",
+        "type": "icon library",
+        "collectsUserData": false,
+        "reviewStatus": "ok"
+      },
+      {
+        "name": "xlsx",
+        "type": "document parsing library",
+        "collectsUserData": false,
+        "reviewStatus": "needs-production-review"
+      }
+    ],
+    "permissions": [
+      "Network access",
+      "File picker for image/doc upload when packaged",
+      "Optional photo library save/share plugin after Capacitor validation"
+    ]
+  },
+  "distribution": {
+    "pwaStatus": "internal-ready",
+    "capacitorStatus": "native-projects-generated",
+    "iosNativeStatus": "project-generated",
+    "androidNativeStatus": "project-generated",
+    "trustedWebActivityStatus": "optional-after-pwa"
+  },
+  "pilotRelease": {
+    "status": "pilot-ready-with-manual-production-gates",
+    "publicOrigin": "https://www.zkraiflow.top",
+    "readinessFile": "store/pilot-release-readiness.json",
+    "runbook": "00_docs/PILOT_RELEASE_READINESS_2026-06-10.md",
+    "checkScript": "scripts/check-pilot-release-readiness.mjs",
+    "allowedChannels": [
+      "mobile-web",
+      "pwa"
+    ],
+    "stillBlockedFor": [
+      "public production launch",
+      "App Store submission",
+      "Google Play submission",
+      "domestic Android store submission",
+      "real public video generation"
+    ]
+  },
+  "pilotFeedback": {
+    "status": "internal-ready",
+    "runbook": "00_docs/PILOT_FEEDBACK_LOOP_2026-06-10.md",
+    "checkScript": "scripts/check-pilot-feedback-readiness.mjs",
+    "userEndpoint": "POST /api/support/feedback",
+    "adminEndpoint": "GET /api/admin/support-feedback",
+    "storage": "RUN_STORAGE_DIR/support-feedback/*.jsonl",
+    "mobileSurface": "src/features/settings/SettingsPage.jsx",
+    "stillBlockedFor": [
+      "formal public support SLA",
+      "scaled helpdesk workflow",
+      "external launch support staffing"
+    ]
+  },
+  "qa": {
+    "mobileDeviceQaStatus": "internal-ready-with-manual-gates",
+    "mobileDeviceQaPlanFile": "store/mobile-device-qa-plan.json",
+    "mobileDeviceQaCheckScript": "scripts/check-mobile-device-qa-plan.mjs",
+    "manualGateSummary": "Web screenshots and beginner mobile checks are captured. Android/iOS native device QA, production PWA install, review-account login, and final store screenshots remain release blockers."
+  },
+  "china": {
+    "operatorName": "TODO_OPERATOR_LEGAL_ENTITY",
+    "domain": "www.zkraiflow.top",
+    "icpFilingNumber": "TODO_ICP_FILING_NUMBER",
+    "appFilingNumber": "TODO_APP_FILING_NUMBER",
+    "filingStatus": "not-started",
+    "filingDisplayLocation": "TODO_DISPLAY_APP_FILING_NUMBER_IN_APP",
+    "complianceHandoffStatus": "handoff-ready-waiting-owner-filing-inputs",
+    "complianceHandoffFile": "store/china-distribution-compliance-handoff.json",
+    "complianceRunbook": "00_docs/CHINA_DISTRIBUTION_COMPLIANCE_HANDOFF_2026-06-10.md"
+  },
+  "screenshots": {
+    "status": "pending",
+    "planStatus": "structured",
+    "webCaptureStatus": "captured-first-pass",
+    "planFile": "store/screenshot-plan.json",
+    "nativeHandoffStatus": "handoff-ready-blocked-until-native-build",
+    "nativeHandoffFile": "store/native-store-screenshot-handoff.json",
+    "nativeHandoffRunbook": "00_docs/NATIVE_STORE_SCREENSHOT_HANDOFF_2026-06-10.md",
+    "requiredSets": [
+      "mobile-web-390",
+      "mobile-web-430",
+      "tablet-web-768",
+      "ios-app-store",
+      "google-play-phone",
+      "domestic-android-store"
+    ]
+  },
+  "consoleSubmission": {
+    "status": "handoff-ready-waiting-owner-console-finalization",
+    "handoffFile": "store/store-console-submission-handoff.json",
+    "runbook": "00_docs/STORE_CONSOLE_SUBMISSION_HANDOFF_2026-06-10.md",
+    "checkScript": "scripts/check-store-console-submission-plan.mjs",
+    "openConsoleGates": [
+      "Final app names and developer account records",
+      "Support contact and legal final wording",
+      "Apple App Privacy and Google Play Data safety final answers",
+      "Review account credentials and authenticated smoke evidence",
+      "Signed Android/iOS builds and native store screenshots",
+      "Age rating, content rating, export compliance, target audience, ads, pricing, availability, and domestic filing answers"
+    ]
+  },
+  "releaseEvidence": {
+    "status": "evidence-slots-ready-waiting-production-owner-artifacts",
+    "registerFile": "store/release-evidence-register.json",
+    "runbook": "00_docs/RELEASE_EVIDENCE_REGISTER_2026-06-10.md",
+    "checkScript": "scripts/check-release-evidence-register.mjs",
+    "coverage": [
+      "public domain and authenticated smoke",
+      "support contact and public pages",
+      "legal finalization and privacy/data-safety forms",
+      "review account and demo seed",
+      "production observability and rollback",
+      "persistent storage and libTV worker",
+      "native signing, native screenshots, mobile QA",
+      "store console submission and China distribution"
+    ]
+  }
+}

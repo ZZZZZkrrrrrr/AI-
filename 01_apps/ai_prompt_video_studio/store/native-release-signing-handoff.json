@@ -1,0 +1,218 @@
+{
+  "schemaVersion": "native-release-signing-handoff-v1",
+  "updatedAt": "2026-06-10",
+  "status": "handoff-ready-waiting-toolchain-signing-credentials",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "objective": "Prepare native app identity, versioning, Android upload signing, iOS App Store signing, release archives, and upload evidence before App Store or Google Play submission.",
+  "officialBasis": [
+    {
+      "name": "Android App signing",
+      "url": "https://developer.android.com/studio/publish/app-signing",
+      "requirement": "Android release builds must be signed before distribution, and App Bundles or APKs should be protected by an upload key or app signing key process."
+    },
+    {
+      "name": "Google Play App Signing",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9842756",
+      "requirement": "Google Play can manage and protect the app signing key while developers sign uploads with an upload key."
+    },
+    {
+      "name": "Apple App Store provisioning profile",
+      "url": "https://developer.apple.com/help/account/provisioning-profiles/create-an-app-store-provisioning-profile/",
+      "requirement": "App Store distribution requires an App Store provisioning profile tied to the app identifier and signing certificate."
+    },
+    {
+      "name": "App Store Connect upload builds",
+      "url": "https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/",
+      "requirement": "iOS builds must be archived, signed, uploaded, processed, and selected in App Store Connect before review."
+    },
+    {
+      "name": "Capacitor configuration",
+      "url": "https://capacitorjs.com/docs/config",
+      "requirement": "The native app identity, app name, webDir, and release server behavior must match the Capacitor production configuration."
+    }
+  ],
+  "appIdentity": {
+    "capacitorAppId": "top.zkraiflow.aivideostudio",
+    "androidApplicationId": "top.zkraiflow.aivideostudio",
+    "iosBundleId": "top.zkraiflow.aivideostudio",
+    "appName": "AI Video Studio",
+    "displayNameStatus": "draft-final-name-pending-owner"
+  },
+  "releaseVersion": {
+    "androidVersionCode": 1,
+    "androidVersionName": "1.0",
+    "iosCurrentProjectVersion": "1",
+    "iosMarketingVersion": "1.0",
+    "versionPolicy": "Increase Android versionCode and iOS CURRENT_PROJECT_VERSION for every store upload; update marketing version only when the public release version changes."
+  },
+  "signingAssets": [
+    {
+      "id": "android-upload-keystore",
+      "platform": "android",
+      "currentState": "template-only",
+      "repoPolicy": "DO_NOT_COMMIT",
+      "ownerInput": "TODO_ANDROID_UPLOAD_KEYSTORE_SECRET_REF",
+      "targetFileTemplate": "android/release-signing.example.properties",
+      "secureDestination": "android/release-signing.properties on a secure build machine or CI secret store"
+    },
+    {
+      "id": "google-play-app-signing",
+      "platform": "android",
+      "currentState": "pending-developer-account",
+      "repoPolicy": "DO_NOT_COMMIT",
+      "ownerInput": "TODO_GOOGLE_PLAY_APP_SIGNING_STATUS",
+      "secureDestination": "Google Play Console"
+    },
+    {
+      "id": "ios-distribution-certificate",
+      "platform": "ios",
+      "currentState": "pending-apple-developer-account",
+      "repoPolicy": "DO_NOT_COMMIT",
+      "ownerInput": "TODO_APPLE_DISTRIBUTION_CERTIFICATE_SECRET_REF",
+      "secureDestination": "Apple Developer account, macOS keychain, or CI signing secret store"
+    },
+    {
+      "id": "ios-app-store-provisioning-profile",
+      "platform": "ios",
+      "currentState": "pending-profile",
+      "repoPolicy": "DO_NOT_COMMIT",
+      "ownerInput": "TODO_APPLE_APP_STORE_PROFILE",
+      "secureDestination": "Apple Developer account, Xcode signing, or CI signing secret store"
+    },
+    {
+      "id": "app-store-connect-app-record",
+      "platform": "ios",
+      "currentState": "pending-owner-account",
+      "repoPolicy": "DO_NOT_COMMIT",
+      "ownerInput": "TODO_APP_STORE_CONNECT_APP_RECORD",
+      "secureDestination": "App Store Connect"
+    }
+  ],
+  "toolchainGates": [
+    {
+      "id": "android-toolchain",
+      "status": "blocked-until-android-sdk-jdk17",
+      "requirements": [
+        "Android SDK path is set through ANDROID_HOME or ANDROID_SDK_ROOT.",
+        "JDK 17 or newer is used for Android Gradle builds.",
+        "Gradle can produce a release Android App Bundle."
+      ]
+    },
+    {
+      "id": "ios-toolchain",
+      "status": "blocked-until-macos-xcode",
+      "requirements": [
+        "macOS with current Xcode is available.",
+        "Apple Developer team and App Store signing are configured.",
+        "Xcode archive can be signed and uploaded."
+      ]
+    },
+    {
+      "id": "native-device-qa",
+      "status": "blocked-until-signed-builds",
+      "requirements": [
+        "Install Android build on a physical device or release-grade emulator.",
+        "Install iOS build on simulator or device through Xcode/TestFlight flow.",
+        "Capture store screenshots after native build validation."
+      ]
+    }
+  ],
+  "buildCommands": [
+    {
+      "id": "handoff-check",
+      "command": "npm run native:release-plan",
+      "purpose": "Validate native signing handoff files, app identity, no-secret rules, and release blockers."
+    },
+    {
+      "id": "sync-native-assets",
+      "command": "npm run capacitor:sync",
+      "purpose": "Build web assets and sync them into native projects."
+    },
+    {
+      "id": "capacitor-readiness",
+      "command": "npm run capacitor:check",
+      "purpose": "Check Capacitor config, native project baseline, Android SDK/JDK, and iOS Xcode readiness."
+    },
+    {
+      "id": "android-release-bundle",
+      "command": "cd android && .\\gradlew.bat bundleRelease",
+      "purpose": "Create the Android release App Bundle on Windows after SDK, JDK 17, and signing values are ready."
+    },
+    {
+      "id": "ios-archive",
+      "command": "xcodebuild archive -workspace ios/App/App.xcworkspace -scheme App -configuration Release -archivePath build/App.xcarchive",
+      "purpose": "Create an iOS archive on macOS after Apple signing is configured."
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "identity-consistent",
+      "status": "ready",
+      "requiredEvidence": [
+        "Capacitor appId is top.zkraiflow.aivideostudio.",
+        "Android applicationId is top.zkraiflow.aivideostudio.",
+        "iOS PRODUCT_BUNDLE_IDENTIFIER is top.zkraiflow.aivideostudio."
+      ]
+    },
+    {
+      "id": "signing-secrets-protected",
+      "status": "ready-template-only",
+      "requiredEvidence": [
+        "Real keystore, p12, mobileprovision, IPA, archive, and signing properties are ignored by git.",
+        "Only android/release-signing.example.properties is committed.",
+        "Real passwords are stored in password manager or CI secrets."
+      ]
+    },
+    {
+      "id": "android-release-upload-ready",
+      "status": "blocked-until-toolchain-and-signing",
+      "requiredEvidence": [
+        "Android SDK and JDK 17+ are installed.",
+        "Upload keystore or CI signing secret reference exists outside the repository.",
+        "Release App Bundle is generated and can be uploaded to Play Console."
+      ]
+    },
+    {
+      "id": "ios-app-store-upload-ready",
+      "status": "blocked-until-macos-xcode-and-apple-signing",
+      "requiredEvidence": [
+        "Apple Developer account and team are selected.",
+        "App Store provisioning profile and distribution signing are configured.",
+        "Archive is uploaded and processed in App Store Connect."
+      ]
+    }
+  ],
+  "verificationCommands": [
+    "npm run native:release-plan",
+    "npm run capacitor:check",
+    "npm run screenshots:native-plan",
+    "npm run mobile:qa",
+    "npm run release:check"
+  ],
+  "evidenceFiles": [
+    "store/native-release-signing-handoff.json",
+    "00_docs/NATIVE_RELEASE_SIGNING_HANDOFF_2026-06-10.md",
+    "scripts/check-native-release-signing-plan.mjs",
+    "capacitor.config.json",
+    "android/app/build.gradle",
+    "android/app/src/main/AndroidManifest.xml",
+    "android/release-signing.example.properties",
+    "android/.gitignore",
+    "ios/App/App/Info.plist",
+    "ios/App/App.xcodeproj/project.pbxproj",
+    ".gitignore",
+    "store/operator-inputs-register.json",
+    "store/release-blockers-register.json"
+  ],
+  "doNotCommit": [
+    "Android keystore files",
+    "Android signing passwords",
+    "android/release-signing.properties",
+    "Apple p12 certificates or private keys",
+    "mobileprovision or provisioning profiles",
+    "xcarchive or ipa outputs",
+    "Apple or Google account passwords",
+    "Play Console signing certificates",
+    "Store review account password"
+  ]
+}

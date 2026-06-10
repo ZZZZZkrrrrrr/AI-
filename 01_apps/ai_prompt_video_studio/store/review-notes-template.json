@@ -1,0 +1,130 @@
+{
+  "schemaVersion": "store-review-notes-template-v1",
+  "updatedAt": "2026-06-09",
+  "status": "template-ready",
+  "officialBasis": [
+    {
+      "name": "Apple App Review",
+      "url": "https://developer.apple.com/app-store/review/",
+      "requirement": "If the app requires special settings, account information, or instructions, include them in App Review Information in App Store Connect."
+    },
+    {
+      "name": "Google Play app access requirements",
+      "url": "https://support.google.com/googleplay/android-developer/answer/15748846",
+      "requirement": "If app functionality is restricted, provide login credentials, demo account details, or instructions that let reviewers access all app functionality."
+    },
+    {
+      "name": "Google Play prepare your app for review",
+      "url": "https://support.google.com/googleplay/android-developer/answer/9859455",
+      "requirement": "Use App access instructions when login, membership, location, or other authentication gates restrict review access."
+    }
+  ],
+  "demoAccount": {
+    "status": "pending-real-credentials",
+    "username": "TODO_REVIEW_USERNAME",
+    "passwordSecretRef": "TODO_REVIEW_PASSWORD_SECRET_REF",
+    "mfa": "disabled-for-review-account",
+    "role": "reviewer",
+    "seedDataStatus": "script-ready",
+    "seedDataScript": "npm run review:seed",
+    "seedDataDryRunScript": "npm run review:seed:dry",
+    "seedDataEnvironment": [
+      "REVIEW_BASE_URL",
+      "REVIEW_USERNAME",
+      "REVIEW_PASSWORD"
+    ],
+    "seedDataIncludes": [
+      "review demo product",
+      "review demo account asset",
+      "review demo dry-run batch",
+      "data rights API visibility check"
+    ],
+    "notes": "Use a dedicated review account. Do not store the real password in this repository; store it in the release password manager and paste it into App Store Connect / Play Console only during submission. Before submission, set REVIEW_BASE_URL, REVIEW_USERNAME, and REVIEW_PASSWORD, then run npm run review:seed against the review environment."
+  },
+  "appleReviewInformation": {
+    "contactFirstName": "TODO_CONTACT_FIRST_NAME",
+    "contactLastName": "TODO_CONTACT_LAST_NAME",
+    "contactPhone": "TODO_CONTACT_PHONE",
+    "contactEmail": "TODO_CONTACT_EMAIL",
+    "demoUsername": "TODO_REVIEW_USERNAME",
+    "demoPasswordSecretRef": "TODO_REVIEW_PASSWORD_SECRET_REF",
+    "notesForReviewDraft": [
+      "This app is an AI short-video workflow studio for creating product-video prompts, managing generated assets, and tracking video tasks.",
+      "Use the supplied demo account to sign in. The account is seeded for review and does not contain private customer data.",
+      "Recommended review path: open Home, switch between Video and Image/Text beginner modes, tap Prompt Package, verify the create page opens directly on the prompt package step, open Assets, open Stitch, then open My > Privacy and Account Data.",
+      "Video generation can be reviewed in dry-run mode. Dry-run validates the workflow without charging or invoking production video generation.",
+      "Account data export and account deletion request are available under My > Data and Account. The public deletion explanation page is /legal/delete-account.html."
+    ],
+    "attachments": [
+      "store/screenshots/mobile-web-390/01-home.png",
+      "store/screenshots/mobile-web-390/02-home-notifications.png",
+      "store/screenshots/mobile-web-390/03-home-image.png",
+      "store/screenshots/mobile-web-390/04-create-prompt-intent.png"
+    ]
+  },
+  "googlePlayAppAccess": {
+    "accessType": "all-or-some-functionality-restricted",
+    "instructionName": "Review account access for AI Prompt Video Studio",
+    "username": "TODO_REVIEW_USERNAME",
+    "passwordSecretRef": "TODO_REVIEW_PASSWORD_SECRET_REF",
+    "additionalInstructionsDraft": [
+      "Sign in with the supplied review account. Multi-factor authentication is disabled for this account.",
+      "After login, open Home. Review the Video mode and Image/Text mode beginner buttons.",
+      "Tap Image/Text > Prompt Package to verify the app opens the create page at the prompt package step.",
+      "Open Create to review product image upload, prompt package input, product information, and dry-run video generation.",
+      "Open Assets, Stitch, and My. My contains support, privacy policy, account data export, and account deletion request entry points."
+    ],
+    "seedDataInstructions": [
+      "Before submitting for review, set REVIEW_BASE_URL to the public review environment.",
+      "Set REVIEW_USERNAME and REVIEW_PASSWORD to the dedicated review account credentials from the release password manager.",
+      "Run npm run review:seed to seed the demo product, account asset, and dry-run batch.",
+      "Run npm run cloud:smoke with the same account to confirm reviewer access."
+    ],
+    "restrictedAreasCovered": [
+      "Home beginner mode",
+      "Create flow",
+      "Prompt package step",
+      "Assets and results",
+      "Video stitch page",
+      "Privacy, support, data export, and account deletion"
+    ]
+  },
+  "reviewSmokePath": [
+    {
+      "step": 1,
+      "screen": "Home",
+      "action": "Open default Video mode",
+      "expectedResult": "Large beginner buttons are visible: One-click video, Batch generation, Image-to-video, Stitch, Assets, My data."
+    },
+    {
+      "step": 2,
+      "screen": "Home",
+      "action": "Tap Image/Text, then Prompt Package",
+      "expectedResult": "Create page opens with the Prompt Package step selected."
+    },
+    {
+      "step": 3,
+      "screen": "Create",
+      "action": "Review product image, prompt package, product information, and dry-run video generation controls",
+      "expectedResult": "The workflow can be reviewed without requiring real paid video generation."
+    },
+    {
+      "step": 4,
+      "screen": "Assets",
+      "action": "Open generated assets/results cards",
+      "expectedResult": "Mobile cards are shown instead of desktop tables."
+    },
+    {
+      "step": 5,
+      "screen": "My",
+      "action": "Open support, privacy, data export, and account deletion request entries",
+      "expectedResult": "Reviewer can inspect compliance and data rights flows."
+    }
+  ],
+  "notForRepository": [
+    "Real review password",
+    "Private customer product images",
+    "Production API keys",
+    "Private payment or billing credentials"
+  ]
+}

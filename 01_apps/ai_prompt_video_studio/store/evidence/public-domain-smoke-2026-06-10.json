@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "sanitized-public-domain-smoke-evidence-v1",
+  "generatedAt": "2026-06-10T08:45:00+08:00",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "command": "npm run public:check",
+  "result": {
+    "passes": 30,
+    "blockers": 0,
+    "warnings": 2
+  },
+  "warningSummary": [
+    "Store contact email is still pending owner input.",
+    "Store contact phone is still pending owner input."
+  ],
+  "verifiedPublicUrls": [
+    {
+      "url": "https://www.zkraiflow.top/",
+      "label": "Marketing URL",
+      "evidence": "Public HTTPS URL reachable with non-empty HTML response."
+    },
+    {
+      "url": "https://www.zkraiflow.top/support.html",
+      "label": "Support URL",
+      "evidence": "Public HTTPS support page reachable with non-empty HTML response."
+    },
+    {
+      "url": "https://www.zkraiflow.top/legal/privacy.html",
+      "label": "Privacy policy URL",
+      "evidence": "Public HTTPS privacy policy reachable with non-empty HTML response."
+    },
+    {
+      "url": "https://www.zkraiflow.top/legal/delete-account.html",
+      "label": "Account deletion URL",
+      "evidence": "Public HTTPS account deletion page reachable with non-empty HTML response."
+    },
+    {
+      "url": "https://www.zkraiflow.top/api/healthz",
+      "label": "Public health check",
+      "evidence": "Health endpoint reachable, JSON parseable, ok=true, status=ready, and authRequired=true."
+    },
+    {
+      "url": "https://www.zkraiflow.top/manifest.webmanifest",
+      "label": "Public PWA manifest",
+      "evidence": "Manifest reachable, JSON parseable, and exposes app identity plus icon declarations."
+    }
+  ],
+  "verifiedConfiguration": [
+    "deploy/production.env.example uses PUBLIC_APP_ORIGIN=https://www.zkraiflow.top",
+    "deploy/production.env.example includes https://www.zkraiflow.top in CORS_ALLOWED_ORIGINS",
+    "deploy/production.env.example uses SMOKE_BASE_URL=https://www.zkraiflow.top",
+    "store/submission-readiness.json public URLs use the same HTTPS origin"
+  ],
+  "remainingGates": [
+    "Replace TODO_CONTACT_EMAIL with a monitored support inbox.",
+    "Replace TODO_CONTACT_PHONE or define a final support contact policy.",
+    "Run authenticated cloud smoke after review-safe account credentials exist.",
+    "Capture production-device PWA install and mobile login evidence."
+  ],
+  "secretPolicy": "No credentials, cookies, API keys, account screenshots, private uploads, or hosting console data are stored in this evidence file."
+}

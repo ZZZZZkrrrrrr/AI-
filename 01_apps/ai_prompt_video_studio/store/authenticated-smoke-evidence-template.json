@@ -1,0 +1,174 @@
+{
+  "schemaVersion": "authenticated-smoke-evidence-template-v1",
+  "updatedAt": "2026-06-10",
+  "status": "template-ready-waiting-review-account-and-production-run",
+  "publicOrigin": "https://www.zkraiflow.top",
+  "purpose": "Define the non-secret evidence needed to prove authenticated production login, session cookie, CORS, protected APIs, and reviewer-safe data paths before PWA pilot expansion or app store submission.",
+  "officialReferences": [
+    {
+      "name": "Apple App Review",
+      "url": "https://developer.apple.com/app-store/review/",
+      "whyItMatters": "Restricted app functionality must be accessible to reviewers with clear instructions and reviewer-safe setup."
+    },
+    {
+      "name": "Google Play login credentials for app access",
+      "url": "https://support.google.com/googleplay/android-developer/answer/15748846",
+      "whyItMatters": "Review credentials must be valid, reusable, location-independent, and sufficient to access restricted functionality."
+    },
+    {
+      "name": "MDN Set-Cookie",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie",
+      "whyItMatters": "Production session evidence must confirm Secure and SameSite behavior for authenticated browser/PWA sessions."
+    },
+    {
+      "name": "MDN Cross-Origin Resource Sharing",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS",
+      "whyItMatters": "Production API access must be pinned to expected web and Capacitor origins instead of broad wildcard access."
+    }
+  ],
+  "requiredInputsOutsideRepository": [
+    {
+      "id": "review-username",
+      "status": "waiting-owner-input",
+      "secretHandling": "Record only the username or redacted username if it is safe for store review notes; never record the password here."
+    },
+    {
+      "id": "review-password-secret-ref",
+      "status": "waiting-owner-input",
+      "secretHandling": "Store the real password in a password manager or store console review field; repository evidence may record only the secret reference name."
+    },
+    {
+      "id": "production-runtime-origin",
+      "status": "waiting-hosting-verification",
+      "secretHandling": "Confirm PUBLIC_APP_ORIGIN=https://www.zkraiflow.top and CORS_ALLOWED_ORIGINS are set in the hosting platform."
+    },
+    {
+      "id": "secure-cookie-runtime",
+      "status": "waiting-hosting-verification",
+      "secretHandling": "Confirm CONSOLE_AUTH_COOKIE_SECURE=true on HTTPS and record only the redacted Set-Cookie attributes."
+    }
+  ],
+  "commandPlan": {
+    "unauthenticatedPublicSmoke": "SMOKE_BASE_URL=https://www.zkraiflow.top npm run cloud:smoke",
+    "authenticatedPublicSmoke": "SMOKE_BASE_URL=https://www.zkraiflow.top SMOKE_USERNAME=<review account> SMOKE_PASSWORD=<from password manager> npm run cloud:smoke",
+    "seedReviewData": "REVIEW_BASE_URL=https://www.zkraiflow.top REVIEW_USERNAME=<review account> REVIEW_PASSWORD=<from password manager> npm run review:seed",
+    "templateCheck": "npm run production:smoke-template"
+  },
+  "expectedAuthenticatedChecks": [
+    {
+      "id": "login-session-cookie",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "login smoke succeeds",
+        "session cookie is returned",
+        "cookie attributes are redacted but show Secure on HTTPS",
+        "SameSite is consistent with production auth/CORS plan"
+      ]
+    },
+    {
+      "id": "session-api",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "GET /api/auth/session returns authenticated=true",
+        "user role is reviewer or approved review-safe role",
+        "response does not expose password, token, API keys, or internal secrets"
+      ]
+    },
+    {
+      "id": "runtime-config-api",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "GET /api/config succeeds",
+        "provider key fields are absent",
+        "public origin and dry-run state match the runbook"
+      ]
+    },
+    {
+      "id": "data-rights-api",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "review account can access its data-rights request path",
+        "account deletion or export request path is reachable",
+        "admin-only queues are not exposed unless the review role is intentionally admin"
+      ]
+    },
+    {
+      "id": "cors-origin-policy",
+      "status": "waiting-production-run",
+      "evidenceRequired": [
+        "allowed origin includes https://www.zkraiflow.top",
+        "required Capacitor origins are documented if native shells call the API",
+        "wildcard origin is not used for authenticated production API calls"
+      ]
+    }
+  ],
+  "sampleEvidenceRecord": {
+    "schemaVersion": "authenticated-smoke-result-v1",
+    "capturedAt": "YYYY-MM-DDTHH:mm:ss+08:00",
+    "publicOrigin": "https://www.zkraiflow.top",
+    "command": "SMOKE_BASE_URL=https://www.zkraiflow.top SMOKE_USERNAME=<redacted> SMOKE_PASSWORD=<password-manager> npm run cloud:smoke",
+    "result": {
+      "passes": 0,
+      "failures": 0,
+      "warnings": 0
+    },
+    "authenticatedChecks": [
+      "login-session-cookie",
+      "session-api",
+      "runtime-config-api",
+      "data-rights-api",
+      "cors-origin-policy"
+    ],
+    "redactedCookieAttributes": {
+      "secure": "true",
+      "sameSite": "Lax or None as approved",
+      "httpOnly": "true"
+    },
+    "reviewAccountReference": "password-manager item or store-console field name only",
+    "evidenceFiles": [
+      "store/evidence/auth-smoke/YYYY-MM-DD/authenticated-smoke-redacted.json"
+    ],
+    "followUpBlockers": [
+      "public-domain-and-https",
+      "cloud-cors-cookie-origin",
+      "review-demo-account"
+    ]
+  },
+  "evidenceRules": {
+    "allowedInRepository": [
+      "redacted command summary",
+      "pass/fail counts",
+      "redacted cookie attribute summary",
+      "review account secret reference name",
+      "linked blocker ids"
+    ],
+    "doNotStore": [
+      "real review password",
+      "session cookie value",
+      "authorization header",
+      "raw Set-Cookie header",
+      "API keys",
+      "private user uploads",
+      "unredacted production logs"
+    ],
+    "fileNaming": "store/evidence/auth-smoke/YYYY-MM-DD/authenticated-smoke-redacted.json"
+  },
+  "closeoutGates": [
+    "Dedicated review account exists and its real password is stored outside the repository.",
+    "npm run review:seed succeeds against https://www.zkraiflow.top or the chosen review environment.",
+    "Authenticated npm run cloud:smoke succeeds against https://www.zkraiflow.top.",
+    "Cookie attributes and CORS origin proof are redacted and recorded without raw secrets.",
+    "Review notes in App Store Connect and Google Play Console match the same account and reviewer path.",
+    "release-blockers-register keeps public launch and store submission blocked until this evidence is captured."
+  ],
+  "linkedFiles": [
+    "scripts/production-smoke-test.mjs",
+    "scripts/seed-review-demo.mjs",
+    "store/review-access-handoff.json",
+    "store/review-notes-template.json",
+    "deploy/production-auth-cors-handoff.json",
+    "00_docs/REVIEW_ACCOUNT_ACCESS_RUNBOOK_2026-06-10.md",
+    "00_docs/PRODUCTION_AUTH_CORS_HANDOFF_2026-06-10.md",
+    "00_docs/AUTHENTICATED_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md"
+  ]
+}

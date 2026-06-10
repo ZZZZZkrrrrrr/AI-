@@ -1,0 +1,336 @@
+{
+  "schemaVersion": "libtv-worker-storage-plan-v1",
+  "updatedAt": "2026-06-10",
+  "targetOrigin": "https://www.zkraiflow.top",
+  "objective": "Move video generation execution, libTV runtime paths, generated files, exports, and long-running task work away from a local Windows desktop into a production API plus private worker model.",
+  "workerApiContract": "deploy/libtv-worker-api-contract.json",
+  "recommendedFirstProductionMode": "single-tenant-api-with-private-worker-and-mounted-volume",
+  "nonGoalsForFirstRelease": [
+    "Multi-tenant billing",
+    "Public self-serve registration",
+    "High-volume queue autoscaling",
+    "Direct mobile access to object storage credentials",
+    "Direct mobile access to libTV, SQLite, ffmpeg, or provider secrets"
+  ],
+  "topology": {
+    "publicClient": "Mobile web, PWA, and packaged shells open https://www.zkraiflow.top only.",
+    "apiService": "Node API handles auth, validation, task creation, account data export, deletion request intake, and status reads.",
+    "workerService": "Private libTV worker handles long-running AI/video execution, ffmpeg, result import, and compliance evidence writing.",
+    "storage": "Mounted volume first, object storage adapter later. Public clients receive signed or proxied downloads only.",
+    "database": "Current SQLite can stay for pilot if mounted persistently; PostgreSQL is the target for public multi-user release.",
+    "network": "Worker is reachable only from the API service through a private network URL or a shared service token."
+  },
+  "requiredEnvironment": [
+    {
+      "name": "RUN_STORAGE_DIR",
+      "purpose": "Persistent server-side directory for runs, uploads, exports, deletion requests, and generated results.",
+      "example": "/var/lib/ai-video-studio/runs"
+    },
+    {
+      "name": "LIBTV_BRIDGE_URL",
+      "purpose": "Private worker endpoint used by the API service. Must not point to localhost in production.",
+      "example": "https://libtv-worker.internal.example.com"
+    },
+    {
+      "name": "LIBTV_WORKER_TOKEN",
+      "purpose": "Server-side service token used only by the API service when calling the private worker.",
+      "example": "hosting-secret-libtv-worker-token"
+    },
+    {
+      "name": "LIBTV_REGISTER_SCRIPT",
+      "purpose": "Worker/container path or replacement service command for task registration.",
+      "example": "/app/services/libtv_runner/register_task_input.py"
+    },
+    {
+      "name": "LIBTV_DB_PATH",
+      "purpose": "Mounted SQLite path or managed database reference visible to the worker.",
+      "example": "/data/ai_product.sqlite"
+    },
+    {
+      "name": "LIBTV_DEFAULT_DRY_RUN",
+      "purpose": "Launch guard. Keep true until worker, storage, and smoke tests pass; switch false only for controlled production execution.",
+      "example": "false"
+    },
+    {
+      "name": "SMOKE_BASE_URL",
+      "purpose": "Public deployment target for post-release smoke tests.",
+      "example": "https://www.zkraiflow.top"
+    }
+  ],
+  "workerContracts": [
+    {
+      "id": "worker-health",
+      "method": "GET",
+      "path": "/healthz",
+      "auth": "private-network-or-service-token",
+      "request": "none",
+      "responseFields": [
+        "status",
+        "version",
+        "storageWritable",
+        "libtvReady",
+        "ffmpegReady",
+        "queueDepth"
+      ]
+    },
+    {
+      "id": "submit-generation-task",
+      "method": "POST",
+      "path": "/tasks",
+      "auth": "service-token",
+      "requestFields": [
+        "taskId",
+        "runDir",
+        "productAssetRefs",
+        "promptPackage",
+        "videoMode",
+        "dryRun",
+        "operatorUserId"
+      ],
+      "responseFields": [
+        "workerTaskId",
+        "status",
+        "acceptedAt"
+      ]
+    },
+    {
+      "id": "read-worker-task-status",
+      "method": "GET",
+      "path": "/tasks/:workerTaskId",
+      "auth": "service-token",
+      "request": "workerTaskId",
+      "responseFields": [
+        "status",
+        "progress",
+        "resultRefs",
+        "errorCode",
+        "errorMessage",
+        "updatedAt"
+      ]
+    },
+    {
+      "id": "cancel-worker-task",
+      "method": "POST",
+      "path": "/tasks/:workerTaskId/cancel",
+      "auth": "service-token",
+      "requestFields": [
+        "reason",
+        "requestedBy"
+      ],
+      "responseFields": [
+        "workerTaskId",
+        "status",
+        "cancelledAt"
+      ]
+    }
+  ],
+  "workstreams": [
+    {
+      "id": "persistent-storage",
+      "owner": "platform",
+      "status": "design-ready-waiting-owner-volume",
+      "objective": "Make uploads, generated runs, exports, and deletion request evidence survive process restarts and deployments.",
+      "ownerInputs": [
+        "Choose mounted volume path or object storage bucket",
+        "Choose backup frequency",
+        "Confirm retention policy for generated videos and exports"
+      ],
+      "implementationSteps": [
+        "Set RUN_STORAGE_DIR to a mounted production path.",
+        "Move upload, run, export, and deletion request writes under RUN_STORAGE_DIR.",
+        "Restart the API service and verify files remain readable.",
+        "Add object storage adapter only after pilot volume behavior is stable."
+      ],
+      "acceptanceCriteria": [
+        "RUN_STORAGE_DIR is not empty and not a temporary path.",
+        "A generated run remains available after process restart.",
+        "Account export and deletion request evidence are written under the declared storage root.",
+        "cloud:check:strict no longer warns that RUN_STORAGE_DIR is missing."
+      ],
+      "verificationCommands": [
+        "npm run storage:restart-template",
+        "npm run production:profile",
+        "npm run cloud:check:strict",
+        "npm run cloud:smoke"
+      ],
+      "evidenceFiles": [
+        "deploy/persistent-storage-restart-evidence-template.json",
+        "00_docs/PERSISTENT_STORAGE_RESTART_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-persistent-storage-evidence-template.mjs",
+        "deploy/production.env.example",
+        "deploy/production-release-runbook.md"
+      ]
+    },
+    {
+      "id": "libtv-worker-service",
+      "owner": "engineering",
+      "status": "design-ready-waiting-worker-target",
+      "objective": "Replace desktop-only libTV bridge, Windows paths, and local SQLite assumptions with a private worker service.",
+      "ownerInputs": [
+        "Choose worker host: container platform, private VM, or managed job service",
+        "Confirm ffmpeg availability",
+        "Confirm libTV runtime installation method",
+        "Confirm worker database path or managed database target"
+      ],
+      "implementationSteps": [
+        "Package libTV runner dependencies with Python, ffmpeg, and runtime credentials in the worker environment.",
+        "Expose private /healthz, /tasks, and /tasks/:id worker endpoints.",
+        "Point LIBTV_BRIDGE_URL to the private worker endpoint.",
+        "Replace Windows LIBTV_REGISTER_SCRIPT and LIBTV_DB_PATH values with worker/container paths.",
+        "Run dry-run generation first, then enable controlled real generation."
+      ],
+      "workerSmokeEvidenceTemplate": {
+        "status": "template-ready-waiting-worker-target",
+        "templateFile": "deploy/libtv-worker-smoke-evidence-template.json",
+        "runbook": "00_docs/LIBTV_WORKER_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "checkScript": "scripts/check-libtv-worker-smoke-evidence-template.mjs",
+        "checkCommand": "npm run cloud:worker-smoke-template",
+        "purpose": "Record sanitized proof for worker health, private auth rejection, dry-run submit, idempotency, polling, cancel, failure mapping, result import, and restart/resume before real video generation is opened."
+      },
+      "acceptanceCriteria": [
+        "Worker health check reports storageWritable, libtvReady, and ffmpegReady.",
+        "API can submit a dry-run task to the worker and poll status.",
+        "API can import worker result references into the existing task/result view.",
+        "cloud:check:strict no longer reports localhost or Windows libTV paths."
+      ],
+      "verificationCommands": [
+        "npm run cloud:worker-contract",
+        "npm run cloud:worker-plan",
+        "npm run cloud:worker-smoke-template",
+        "npm run cloud:check:strict",
+        "npm run cloud:smoke"
+      ],
+      "evidenceFiles": [
+        "deploy/libtv-worker-api-contract.json",
+        "deploy/libtv-worker-storage-plan.json",
+        "00_docs/LIBTV_WORKER_API_CONTRACT_2026-06-10.md",
+        "00_docs/LIBTV_WORKER_STORAGE_MIGRATION_2026-06-10.md",
+        "deploy/libtv-worker-smoke-evidence-template.json",
+        "00_docs/LIBTV_WORKER_SMOKE_EVIDENCE_TEMPLATE_2026-06-10.md",
+        "scripts/check-libtv-worker-smoke-evidence-template.mjs"
+      ]
+    },
+    {
+      "id": "private-network-auth",
+      "owner": "engineering",
+      "status": "design-ready-waiting-secret",
+      "objective": "Prevent public clients from calling worker endpoints directly.",
+      "ownerInputs": [
+        "Choose private network routing or service token",
+        "Choose secret rotation owner"
+      ],
+      "implementationSteps": [
+        "Keep worker endpoints off the public internet when possible.",
+        "If public routing is unavoidable, require a server-side service token.",
+        "Never expose worker token, provider keys, database path, or storage credentials to browser code."
+      ],
+      "acceptanceCriteria": [
+        "Mobile web and packaged app can call only the public API service.",
+        "Worker endpoints reject unauthenticated browser requests.",
+        "No worker secret appears in frontend source, manifest, or public pages."
+      ],
+      "verificationCommands": [
+        "npm run cloud:worker-contract",
+        "npm run build",
+        "npm run cloud:check:strict"
+      ],
+      "evidenceFiles": [
+        "deploy/libtv-worker-api-contract.json",
+        "00_docs/LIBTV_WORKER_API_CONTRACT_2026-06-10.md",
+        "deploy/production.env.example"
+      ]
+    },
+    {
+      "id": "queue-retry-limits",
+      "owner": "product-engineering",
+      "status": "design-ready-waiting-implementation",
+      "objective": "Keep long-running video jobs observable, retryable, and limited during pilot release.",
+      "ownerInputs": [
+        "Confirm pilot concurrency",
+        "Confirm maximum retry count",
+        "Confirm failure categories shown to users"
+      ],
+      "implementationSteps": [
+        "Use idempotent task IDs for submit and retry.",
+        "Record task events for queued, running, failed, cancelled, and succeeded states.",
+        "Limit worker concurrency before real generation is enabled.",
+        "Surface user-readable failure reasons in the mobile notification panel and task cards."
+      ],
+      "acceptanceCriteria": [
+        "Duplicate task submit does not create duplicate paid generation.",
+        "Failed worker task shows a clear user-facing reason.",
+        "Retry and cancellation behavior is documented before public launch."
+      ],
+      "verificationCommands": [
+        "npm run mobile:qa",
+        "npm run release:check"
+      ],
+      "evidenceFiles": [
+        "store/mobile-device-qa-plan.json",
+        "store/release-blockers-register.json"
+      ]
+    },
+    {
+      "id": "smoke-and-rollback",
+      "owner": "platform",
+      "status": "design-ready-waiting-production-deploy",
+      "objective": "Verify deployment, worker, storage, and rollback before external users rely on the app.",
+      "ownerInputs": [
+        "Review-safe smoke account",
+        "Rollback owner",
+        "Previous release retention window"
+      ],
+      "implementationSteps": [
+        "Run cloud:smoke against https://www.zkraiflow.top after deploy.",
+        "Create one dry-run video task and confirm status polling.",
+        "Restart API and worker services, then confirm generated artifacts still exist.",
+        "Record the previous release artifact and environment snapshot for rollback."
+      ],
+      "acceptanceCriteria": [
+        "cloud:smoke passes against public HTTPS.",
+        "Storage restart test passes.",
+        "Worker health check passes after restart.",
+        "Rollback procedure is documented and assigned."
+      ],
+      "verificationCommands": [
+        "npm run cloud:smoke",
+        "npm run release:check"
+      ],
+      "evidenceFiles": [
+        "deploy/production-release-runbook.md",
+        "00_docs/PRODUCTION_DEPLOYMENT_HANDOFF_2026-06-10.md"
+      ]
+    }
+  ],
+  "releaseGates": [
+    {
+      "id": "pilot-web-pwa",
+      "status": "can-continue-internal-pilot",
+      "requiredEvidence": [
+        "npm run release:check passes locally",
+        "Public pages and PWA assets pass smoke checks",
+        "Owner understands libTV remains gated until worker is verified"
+      ]
+    },
+    {
+      "id": "public-real-generation",
+      "status": "blocked-until-worker-storage-and-owner-inputs",
+      "requiredEvidence": [
+        "RUN_STORAGE_DIR is production persistent storage",
+        "LIBTV_BRIDGE_URL is non-local worker endpoint",
+        "Worker health, dry-run, and one controlled real generation smoke pass",
+        "Contact, privacy, retention, and review account values are final"
+      ]
+    },
+    {
+      "id": "store-submission",
+      "status": "blocked-until-native-toolchain-review-account-and-legal-final",
+      "requiredEvidence": [
+        "Native Android/iOS builds are verified on device",
+        "Store screenshots are captured from final native builds",
+        "Review account is active",
+        "Privacy/Data safety/AI disclosure materials are final"
+      ]
+    }
+  ]
+}
