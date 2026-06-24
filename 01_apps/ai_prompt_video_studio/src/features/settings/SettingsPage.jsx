@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  Bell,
   ChevronRight,
   ClipboardCheck,
   Download,
   FileText,
+  FolderOpen,
   Globe2,
+  Heart,
   KeyRound,
   LifeBuoy,
   LockKeyhole,
@@ -14,7 +17,9 @@ import {
   RefreshCw,
   Send,
   ShieldCheck,
-  Smartphone
+  Sparkles,
+  Smartphone,
+  UserPlus
 } from "lucide-react";
 import { requestJson } from "../../api.js";
 import { downloadJsonFile } from "../../shared/compliance/aiEvidencePack.js";
@@ -65,6 +70,27 @@ function statusBadgeText(value) {
   return value || "-";
 }
 
+function friendlyRuntimeMode(value) {
+  const text = String(value || "").toLowerCase();
+  if (text.includes("real-api")) return "正式可用";
+  if (text.includes("mock")) return "演示模式";
+  if (text.includes("local")) return "本机运行";
+  return value ? "运行中" : "待检查";
+}
+
+function mobileReadyText(ready, good = "可用", bad = "待配置") {
+  return ready ? good : bad;
+}
+
+function mobileModelText(value) {
+  return value && value !== "-" ? "已选择" : "跟随默认";
+}
+
+function canViewInternalRuntime(runtime) {
+  const username = String(runtime?.currentUser?.name || runtime?.currentUser?.username || "").toLowerCase();
+  return username === "zkr";
+}
+
 function StatusBadge({ value }) {
   const text = statusBadgeText(value);
   const kind = /succeeded|ready|pass|完成|成功|video_ready|可用/i.test(text)
@@ -85,6 +111,34 @@ function SettingsHead({ title, onRefresh }) {
         <RefreshCw size={16} />
         <span>刷新</span>
       </button>
+    </div>
+  );
+}
+
+function MobileCollapsibleSection({ title, description, icon: Icon, open, onToggle, className = "", children }) {
+  return (
+    <div className={`settings-section settings-mobile-collapsible ${open ? "open" : ""} ${className}`.trim()}>
+      <div className="settings-section-head">
+        <div>
+          <h3>{title}</h3>
+          {description ? <p>{description}</p> : null}
+        </div>
+        <div className="settings-section-actions">
+          {Icon ? <Icon size={18} /> : null}
+          <button
+            className="settings-mobile-section-toggle"
+            type="button"
+            onClick={onToggle}
+            aria-expanded={open}
+          >
+            <span>{open ? "收起" : "展开"}</span>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="settings-mobile-collapsible-body">
+        {children}
+      </div>
     </div>
   );
 }
@@ -121,8 +175,8 @@ function AppReadinessCenter({ runtime, libtvReady, onExport, dataExporting }) {
     },
     {
       id: "runtime",
-      title: "运行链路",
-      desc: libtvReady ? "API 与 libTV 可用" : "等待生产联调",
+      title: "生成链路",
+      desc: libtvReady ? "生成服务可用" : "等待生产联调",
       status: appOnline && libtvReady ? "就绪" : appOnline ? "待联调" : "离线",
       tone: appOnline && libtvReady ? "good" : appOnline ? "warn" : "bad",
       icon: ClipboardCheck
@@ -176,6 +230,428 @@ function AppReadinessCenter({ runtime, libtvReady, onExport, dataExporting }) {
   );
 }
 
+function MobileFirstUseGuide({ runtime, libtvReady, onFeedbackOpen, onRefresh }) {
+  const appOnline = !runtime?.error;
+  const readyText = appOnline && libtvReady ? "可以开始使用" : appOnline ? "还差视频通道" : "先刷新状态";
+  const guideActions = [
+    {
+      id: "install",
+      title: "安装到桌面",
+      desc: "像 App 一样打开",
+      icon: Smartphone,
+      href: "/install.html"
+    },
+    {
+      id: "refresh",
+      title: "检查状态",
+      desc: readyText,
+      icon: RefreshCw,
+      onClick: onRefresh
+    },
+    {
+      id: "feedback",
+      title: "反馈问题",
+      desc: "看不懂就发我",
+      icon: MessageSquare,
+      onClick: onFeedbackOpen
+    }
+  ];
+  const steps = [
+    { index: "01", title: "先装到手机桌面", detail: "打开会更像 App，少一步输入网址。" },
+    { index: "02", title: "确认生成状态", detail: appOnline && libtvReady ? "生成服务和视频通道都可用。" : "看上方状态，异常时先刷新。" },
+    { index: "03", title: "遇到问题直接反馈", detail: "截图、写一句发生了什么，就能定位。" }
+  ];
+  return (
+    <section className="mobile-settings-guide" aria-label="首次使用引导">
+      <div className="mobile-settings-guide-head">
+        <span>首次使用</span>
+        <strong>按这 3 步检查就行</strong>
+        <p>安装、状态、反馈放在最前面，不需要理解后台配置。</p>
+      </div>
+      <div className="mobile-settings-guide-steps" aria-label="首次使用三步">
+        {steps.map((step) => (
+          <span key={step.index}>
+            <em>{step.index}</em>
+            <strong>{step.title}</strong>
+            <small>{step.detail}</small>
+          </span>
+        ))}
+      </div>
+      <div className="mobile-settings-guide-actions">
+        {guideActions.map((item) => {
+          const Icon = item.icon;
+          const content = (
+            <>
+              <span className="mobile-settings-guide-icon"><Icon size={18} /></span>
+              <span className="mobile-settings-guide-copy">
+                <strong>{item.title}</strong>
+                <small>{item.desc}</small>
+              </span>
+            </>
+          );
+          if (item.href) {
+            return (
+              <a className="mobile-settings-guide-action" href={item.href} target="_blank" rel="noreferrer" key={item.id}>
+                {content}
+              </a>
+            );
+          }
+          return (
+            <button className="mobile-settings-guide-action" type="button" onClick={item.onClick} key={item.id}>
+              {content}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MobileServiceFixCard({ runtime, libtvReady, onRefresh, onFeedbackOpen }) {
+  const appOnline = !runtime?.error;
+  const card = appOnline && libtvReady
+    ? {
+        state: "ready",
+        icon: ShieldCheck,
+        title: "可以开始生成",
+        detail: "生成服务和视频通道都可用，回到首页或创意页就能继续做视频。",
+        primary: "刷新状态",
+        secondary: "反馈问题"
+      }
+    : appOnline
+      ? {
+          state: "warn",
+          icon: AlertTriangle,
+          title: "视频通道还在检查",
+          detail: "可以先准备图片和提示词；如果要提交视频，先点刷新状态。",
+          primary: "刷新状态",
+          secondary: "反馈问题"
+        }
+      : {
+          state: "bad",
+          icon: AlertTriangle,
+          title: "生成服务暂时未连接",
+          detail: "先点刷新状态；如果仍然不行，把截图和问题发到反馈里。",
+          primary: "刷新状态",
+          secondary: "反馈问题"
+        };
+  const Icon = card.icon;
+  return (
+    <section className={`mobile-service-fix-card state-${card.state}`} aria-label="生成卡住时看这里">
+      <div className="mobile-service-fix-head">
+        <span className="mobile-service-fix-icon"><Icon size={20} /></span>
+        <div>
+          <span>生成卡住时看这里</span>
+          <strong>{card.title}</strong>
+          <small>{card.detail}</small>
+        </div>
+      </div>
+      <div className="mobile-service-fix-actions">
+        <button type="button" onClick={onRefresh}>
+          <RefreshCw size={15} />
+          <span>{card.primary}</span>
+        </button>
+        <button type="button" onClick={onFeedbackOpen}>
+          <MessageSquare size={15} />
+          <span>{card.secondary}</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function MobileSettingsActionHub({ onFeedbackOpen }) {
+  const actions = [
+    {
+      id: "create",
+      title: "开始创作",
+      desc: "选模板或上传图",
+      icon: Sparkles,
+      href: "#/inspiration"
+    },
+    {
+      id: "assets",
+      title: "素材结果",
+      desc: "下载图片和视频",
+      icon: FolderOpen,
+      href: "#/assets"
+    },
+    {
+      id: "tasks",
+      title: "任务进度",
+      desc: "看生成有没有完成",
+      icon: ClipboardCheck,
+      href: "#/tasks"
+    },
+    {
+      id: "feedback",
+      title: "反馈问题",
+      desc: "截图发给我",
+      icon: MessageSquare,
+      onClick: onFeedbackOpen
+    }
+  ];
+
+  return (
+    <section className="mobile-settings-action-hub" aria-label="我的页快捷入口">
+      <div className="mobile-settings-action-hub-head">
+        <span>今天先做什么</span>
+        <strong>从常用入口开始</strong>
+        <p>不用找菜单，创作、下载、看进度和反馈都在这里。</p>
+      </div>
+      <div className="mobile-settings-action-hub-grid">
+        {actions.map((item) => {
+          const Icon = item.icon;
+          const content = (
+            <>
+              <span className="mobile-settings-action-hub-icon"><Icon size={17} /></span>
+              <span className="mobile-settings-action-hub-copy">
+                <strong>{item.title}</strong>
+                <small>{item.desc}</small>
+              </span>
+            </>
+          );
+          if (item.href) {
+            return (
+              <a className="mobile-settings-action-hub-item" href={item.href} key={item.id}>
+                {content}
+              </a>
+            );
+          }
+          return (
+            <button className="mobile-settings-action-hub-item" type="button" onClick={item.onClick} key={item.id}>
+              {content}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MobileRecordEmptyCard({ icon: Icon = MessageSquare, title, detail, steps = [], actionLabel = "", onAction }) {
+  return (
+    <div className="data-rights-empty mobile-record-empty" aria-label={title}>
+      <span className="mobile-record-empty-icon"><Icon size={18} /></span>
+      <div className="mobile-record-empty-copy">
+        <strong>{title}</strong>
+        <small>{detail}</small>
+      </div>
+      {steps.length ? (
+        <div className="mobile-record-empty-steps" aria-label="下一步说明">
+          {steps.map((step, index) => (
+            <span key={step}>
+              <em>{index + 1}</em>
+              <small>{step}</small>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      {actionLabel && onAction ? (
+        <button type="button" className="mobile-record-empty-action" onClick={onAction}>
+          <span>{actionLabel}</span>
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileAccountCenter({ runtime, libtvReady, dataExporting, onFeedbackOpen, onDataOpen }) {
+  const appOnline = !runtime?.error;
+  const currentUser = runtime?.currentUser || {};
+  const displayName = currentUser.displayName || currentUser.name || currentUser.username || "当前账号";
+  const roleText = String(currentUser.role || "").toLowerCase() === "admin" ? "管理员" : "成员";
+  const avatarText = String(displayName || "AI").trim().slice(0, 2).toUpperCase() || "AI";
+  const statusItems = [
+    {
+      id: "service",
+      label: "生成服务",
+      value: appOnline ? "可使用" : "需检查"
+    },
+    {
+      id: "video",
+      label: "视频通道",
+      value: libtvReady ? "可生成" : "待连接"
+    },
+    {
+      id: "data",
+      label: "账号数据",
+      value: dataExporting ? "导出中" : "可管理"
+    }
+  ];
+  const actionItems = [
+    {
+      id: "install",
+      title: "安装到桌面",
+      desc: "像 App 一样打开",
+      icon: Smartphone,
+      href: "/install.html"
+    },
+    {
+      id: "feedback",
+      title: "反馈问题",
+      desc: "看不懂或点不动就发",
+      icon: MessageSquare,
+      onClick: onFeedbackOpen
+    },
+    {
+      id: "data",
+      title: "账号数据",
+      desc: "导出或申请删除",
+      icon: Download,
+      onClick: onDataOpen
+    }
+  ];
+
+  return (
+    <section className="mobile-account-center" aria-label="手机端账号中心">
+      <div className="mobile-account-profile">
+        <span className="mobile-account-avatar" aria-hidden="true">{avatarText}</span>
+        <div className="mobile-account-copy">
+          <span>我的账号</span>
+          <strong>{displayName}</strong>
+          <small>{roleText} · 任务和素材按账号隔离</small>
+        </div>
+      </div>
+      <div className="mobile-account-status" aria-label="账号状态">
+        {statusItems.map((item) => (
+          <span key={item.id}>
+            <small>{item.label}</small>
+            <strong>{item.value}</strong>
+          </span>
+        ))}
+      </div>
+      <div className="mobile-account-actions">
+        {actionItems.map((item) => {
+          const Icon = item.icon;
+          const content = (
+            <>
+              <span className="mobile-account-action-icon"><Icon size={18} /></span>
+              <span className="mobile-account-action-copy">
+                <strong>{item.title}</strong>
+                <small>{item.desc}</small>
+              </span>
+            </>
+          );
+          if (item.href) {
+            return (
+              <a className="mobile-account-action" href={item.href} target="_blank" rel="noreferrer" key={item.id}>
+                {content}
+              </a>
+            );
+          }
+          return (
+            <button className="mobile-account-action" type="button" onClick={item.onClick} key={item.id}>
+              {content}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function MobileProfileCenter({ runtime, libtvReady, dataExporting, onFeedbackOpen, onDataOpen }) {
+  const appOnline = !runtime?.error;
+  const currentUser = runtime?.currentUser || {};
+  const displayName = currentUser.displayName || currentUser.name || currentUser.username || "当前账号";
+  const roleText = String(currentUser.role || "").toLowerCase() === "admin" ? "管理员" : "成员";
+  const avatarText = String(displayName || "AI").trim().slice(0, 2).toUpperCase() || "AI";
+  const serviceText = appOnline && libtvReady ? "正常" : appOnline ? "检查中" : "需处理";
+  const dataText = dataExporting ? "导出中" : "可管理";
+  const stats = [
+    { id: "works", value: "0", label: "作品" },
+    { id: "service", value: serviceText, label: "生成" },
+    { id: "role", value: roleText, label: "权限" }
+  ];
+  const profileTabs = [
+    { id: "works", label: "作品", icon: FileText, active: true },
+    { id: "assets", label: "资产", icon: FolderOpen },
+    { id: "likes", label: "收藏", icon: Heart }
+  ];
+
+  return (
+    <section className="mobile-account-center mobile-profile-center" aria-label="手机端个人主页">
+      <div className="mobile-profile-topline">
+        <span className="mobile-profile-credit">
+          <Sparkles size={15} />
+          <strong>{libtvReady ? "60" : "0"}</strong>
+          <small>生成额度</small>
+        </span>
+        <div className="mobile-profile-top-actions" aria-label="账号快捷操作">
+          <button type="button" onClick={onFeedbackOpen} aria-label="邀请或反馈">
+            <UserPlus size={19} />
+          </button>
+          <button type="button" onClick={onFeedbackOpen} aria-label="通知与问题">
+            <Bell size={19} />
+          </button>
+          <button type="button" onClick={onDataOpen} aria-label="账号设置">
+            <ShieldCheck size={19} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mobile-account-profile mobile-profile-identity">
+        <span className="mobile-account-avatar-wrap">
+          <span className="mobile-account-avatar" aria-hidden="true">{avatarText}</span>
+          <span className="mobile-account-avatar-badge" aria-hidden="true">
+            <Sparkles size={13} />
+          </span>
+        </span>
+        <div className="mobile-account-copy">
+          <strong>{displayName}</strong>
+          <small>{roleText} · 任务、素材和记录已同步</small>
+        </div>
+      </div>
+
+      <div className="mobile-account-status mobile-profile-stats" aria-label="账号状态">
+        {stats.map((item) => (
+          <span key={item.id}>
+            <strong>{item.value}</strong>
+            <small>{item.label}</small>
+          </span>
+        ))}
+      </div>
+
+      <div className="mobile-profile-primary-actions">
+        <a className="mobile-profile-primary active" href="#/inspiration">
+          <Sparkles size={17} />
+          <span>开始创作</span>
+        </a>
+        <button className="mobile-profile-primary" type="button" onClick={onFeedbackOpen}>
+          <MessageSquare size={17} />
+          <span>反馈问题</span>
+        </button>
+      </div>
+
+      <div className="mobile-profile-tabs" aria-label="我的内容分类">
+        {profileTabs.map((item) => {
+          const Icon = item.icon;
+          return (
+            <button className={item.active ? "active" : ""} type="button" key={item.id}>
+              <Icon size={20} />
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mobile-profile-subtabs" aria-label="作品筛选">
+        <button className="active" type="button">作品</button>
+        <button type="button">资产</button>
+        <button type="button">设置</button>
+      </div>
+
+      <div className="mobile-profile-empty">
+        <span aria-hidden="true"><Sparkles size={30} /></span>
+        <strong>暂无作品</strong>
+        <small>先去创意页做一条商品短视频。</small>
+        <a href="#/inspiration">去创作</a>
+      </div>
+    </section>
+  );
+}
+
 function PilotFeedbackPanel({
   category,
   severity,
@@ -190,17 +666,19 @@ function PilotFeedbackPanel({
   onContactChange,
   onSubmit,
   onRefresh,
-  formatTime
+  formatTime,
+  open,
+  onToggle
 }) {
   return (
-    <div className="settings-section pilot-feedback-section">
-      <div className="settings-section-head">
-        <div>
-          <h3>试用反馈</h3>
-          <p>遇到看不懂、点不动、安装不了或流程不顺时，直接在这里告诉我们。</p>
-        </div>
-        <MessageSquare size={18} />
-      </div>
+    <MobileCollapsibleSection
+      title="试用反馈"
+      description="遇到看不懂、点不动、安装不了或流程不顺时，直接在这里告诉我们。"
+      icon={MessageSquare}
+      open={open}
+      onToggle={onToggle}
+      className="pilot-feedback-section"
+    >
       <div className="pilot-feedback-panel">
         <div className="pilot-feedback-grid">
           <label className="field">
@@ -224,7 +702,7 @@ function PilotFeedbackPanel({
             <textarea
               value={message}
               onChange={(event) => onMessageChange(event.target.value)}
-              rows={4}
+              rows={3}
               placeholder="例如：点一键做视频后不知道下一步，或者通知面板挡住了按钮。"
             />
           </label>
@@ -250,7 +728,7 @@ function PilotFeedbackPanel({
         </div>
         {feedback.length ? (
           <div className="pilot-feedback-list" aria-label="试用反馈记录">
-            {feedback.slice(0, 4).map((item) => (
+            {feedback.slice(0, 2).map((item) => (
               <article className="pilot-feedback-card" key={item.id}>
                 <div>
                   <strong>{item.categoryLabel || "反馈"}</strong>
@@ -263,10 +741,17 @@ function PilotFeedbackPanel({
             ))}
           </div>
         ) : (
-          <div className="data-rights-empty">暂无试用反馈记录。</div>
+          <MobileRecordEmptyCard
+            icon={MessageSquare}
+            title="还没有反馈记录"
+            detail="遇到看不懂、点不动、生成失败时，先写一句问题再提交。"
+            steps={["选择问题类型", "写一句发生了什么", "提交后这里会显示处理状态"]}
+            actionLabel="填写反馈"
+            onAction={() => document.querySelector(".pilot-feedback-message textarea")?.focus()}
+          />
         )}
       </div>
-    </div>
+    </MobileCollapsibleSection>
   );
 }
 
@@ -276,17 +761,18 @@ function AdminPilotFeedbackQueue({
   updatingId,
   onRefresh,
   onUpdate,
-  formatTime
+  formatTime,
+  open,
+  onToggle
 }) {
   return (
-    <div className="settings-section">
-      <div className="settings-section-head">
-        <div>
-          <h3>试用反馈处理</h3>
-          <p>管理员用来查看试点用户反馈，并标记排查、排期、修复或关闭。</p>
-        </div>
-        <ClipboardCheck size={18} />
-      </div>
+    <MobileCollapsibleSection
+      title="试用反馈处理"
+      description="管理员用来查看试点用户反馈，并标记排查、排期、修复或关闭。"
+      icon={ClipboardCheck}
+      open={open}
+      onToggle={onToggle}
+    >
       <div className="data-rights-status-head pilot-feedback-admin-head">
         <div>
           <strong>反馈队列</strong>
@@ -330,22 +816,28 @@ function AdminPilotFeedbackQueue({
           ))}
         </div>
       ) : (
-        <div className="data-rights-empty">暂无试用反馈。</div>
+        <MobileRecordEmptyCard
+          icon={ClipboardCheck}
+          title="暂无待处理反馈"
+          detail="当前没有用户反馈排队。可以稍后刷新队列，或继续检查任务状态。"
+          steps={["等待用户提交问题", "刷新队列", "有记录后标记处理状态"]}
+          actionLabel={loading ? "刷新中" : "刷新队列"}
+          onAction={onRefresh}
+        />
       )}
-    </div>
+    </MobileCollapsibleSection>
   );
 }
 
-function ModelChannelPanel({ channels }) {
+function ModelChannelPanel({ channels, open, onToggle }) {
   return (
-    <div className="settings-section">
-      <div className="settings-section-head">
-        <div>
-          <h3>模型与执行通道</h3>
-          <p>用于确认整条 AI 视频生产链路里每一层是否可用。</p>
-        </div>
-        <KeyRound size={18} />
-      </div>
+    <MobileCollapsibleSection
+      title="模型与执行通道"
+      description="用于确认整条 AI 视频生产链路里每一层是否可用。"
+      icon={KeyRound}
+      open={open}
+      onToggle={onToggle}
+    >
       <div className="model-channel-grid">
         {channels.map((channel) => (
           <div className={channel.ready ? "model-channel-card ready" : "model-channel-card"} key={channel.name}>
@@ -353,58 +845,65 @@ function ModelChannelPanel({ channels }) {
               <strong>{channel.name}</strong>
               <StatusBadge value={channel.ready ? "可用" : "待配置"} />
             </div>
-            <span>{channel.provider}</span>
-            <em title={channel.model}>{channel.model}</em>
-            <p>{channel.desc}</p>
+            <span className="desktop-channel-provider">{channel.provider}</span>
+            <span className="mobile-channel-provider">{channel.mobileProvider || channel.provider}</span>
+            <em className="desktop-model-id" title={channel.model}>{channel.model}</em>
+            <em className="mobile-model-state">{channel.ready ? "已准备" : "待配置"}</em>
+            <p className="desktop-channel-desc">{channel.desc}</p>
+            <p className="mobile-channel-desc">{channel.mobileDesc || channel.desc}</p>
           </div>
         ))}
       </div>
-    </div>
+    </MobileCollapsibleSection>
   );
 }
 
-function ModelSettingsPanel({ runtime, modelSettings, updateModelSettings }) {
+function ModelSettingsPanel({ runtime, modelSettings, updateModelSettings, open, onToggle }) {
   const analysisOptions = runtime?.modelOptions?.analysis || [];
   const visionOptions = runtime?.modelOptions?.vision || [];
   return (
-    <div className="settings-section">
-      <div className="settings-section-head">
-        <div>
-          <h3>模型切换</h3>
-          <p>选择后会用于下一次提示词分析和图片识别。</p>
-        </div>
-        <Activity size={18} />
+    <MobileCollapsibleSection
+      title="模型切换"
+      description="选择后会用于下一次提示词分析和图片识别。"
+      icon={Activity}
+      open={open}
+      onToggle={onToggle}
+      className="model-settings-section"
+    >
+      <div className="mobile-model-settings-summary" role="note">
+        <strong>普通使用无需调整</strong>
+        <span>系统会自动选择当前可用的 AI 配置。需要精细切换模型时，建议在电脑端操作。</span>
       </div>
-      <div className="model-settings-grid">
+      <div className="model-settings-grid desktop-model-settings-grid">
         <label className="field">
           <span>提示词分析模型</span>
           <select value={modelSettings.analysisModel} onChange={(event) => updateModelSettings("analysisModel", event.target.value)}>
-            <option value="">后端默认：{runtime?.currentModels?.analysis || "-"}</option>
+            <option value="">系统默认：{runtime?.currentModels?.analysis || "-"}</option>
             {analysisOptions.map((model) => (
               <option value={model} key={model}>{model}</option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>自定义分析模型 ID</span>
+          <span>自定义分析模型</span>
           <input value={modelSettings.analysisCustomModel} onChange={(event) => updateModelSettings("analysisCustomModel", event.target.value)} placeholder="填写后优先使用" />
         </label>
         <label className="field">
           <span>图片识别模型</span>
           <select value={modelSettings.visionModel} onChange={(event) => updateModelSettings("visionModel", event.target.value)}>
-            <option value="">后端默认：{runtime?.currentModels?.vision || "-"}</option>
+            <option value="">系统默认：{runtime?.currentModels?.vision || "-"}</option>
             {visionOptions.map((model) => (
               <option value={model} key={model}>{model}</option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>自定义视觉模型 ID</span>
+          <span>自定义识别模型</span>
           <input value={modelSettings.visionCustomModel} onChange={(event) => updateModelSettings("visionCustomModel", event.target.value)} placeholder="填写后优先使用" />
         </label>
       </div>
-      <p className="settings-hint">模型选择保存在当前浏览器。视频生成和文生图模型暂时不开放选择，当前链路仍由 libTV 默认配置处理视频生成。</p>
-    </div>
+      <p className="settings-hint desktop-model-settings-hint">模型选择保存在当前浏览器。视频生成和文生图模型暂时不开放选择，当前链路会使用系统默认的视频生成配置。</p>
+    </MobileCollapsibleSection>
   );
 }
 
@@ -429,6 +928,14 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
   const [adminPilotFeedbackItems, setAdminPilotFeedbackItems] = useState([]);
   const [adminPilotFeedbackLoading, setAdminPilotFeedbackLoading] = useState(false);
   const [adminPilotFeedbackUpdatingId, setAdminPilotFeedbackUpdatingId] = useState("");
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [dataRightsOpen, setDataRightsOpen] = useState(false);
+  const [adminDataRightsOpen, setAdminDataRightsOpen] = useState(false);
+  const [adminFeedbackOpen, setAdminFeedbackOpen] = useState(false);
+  const [legalOpen, setLegalOpen] = useState(false);
+  const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
+  const [modelChannelOpen, setModelChannelOpen] = useState(false);
+  const [runtimeRowsOpen, setRuntimeRowsOpen] = useState(false);
   const activeAnalysisModel = resolveModelChoice(modelSettings, "analysis") || runtime?.currentModels?.analysis || "-";
   const activeVisionModel = resolveModelChoice(modelSettings, "vision") || runtime?.currentModels?.vision || "-";
   const activeVideoModel = resolveModelChoice(modelSettings, "video") || runtime?.currentModels?.video || "-";
@@ -438,6 +945,7 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
   const accountDeletionConfirmed = dataRightsConfirmText.trim() === DELETE_ACCOUNT_CONFIRM_TEXT;
   const accountDeletionReady = accountDeletionConfirmed && (!passwordVerificationRequired || dataRightsPassword.trim());
   const isAdmin = runtime?.currentUser?.role === "admin";
+  const showInternalRuntime = canViewInternalRuntime(runtime);
   const legalLinks = [
     { title: "隐私政策", desc: "说明数据收集、使用、共享、保存和删除。", href: "/legal/privacy.html", icon: LockKeyhole },
     { title: "用户协议", desc: "说明账号、上传内容、AI 生成结果和禁止行为。", href: "/legal/terms.html", icon: FileText },
@@ -446,16 +954,16 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
     { title: "帮助与支持", desc: "提供任务异常、素材上传、账号数据和商店审核支持入口。", href: "/support.html", icon: LifeBuoy }
   ];
   const rows = [
-    ["后端 API", runtime?.error ? "未连接" : "已连接"],
-    ["千问文本", runtime?.qianwenTextConfigured ? "已配置" : "未配置"],
-    ["千问视觉", runtime?.qianwenVisionConfigured ? "已配置" : "未配置"],
-    ["豆包分析", runtime?.doubaoConfigured ? "已配置" : "未配置"],
-    ["libTV 桥接", libtvReady ? "已连接" : "未连接"],
-    ["ffmpeg 拼接", runtime?.ffmpegConfigured ? "已配置" : "未配置"],
-    ["当前分析模型", activeAnalysisModel],
-    ["当前视觉模型", activeVisionModel],
-    ["数据库", runtime?.libtvDatabase || "-"],
-    ["运行模式", runtime?.modeHint || "-"]
+    { name: "生成服务", value: runtime?.error ? "未连接" : "已连接", mobileName: "生成服务", mobileValue: mobileReadyText(!runtime?.error) },
+    { name: "千问文本", value: runtime?.qianwenTextConfigured ? "已配置" : "未配置", mobileName: "文案能力", mobileValue: mobileReadyText(runtime?.qianwenTextConfigured) },
+    { name: "千问视觉", value: runtime?.qianwenVisionConfigured ? "已配置" : "未配置", mobileName: "图片识别", mobileValue: mobileReadyText(runtime?.qianwenVisionConfigured) },
+    { name: "豆包分析", value: runtime?.doubaoConfigured ? "已配置" : "未配置", mobileName: "提示词分析", mobileValue: mobileReadyText(runtime?.doubaoConfigured) },
+    { name: "视频通道", value: libtvReady ? "已连接" : "未连接", mobileName: "视频提交", mobileValue: mobileReadyText(libtvReady, "可用", "待连接") },
+    { name: "ffmpeg 拼接", value: runtime?.ffmpegConfigured ? "已配置" : "未配置", mobileName: "视频拼接", mobileValue: mobileReadyText(runtime?.ffmpegConfigured) },
+    { name: "当前分析模型", value: activeAnalysisModel, mobileName: "分析模型", mobileValue: mobileModelText(activeAnalysisModel) },
+    { name: "当前视觉模型", value: activeVisionModel, mobileName: "识别模型", mobileValue: mobileModelText(activeVisionModel) },
+    { name: "数据存储", value: runtime?.libtvDatabase ? "已就绪" : "待配置", mobileName: "素材保存", mobileValue: mobileReadyText(runtime?.libtvDatabase, "已就绪", "待配置") },
+    { name: "运行模式", value: friendlyRuntimeMode(runtime?.modeHint), mobileName: "运行方式", mobileValue: friendlyRuntimeMode(runtime?.modeHint) }
   ];
 
   useEffect(() => {
@@ -770,6 +1278,26 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
   return (
     <section className="panel settings-panel">
       <SettingsHead title="我的与设置" onRefresh={onRefresh} />
+      <MobileProfileCenter
+        runtime={runtime}
+        libtvReady={libtvReady}
+        dataExporting={dataExporting}
+        onFeedbackOpen={() => setFeedbackOpen(true)}
+        onDataOpen={() => setDataRightsOpen(true)}
+      />
+      <MobileFirstUseGuide
+        runtime={runtime}
+        libtvReady={libtvReady}
+        onFeedbackOpen={() => setFeedbackOpen(true)}
+        onRefresh={onRefresh}
+      />
+      <MobileServiceFixCard
+        runtime={runtime}
+        libtvReady={libtvReady}
+        onRefresh={onRefresh}
+        onFeedbackOpen={() => setFeedbackOpen(true)}
+      />
+      <MobileSettingsActionHub onFeedbackOpen={() => setFeedbackOpen(true)} />
       <AppReadinessCenter
         runtime={runtime}
         libtvReady={libtvReady}
@@ -791,15 +1319,16 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
         onSubmit={submitPilotFeedback}
         onRefresh={() => loadPilotFeedback()}
         formatTime={formatRequestTime}
+        open={feedbackOpen}
+        onToggle={() => setFeedbackOpen((value) => !value)}
       />
-      <div className="settings-section">
-        <div className="settings-section-head">
-          <div>
-            <h3>数据与账号</h3>
-            <p>用于处理账号数据导出、删除申请和申请状态查询。</p>
-          </div>
-          <LockKeyhole size={18} />
-        </div>
+      <MobileCollapsibleSection
+        title="数据与账号"
+        description="用于处理账号数据导出、删除申请和申请状态查询。"
+        icon={LockKeyhole}
+        open={dataRightsOpen}
+        onToggle={() => setDataRightsOpen((value) => !value)}
+      >
         <div className="data-rights-panel">
           <div className="data-rights-warning" role="note">
             <AlertTriangle size={16} />
@@ -881,18 +1410,24 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
             ))}
           </div>
         ) : (
-          <div className="data-rights-empty">暂无删除账号或数据权利申请记录。</div>
+          <MobileRecordEmptyCard
+            icon={LockKeyhole}
+            title="还没有数据申请"
+            detail="只有提交导出、删除账号或数据处理申请后，这里才会显示进度。"
+            steps={["填写申请原因", "完成身份确认", "提交后等待人工复核"]}
+            actionLabel="查看上方表单"
+            onAction={() => document.querySelector(".data-rights-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+          />
         )}
-      </div>
+      </MobileCollapsibleSection>
       {isAdmin ? (
-        <div className="settings-section">
-          <div className="settings-section-head">
-            <div>
-              <h3>数据权利审核队列</h3>
-              <p>管理员用于复核删除账号、删除数据、导出和更正请求。</p>
-            </div>
-            <ShieldCheck size={18} />
-          </div>
+        <MobileCollapsibleSection
+          title="数据权利审核队列"
+          description="管理员用于复核删除账号、删除数据、导出和更正请求。"
+          icon={ShieldCheck}
+          open={adminDataRightsOpen}
+          onToggle={() => setAdminDataRightsOpen((value) => !value)}
+        >
           <div className="data-rights-status-head data-rights-admin-head">
             <div>
               <strong>管理员处理</strong>
@@ -938,9 +1473,16 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
               ))}
             </div>
           ) : (
-            <div className="data-rights-empty">暂无待审核数据权利申请。</div>
+            <MobileRecordEmptyCard
+              icon={ShieldCheck}
+              title="暂无待审核申请"
+              detail="当前没有新的数据申请需要处理。收到申请后会出现在这里。"
+              steps={["刷新审核队列", "查看申请原因", "更新处理状态"]}
+              actionLabel={adminDataRightsLoading ? "刷新中" : "刷新队列"}
+              onAction={() => loadAdminDataRightsRequests()}
+            />
           )}
-        </div>
+        </MobileCollapsibleSection>
       ) : null}
       {isAdmin ? (
         <AdminPilotFeedbackQueue
@@ -950,16 +1492,17 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
           onRefresh={() => loadAdminPilotFeedback()}
           onUpdate={updateAdminPilotFeedbackStatus}
           formatTime={formatRequestTime}
+          open={adminFeedbackOpen}
+          onToggle={() => setAdminFeedbackOpen((value) => !value)}
         />
       ) : null}
-      <div className="settings-section">
-        <div className="settings-section-head">
-          <div>
-            <h3>合规与协议</h3>
-            <p>公开给用户和审核人员查看的基础说明页面。</p>
-          </div>
-          <ShieldCheck size={18} />
-        </div>
+      <MobileCollapsibleSection
+        title="合规与协议"
+        description="公开给用户和审核人员查看的基础说明页面。"
+        icon={ShieldCheck}
+        open={legalOpen}
+        onToggle={() => setLegalOpen((value) => !value)}
+      >
         <div className="legal-link-grid">
           {legalLinks.map((item) => {
             const Icon = item.icon;
@@ -975,30 +1518,44 @@ export default function SettingsPage({ runtime, onRefresh, modelSettings, update
             );
           })}
         </div>
-      </div>
+      </MobileCollapsibleSection>
       <ModelSettingsPanel
         runtime={runtime}
         modelSettings={modelSettings}
         updateModelSettings={updateModelSettings}
+        open={modelSettingsOpen}
+        onToggle={() => setModelSettingsOpen((value) => !value)}
       />
       <ModelChannelPanel
+        open={modelChannelOpen}
+        onToggle={() => setModelChannelOpen((value) => !value)}
         channels={[
-          { name: "提示词分析", provider: "豆包 / 千问", model: activeAnalysisModel, ready: Boolean(runtime?.doubaoConfigured || runtime?.qianwenTextConfigured), desc: "负责拆解提示词包、生成最终完整提示词。" },
-          { name: "图片识别", provider: "千问视觉", model: activeVisionModel, ready: Boolean(runtime?.qianwenVisionConfigured), desc: "负责识别商品图、自动判断类别和卖点。" },
-          { name: "视频生成", provider: "libTV / Seedance", model: activeVideoModel, ready: Boolean(libtvReady || runtime?.seedanceConfigured), desc: "负责提交视频生成任务并回写结果。" },
-          { name: "文生图", provider: "Seedream", model: activeImageModel, ready: Boolean(runtime?.seedreamConfigured), desc: "预留给后续商品素材生成。" },
-          { name: "视频拼接", provider: "ffmpeg", model: runtime?.ffmpeg || "ffmpeg", ready: Boolean(runtime?.ffmpegConfigured), desc: "负责把已生成视频按组拼接成片。" }
+          { name: "提示词分析", provider: "豆包 / 千问", mobileProvider: "提示词能力", model: activeAnalysisModel, ready: Boolean(runtime?.doubaoConfigured || runtime?.qianwenTextConfigured), desc: "负责拆解提示词包、生成最终完整提示词。", mobileDesc: "用于理解提示词包，并整理成最终提示词。" },
+          { name: "图片识别", provider: "千问视觉", mobileProvider: "图片能力", model: activeVisionModel, ready: Boolean(runtime?.qianwenVisionConfigured), desc: "负责识别商品图、自动判断类别和卖点。", mobileDesc: "用于识别商品图、类别和卖点。" },
+          { name: "视频生成", provider: "视频生成服务", mobileProvider: "生成通道", model: activeVideoModel, ready: Boolean(libtvReady || runtime?.seedanceConfigured), desc: "负责提交视频生成任务并回写结果。", mobileDesc: "用于把提示词和图片生成视频。" },
+          { name: "文生图", provider: "Seedream", mobileProvider: "出图能力", model: activeImageModel, ready: Boolean(runtime?.seedreamConfigured), desc: "预留给后续商品素材生成。", mobileDesc: "用于生成商品主图和封面参考。" },
+          { name: "视频拼接", provider: "ffmpeg", mobileProvider: "本机合成", model: runtime?.ffmpeg || "ffmpeg", ready: Boolean(runtime?.ffmpegConfigured), desc: "负责把已生成视频按组拼接成片。", mobileDesc: "用于把多段视频合成一条成片。" }
         ]}
       />
-      <div className="settings-grid">
-        {rows.map(([name, value]) => (
-          <div className="setting-item" key={name}>
-            <span>{name}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
-      <pre className="json-box">{JSON.stringify(runtime || {}, null, 2)}</pre>
+      <MobileCollapsibleSection
+        title="运行状态"
+        description="生成服务、AI 能力和本机拼接能力的当前状态。"
+        icon={Activity}
+        open={runtimeRowsOpen}
+        onToggle={() => setRuntimeRowsOpen((value) => !value)}
+      >
+        <div className="settings-grid">
+          {rows.map(({ name, value, mobileName, mobileValue }) => (
+            <div className="setting-item" key={name}>
+              <span className="desktop-setting-label">{name}</span>
+              <span className="mobile-setting-label">{mobileName || name}</span>
+              <strong className="desktop-setting-value">{value}</strong>
+              <strong className="mobile-setting-value">{mobileValue || value}</strong>
+            </div>
+          ))}
+        </div>
+      </MobileCollapsibleSection>
+      {showInternalRuntime ? <pre className="json-box internal-runtime-json">{JSON.stringify(runtime || {}, null, 2)}</pre> : null}
     </section>
   );
 }

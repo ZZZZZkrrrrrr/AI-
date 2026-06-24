@@ -24,6 +24,8 @@ DEFAULT_OUTPUT_DIR = WORKFLOW_DIR / "04_runtime" / "outputs" / "libtv"
 DEFAULT_LIBTV = SCRIPT_DIR / "bin" / "libtv.exe"
 DEFAULT_CONFIG_DIR = SCRIPT_DIR / ".libtv_config"
 DEFAULT_MODEL = os.environ.get("LIBTV_VIDEO_MODEL") or "Seedance 2.0 Fast VIP"
+DEFAULT_SHARED_PROJECT_NAME = os.environ.get("LIBTV_SHARED_PROJECT_NAME", "").strip() or "AI视频工作台"
+DEFAULT_SHARED_PROJECT_UUID = os.environ.get("LIBTV_SHARED_PROJECT_UUID", "").strip()
 READY_STATUSES = ("prompt_ready", "ready", "prompt_review", "compliance_required")
 PROJECT_UUID_RE = re.compile(
     r"^(?:[0-9a-fA-F]{32}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$"
@@ -506,25 +508,44 @@ def record_error(
         )
 
 
-def ensure_project(task: dict[str, Any], cli_path: Path, timeout: int, team_id: str = "") -> tuple[str, dict[str, Any] | None]:
+def ensure_project(
+    task: dict[str, Any],
+    cli_path: Path,
+    timeout: int,
+    team_id: str = "",
+    project_id: str = "",
+    project_name: str = DEFAULT_SHARED_PROJECT_NAME,
+    per_task_project: bool = False,
+) -> tuple[str, dict[str, Any] | None]:
     existing = task.get("libtv_project_id") or ""
     if PROJECT_UUID_RE.match(existing):
         return existing, None
-    project_name = f"AIUGC-{task['task_code']}"
-    listed = run_libtv(["project", "list", "--name", project_name, "-s", "20"], cli_path, timeout)
+    configured_project_id = (project_id or DEFAULT_SHARED_PROJECT_UUID).strip()
+    if configured_project_id:
+        if not PROJECT_UUID_RE.match(configured_project_id):
+            raise RunnerError("Configured LibTV shared project UUID is invalid.")
+        return configured_project_id, {"configured": True, "shared": not per_task_project}
+
+    target_project_name = f"AIUGC-{task['task_code']}" if per_task_project else (project_name or DEFAULT_SHARED_PROJECT_NAME).strip()
+    listed = run_libtv(["project", "list", "--name", target_project_name, "-s", "100"], cli_path, timeout)
     projects = (listed.get("json") or {}).get("projectMetaList") if isinstance(listed.get("json"), dict) else None
     if isinstance(projects, list):
         for project in projects:
-            if isinstance(project, dict) and project.get("name") == project_name and find_uuid(project):
-                return find_uuid(project) or "", {"project_list": listed, "reused": True}
-    args = ["project", "create", project_name, "-d", f"AI UGC generated from local database task {task['task_code']}"]
+            if isinstance(project, dict) and project.get("name") == target_project_name and find_uuid(project):
+                return find_uuid(project) or "", {"project_list": listed, "reused": True, "shared": not per_task_project}
+    description = (
+        f"AI UGC generated from local database task {task['task_code']}"
+        if per_task_project
+        else "Shared AI video workspace. Each task is organized in its own canvas group."
+    )
+    args = ["project", "create", target_project_name, "-d", description]
     if team_id:
         args.extend(["--team-id", team_id])
     created = run_libtv(args, cli_path, timeout)
     project_uuid = find_uuid(created["json"])
     if not project_uuid:
         raise RunnerError("LibTV project create did not return a project UUID.")
-    return project_uuid, created
+    return project_uuid, {"project_create": created, "reused": False, "shared": not per_task_project}
 
 
 def fetch_product_image_assets(con: sqlite3.Connection, task: dict[str, Any]) -> list[dict[str, Any]]:
@@ -567,6 +588,7 @@ def upload_reference_images(
         if (
             isinstance(existing, dict)
             and existing.get("projectUuid") == project_uuid
+            and existing.get("taskCode") == task["task_code"]
             and existing.get("nodeKey")
             and not args.reupload_assets
         ):
@@ -591,6 +613,7 @@ def upload_reference_images(
         node_key = find_node_key(upload_result["json"]) or node_name
         libtv_cli = {
             "projectUuid": project_uuid,
+            "taskCode": task["task_code"],
             "nodeName": node_name,
             "nodeKey": node_key,
             "upload_result": upload_result,
@@ -608,6 +631,29 @@ def upload_reference_images(
         )
         uploaded.append({"asset_id": asset["id"], "nodeKey": node_key, "nodeName": node_name})
     return uploaded
+
+
+def organize_task_group(
+    task: dict[str, Any],
+    project_uuid: str,
+    node_refs: list[str],
+    cli_path: Path,
+    timeout: int,
+) -> dict[str, Any] | None:
+    unique_refs = list(dict.fromkeys(ref for ref in node_refs if ref))
+    if not unique_refs:
+        return None
+    group_name = task["task_code"]
+    params = ["group", "create", group_name, "-p", project_uuid]
+    for node_ref in unique_refs:
+        params.extend(["--node", node_ref])
+    try:
+        return run_libtv(params, cli_path, timeout)
+    except CLIError:
+        bind_params = ["group", group_name, "-p", project_uuid]
+        for node_ref in unique_refs:
+            bind_params.extend(["--node", node_ref])
+        return run_libtv(bind_params, cli_path, timeout)
 
 
 def build_node_args(
@@ -751,7 +797,15 @@ def submit_task(con: sqlite3.Connection, task: dict[str, Any], cli_path: Path, a
         raise RunnerError(f"Task {task.get('task_code')} has empty final prompt.")
 
     node_name = task_node_name(task["task_code"], args.node_name)
-    project_uuid, project_create = ensure_project(task, cli_path, args.timeout, args.team_id)
+    project_uuid, project_create = ensure_project(
+        task,
+        cli_path,
+        args.timeout,
+        args.team_id,
+        args.project_id,
+        args.project_name,
+        args.per_task_project,
+    )
     image_assets = fetch_product_image_assets(con, task)
     prompt = append_remote_reference_urls(prompt, image_assets)
     uploaded_images = upload_reference_images(con, task, image_assets, project_uuid, cli_path, args)
@@ -788,15 +842,44 @@ def submit_task(con: sqlite3.Connection, task: dict[str, Any], cli_path: Path, a
                 }
 
     node_key = find_node_key(node_run["json"]) or node_name
+    group_run = None
+    group_warning = None
+    try:
+        group_run = organize_task_group(
+            task,
+            project_uuid,
+            [item.get("nodeKey") for item in uploaded_images] + [node_key],
+            cli_path,
+            args.timeout,
+        )
+    except CLIError as exc:
+        group_warning = {
+            "message": str(exc),
+            "returncode": exc.returncode,
+            "stdout": exc.stdout,
+            "stderr": exc.stderr,
+        }
+        add_event(
+            con,
+            task["task_id"],
+            "libtv_cli_group_warning",
+            "Video generation succeeded, but task nodes could not be grouped on the shared canvas.",
+            {"projectUuid": project_uuid, "taskGroup": task["task_code"]},
+        )
     raw_response = {
         "transport": "cli",
         "project_create": project_create,
         "node_run": node_run,
         "uploaded_images": uploaded_images,
+        "group_run": group_run,
+        "group_warning": group_warning,
     }
     submit_payload = {
         "transport": "cli",
         "projectUuid": project_uuid,
+        "projectName": args.project_name,
+        "projectMode": "per_task" if args.per_task_project else "shared",
+        "taskGroup": task["task_code"],
         "nodeName": node_name,
         "nodeKey": node_key,
         "model": args.model,
@@ -960,6 +1043,9 @@ def command_submit(args: argparse.Namespace) -> dict[str, Any]:
                 "cli": str(cli_path),
                 "task_code": task["task_code"],
                 "project": task.get("libtv_project_id"),
+                "projectTarget": args.project_id or args.project_name,
+                "projectMode": "per_task" if args.per_task_project else "shared",
+                "taskGroup": task["task_code"],
                 "nodeName": task_node_name(task["task_code"], args.node_name),
                 "model": args.model,
                 "modeType": args.image_mode if image_assets and not args.no_product_image else args.mode_type,
@@ -1055,11 +1141,14 @@ def add_generation_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--ratio", default="9:16", help="Video ratio.")
     parser.add_argument("--duration", default="15", help="Video duration seconds.")
     parser.add_argument("--resolution", default="720p", help="Video resolution.")
-    parser.add_argument("--enable-sound", default="off", help="LibTV enableSound value: on/off.")
+    parser.add_argument("--enable-sound", default="on", help="LibTV enableSound value: on/off.")
     parser.add_argument("--count", default="1", help="Video count.")
     parser.add_argument("--auto-compliance", default="1", help="Set Seedance autoCompliance. Use 1 for human reference images.")
     parser.add_argument("--search-enabled", default="1", help="Set Seedance searchEnabled.")
     parser.add_argument("--team-id", default="", help="Optional LibTV team id for new projects.")
+    parser.add_argument("--project-id", default=DEFAULT_SHARED_PROJECT_UUID, help="Reuse this LibTV project UUID for new tasks.")
+    parser.add_argument("--project-name", default=DEFAULT_SHARED_PROJECT_NAME, help="Shared LibTV project name used when no UUID is configured.")
+    parser.add_argument("--per-task-project", action="store_true", help="Keep the legacy behavior that creates one project per task.")
     parser.add_argument("--node-name", default="", help="Override generated node name.")
     parser.add_argument("--no-product-image", action="store_true", help="Ignore product_image/reference_image assets.")
     parser.add_argument("--reupload-assets", action="store_true", help="Upload product image assets again even if node metadata exists.")

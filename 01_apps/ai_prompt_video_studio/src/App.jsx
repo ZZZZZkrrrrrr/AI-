@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  ArrowLeft,
   BarChart3,
   Bell,
   BookOpen,
@@ -26,6 +27,7 @@ import {
   Menu,
   Moon,
   Play,
+  Plus,
   RefreshCw,
   Scissors,
   Settings,
@@ -49,11 +51,6 @@ import {
   readRemoteImageFile,
   requestJson
 } from "./api.js";
-import {
-  buildAiDisclosureEvidencePack,
-  downloadJsonFile,
-  safeDownloadName
-} from "./shared/compliance/aiEvidencePack.js";
 
 const navItems = [
   { id: "overview", label: "生产总览", icon: LayoutDashboard },
@@ -62,10 +59,9 @@ const navItems = [
     label: "选品与资产",
     icon: Database,
     children: [
-      { id: "selectionAssets", label: "资产总览", icon: LayoutDashboard },
-      { id: "productScoring", label: "选品评分", icon: BarChart3 },
-      { id: "productLibrary", label: "商品数据库", icon: Database },
-      { id: "accountAssets", label: "账号资产库", icon: KeyRound }
+      { id: "selectionFlow", label: "选品流程", icon: Gauge },
+      { id: "productAssetFlow", label: "商品资产", icon: Database },
+      { id: "accountAssetFlow", label: "账号资产", icon: KeyRound }
     ]
   },
   {
@@ -75,6 +71,7 @@ const navItems = [
     children: [
       { id: "studio", label: "单条视频", icon: Play },
       { id: "batch", label: "批量生成", icon: ListChecks },
+      { id: "textImage", label: "文生图", icon: Image },
       { id: "stitch", label: "视频拼接", icon: Scissors }
     ]
   },
@@ -94,7 +91,7 @@ const navItems = [
     icon: Clipboard,
     children: [
       { id: "tasks", label: "任务看板", icon: Clipboard },
-      { id: "libtv", label: "libTV 任务", icon: Video },
+      { id: "libtv", label: "视频任务", icon: Video },
       { id: "assets", label: "素材与输出", icon: FolderOpen }
     ]
   },
@@ -110,27 +107,283 @@ const navItems = [
 
 const mobileTabItems = [
   { id: "overview", label: "首页", icon: LayoutDashboard, activePages: ["overview"] },
-  { id: "studio", label: "创建", icon: Play, activePages: ["studio", "batch", "stitch"] },
-  { id: "assets", label: "素材", icon: FolderOpen, activePages: ["assets", "tasks", "libtv"] },
+  { id: "inspiration", label: "创意", icon: Sparkles, activePages: ["inspiration", "textImage"] },
+  { id: "assets", label: "资产", icon: FolderOpen, activePages: ["assets", "tasks", "libtv"] },
   { id: "settings", label: "我的", icon: Settings, activePages: ["settings"] }
+];
+
+const mobileRootPageIds = new Set(mobileTabItems.map((item) => item.id));
+const mobileDefaultReturnTargets = {
+  studio: "overview",
+  batch: "overview",
+  stitch: "overview",
+  textImage: "inspiration",
+  tasks: "assets",
+  libtv: "assets",
+  selectionAssets: "overview",
+  selectionFlow: "overview",
+  productAssetFlow: "overview",
+  accountAssetFlow: "overview",
+  distribution: "overview",
+  dataRecovery: "overview",
+  aiReview: "overview",
+  promptWorkbench: "overview",
+  operationsLoop: "overview",
+  taskCenter: "assets",
+  systemManage: "settings"
+};
+
+const guestPreviewPages = new Set(["overview", "inspiration"]);
+
+const mobileCreateActions = [
+  { id: "studio:images", label: "图生视频", detail: "商品图变短片", icon: Video, featured: true },
+  { id: "studio:prompt", label: "文生视频", detail: "提示词做短片", icon: Play },
+  { id: "textImage", label: "文生图", detail: "生成商品主图", icon: Image },
+  { id: "batch", label: "批量生成", detail: "多商品一起跑", icon: ListChecks },
+  { id: "stitch", label: "视频拼接", detail: "多段合成", icon: Scissors }
+];
+
+const fashionLuxuryIndoorTemplate = {
+  id: "fashion-luxury-indoor-15s",
+  packageName: "内置模板_女装轻奢室内空间_15秒杂志感穿搭氛围视频_V1.0",
+  coverImage: "/template-covers/fashion-luxury-indoor-camellia-cover.jpg",
+  productName: "女装轻奢室内空间 15 秒杂志感穿搭氛围视频",
+  productCategory: "女装 / 轻奢室内空间 / 15 秒竖屏杂志感短视频",
+  shortNotice: "这不是通用模板，只用于一键生成女装轻奢室内空间 15 秒杂志感穿搭氛围视频。",
+  uploadRequirements: [
+    "建议上传 2-3 类图片：成年女性人物参考图 + 女装服装/商品图；如果有封面图、详情页头图或品牌画报图，也可以一起上传做风格参考。",
+    "服装图要清楚看到颜色、版型、领口、腰线、裙摆/裤型、面料纹理，避免模糊、遮挡、强滤镜和拼图。",
+    "封面图只用于参考版式、色系、系列感、卖点表达和细节展示方式，不会强制照搬原图文字。",
+    "适合连衣裙、挂脖裙、缎面裙、针织套装、轻奢套装、长裙；不适合买手店对镜自拍、街拍外景、办公室通勤风。"
+  ],
+  productBrief: [
+    "内置模板用途：一键生成女装轻奢室内空间 15 秒杂志感穿搭氛围视频。",
+    "上传图片要求：人物参考图用于锁定成年女性外貌、发型、身材比例和气质；服装图用于锁定女装颜色、版型、面料、领口、腰线、裙摆、印花、纽扣或拉链等细节；封面图/详情页头图可选上传，用于参考画报版式、色系、系列命名、细节卖点和高级感表达。",
+    "适用品类：连衣裙、挂脖裙、缎面裙、针织套装、轻奢套装、长裙、衬衫套装等偏轻熟、温柔、清冷或高级感女装。",
+    "默认场景：落地窗、绿植外景、浅色沙发、楼梯/玻璃栏杆、设计师酒店、会所休息区或精品展厅。",
+    "默认视频：9:16 竖屏，15 秒，无口播，无价格贴纸，无购物车，无直播感；前 3 秒必须看到完整上身效果。"
+  ].join("\n"),
+  promptPackVersion: "V3.0",
+  promptPackTextLoader: () => import("./templates/fashionPromptPackV3.js").then((module) => module.default)
+};
+
+function makeBuiltInVideoTemplate({
+  id,
+  packageName,
+  productName,
+  productCategory,
+  shortNotice,
+  uploadRequirements,
+  useCase,
+  scene,
+  visualStyle,
+  timeline,
+  mustKeep,
+  avoid
+}) {
+  return {
+    id,
+    packageName,
+    productName,
+    productCategory,
+    shortNotice,
+    uploadRequirements,
+    productBrief: [
+      `内置模板用途：${useCase}`,
+      `适用品类：${productCategory}`,
+      `上传素材要求：${uploadRequirements.join("；")}`,
+      `默认场景：${scene}`,
+      `默认画面：9:16 竖屏，15 秒，适合短视频投放、种草或商品展示。`
+    ].join("\n"),
+    promptPackText: [
+      `# 内置提示词包：${productName} V1.0`,
+      "",
+      `模板用途：${useCase}`,
+      "",
+      "素材要求：",
+      ...uploadRequirements.map((item, index) => `${index + 1}. ${item}`),
+      "",
+      "画面目标：",
+      `- 场景：${scene}`,
+      `- 风格：${visualStyle}`,
+      `- 必须保留：${mustKeep}`,
+      "",
+      "15 秒时间轴：",
+      ...timeline.map((item) => `- ${item}`),
+      "",
+      "输出要求：",
+      "- 生成一段 9:16 竖屏短视频最终提示词。",
+      "- 前 3 秒必须看清主体和卖点，不要只拍空镜。",
+      "- 镜头要自然连贯，有轻微运镜、细节特写和完整展示。",
+      "- 可出现少量氛围文字，但不要遮挡商品主体。",
+      "",
+      `负面提示词：${avoid}`
+    ].join("\n")
+  };
+}
+
+const ecommerceQuickCutTemplate = makeBuiltInVideoTemplate({
+  id: "ecommerce-product-quick-cut-15s",
+  packageName: "内置模板_电商爆品卖点快剪_15秒商品短视频_V1.0",
+  productName: "电商爆品卖点快剪 15 秒商品短视频",
+  productCategory: "通用电商 / 商品卖点 / 15 秒快剪",
+  shortNotice: "适合大多数实物商品，用来快速做一条可投放的商品卖点短视频。",
+  uploadRequirements: [
+    "上传 1-3 张清晰商品图，最好包含正面、细节和使用场景。",
+    "如果有卖点图、包装图、详情页头图，可以一起上传做信息参考。",
+    "商品文字只用于识别卖点，不要照搬大段详情页文字。"
+  ],
+  useCase: "快速把商品图片整理成 15 秒卖点快剪视频，适合测款、上新和投放素材初稿。",
+  scene: "干净电商棚拍背景、生活化使用场景、手部拿取、细节台面展示。",
+  visualStyle: "明亮、干净、节奏明确，镜头从整体到细节再到使用结果。",
+  mustKeep: "商品外观、颜色、材质、包装形态、核心卖点和使用方式。",
+  timeline: [
+    "0-2 秒：商品正面出现，画面快速建立这是哪个商品。",
+    "2-5 秒：切到核心卖点特写，比如材质、结构、容量、细节。",
+    "5-9 秒：展示使用动作或使用场景，让用户理解怎么用。",
+    "9-12 秒：对比前后或多角度补充，突出购买理由。",
+    "12-15 秒：商品回到主画面，形成干净收尾。"
+  ],
+  avoid: "低清晰度，水印，logo 被篡改，夸大功效，价格贴纸，购物车按钮，直播间 UI，手机状态栏，播放器按钮，错误文字，杂乱背景。"
+});
+
+const beautySkincareTemplate = makeBuiltInVideoTemplate({
+  id: "beauty-skincare-clean-15s",
+  packageName: "内置模板_美妆护肤清透质感_15秒种草视频_V1.0",
+  productName: "美妆护肤清透质感 15 秒种草视频",
+  productCategory: "美妆护肤 / 彩妆护肤 / 清透质感短视频",
+  shortNotice: "适合护肤品、彩妆和香氛，强调质感展示，不写医疗功效承诺。",
+  uploadRequirements: [
+    "上传产品瓶身、外包装、质地或上脸/上手参考图。",
+    "最好补充目标人群、香型/色号/肤感/质地等信息。",
+    "不要要求生成祛病、治疗、永久改善等夸大功效。"
+  ],
+  useCase: "生成美妆护肤类清透质感种草视频，适合新品介绍、质地展示和短视频封面前置素材。",
+  scene: "浴室台面、梳妆台、晨间自然光、干净镜面、柔和水光和浅色背景。",
+  visualStyle: "清透、细腻、高级、柔光棚拍，突出质地、瓶身反光和使用氛围。",
+  mustKeep: "品牌包装形态、瓶身颜色、色号/质地、产品类别和使用场景。",
+  timeline: [
+    "0-2 秒：产品瓶身和包装干净入画，建立高级感。",
+    "2-5 秒：质地特写，比如乳液、精华、粉体或口红膏体。",
+    "5-8 秒：手部取用或轻抹动作，展示肤感和延展性。",
+    "8-12 秒：产品与梳妆台、镜面、花材或水光道具组合。",
+    "12-15 秒：产品居中收尾，画面干净可做发布封面。"
+  ],
+  avoid: "医疗功效，治疗承诺，夸张前后对比，错误色号，水印，错字，大面积文字，直播促销贴纸，脏乱台面，过度磨皮。"
+});
+
+const snackDrinkTemplate = makeBuiltInVideoTemplate({
+  id: "snack-drink-opening-15s",
+  packageName: "内置模板_零食饮品开箱试吃_15秒氛围视频_V1.0",
+  productName: "零食饮品开箱试吃 15 秒氛围视频",
+  productCategory: "食品饮品 / 零食饮料 / 开箱试吃短视频",
+  shortNotice: "适合零食、饮品、糕点和速食，重点做食欲感和开箱动作。",
+  uploadRequirements: [
+    "上传包装正面、食品实物、口味/规格图，最好有打开后的内容物。",
+    "可以补充口味、适合场景、卖点和食用方式。",
+    "不要生成医疗保健、减肥治疗或绝对化功效表达。"
+  ],
+  useCase: "把食品饮品商品图生成开箱、倒出、试吃和氛围展示短视频。",
+  scene: "厨房台面、下午茶桌、便利店风格桌面、户外野餐布或办公桌零食场景。",
+  visualStyle: "明亮有食欲，暖光，近景细节丰富，动作真实自然。",
+  mustKeep: "包装外观、口味识别、食品形态、颜色和食用方式。",
+  timeline: [
+    "0-2 秒：包装正面入画，快速看到口味和品类。",
+    "2-5 秒：打开包装或倒出食品，形成开箱感。",
+    "5-8 秒：食品近景特写，展示质地、颗粒、气泡或拉丝。",
+    "8-12 秒：手部拿取、倒入杯中或试吃动作。",
+    "12-15 秒：包装和食品组合收尾，适合做种草封面。"
+  ],
+  avoid: "虚假功效，治疗减肥承诺，食品变形，包装文字错误，水印，脏乱厨房，过度油腻，夸张吞咽画面。"
+});
+
+const homeApplianceTemplate = makeBuiltInVideoTemplate({
+  id: "home-appliance-demo-15s",
+  packageName: "内置模板_家居小家电场景演示_15秒功能视频_V1.0",
+  productName: "家居小家电场景演示 15 秒功能视频",
+  productCategory: "家居百货 / 小家电 / 功能演示短视频",
+  shortNotice: "适合小家电、收纳、清洁和家居工具，强调真实使用动作。",
+  uploadRequirements: [
+    "上传产品正面、侧面、配件和使用场景图。",
+    "补充核心功能、适用空间、操作步骤和安全禁忌。",
+    "避免只上传包装盒，最好能看清产品结构和使用方式。"
+  ],
+  useCase: "生成家居小家电或工具类功能演示视频，让用户一眼看懂怎么用、解决什么问题。",
+  scene: "现代厨房、客厅、浴室、收纳柜、清洁台面或小户型生活空间。",
+  visualStyle: "真实生活感、干净实用、镜头稳定，突出操作步骤和前后效果。",
+  mustKeep: "产品结构、按钮/配件、使用姿态、功能动作和适用空间。",
+  timeline: [
+    "0-2 秒：产品在真实家居场景中出现，看到主体和大小比例。",
+    "2-5 秒：手部操作按钮、打开盖子、安装配件或启动功能。",
+    "5-9 秒：展示核心功能运行过程，比如清洁、收纳、加热、搅拌或整理。",
+    "9-12 秒：展示结果或使用前后变化。",
+    "12-15 秒：产品和整洁空间一起收尾，画面可信不夸张。"
+  ],
+  avoid: "危险操作，虚假功能，产品结构乱变，水印，错误按钮文字，夸大前后对比，脏乱场景，直播间促销 UI。"
+});
+
+const builtInPromptTemplates = [
+  fashionLuxuryIndoorTemplate,
+  ecommerceQuickCutTemplate,
+  beautySkincareTemplate,
+  snackDrinkTemplate,
+  homeApplianceTemplate
 ];
 
 const SettingsPage = React.lazy(() => import("./features/settings/SettingsPage.jsx"));
 const LazyVideoStitchPage = React.lazy(() => import("./features/stitch/VideoStitchPage.jsx"));
+const LazyTextImagePage = React.lazy(() => import("./features/textImage/TextImagePage.jsx"));
+const LazyAssetsPage = React.lazy(() => import("./features/assets/AssetsPage.jsx"));
+const LazyBatchPage = React.lazy(() => import("./features/batch/BatchPage.jsx"));
+const LazyMobileInspirationPage = React.lazy(() => import("./features/inspiration/MobileInspirationPage.jsx"));
+const LazyWorkflowModulePage = React.lazy(() => import("./features/workflow/WorkflowModulePage.jsx"));
+const LazyLoginPromptSheet = React.lazy(() => import("./features/auth/LoginPromptSheet.jsx"));
+const LazyTasksPage = React.lazy(() => import("./features/tasks/TaskPages.jsx").then((module) => ({ default: module.TasksPage })));
+const LazyLibtvPage = React.lazy(() => import("./features/tasks/TaskPages.jsx").then((module) => ({ default: module.LibtvPage })));
 
 const workflowModulePages = {
+  selectionFlow: {
+    title: "选品流程",
+    subtitle: "按闭环流程展示选品、数据采集、比较评分和动态评分库，形成可以进入视频生成的候选商品池。",
+    stage: "流程导航",
+    steps: ["选品", "数据采集", "比较评分", "动态评分库"],
+    actions: [
+      { label: "去批量生成", page: "batch" },
+      { label: "查看生产总览", page: "overview" }
+    ]
+  },
+  productAssetFlow: {
+    title: "商品资产",
+    subtitle: "整理商品资料、商品图片和入库出库流程，作为提示词和视频生成的上游资料。",
+    stage: "流程导航",
+    steps: ["商品资料库", "商品信息", "商品图片", "入库及出库流程"],
+    actions: [
+      { label: "去批量生成", page: "batch" },
+      { label: "去单条视频", page: "studio" }
+    ]
+  },
+  accountAssetFlow: {
+    title: "账号资产",
+    subtitle: "展示账号资产库、账号人物信息、账号场景信息和账号初始 DOC 包，用于绑定发布身份和内容风格。",
+    stage: "流程导航",
+    steps: ["账号资产库", "账号人物信息", "账号场景信息", "账号初始 DOC 包"],
+    actions: [
+      { label: "去提示词工作台", page: "studio" },
+      { label: "去发布分发", page: "distribution" }
+    ]
+  },
   productScoring: {
     title: "选品评分",
     subtitle: "从选品数据、佣金、趋势、竞争价和时效里形成可排序的商品评分。",
     stage: "规划接入",
-    steps: ["接入选品数据", "配置评分维度", "输出动态评分库", "回写商品数据库"],
+    steps: ["接入选品数据", "配置评分维度", "输出动态评分表", "同步到商品资料"],
     actions: [
       { label: "去批量生成", page: "batch" },
       { label: "查看任务看板", page: "tasks" }
     ]
   },
   productLibrary: {
-    title: "商品数据库",
+    title: "商品资料库",
     subtitle: "集中管理商品信息、商品图片、类别、卖点、库存流转和生成记录。",
     stage: "规划接入",
     steps: ["商品入库", "商品图片归档", "关联生成任务", "同步数据回收结果"],
@@ -156,14 +409,14 @@ const workflowModulePages = {
     steps: ["选择成片", "配置平台与账号", "设置关键词和音乐", "记录发布状态"],
     actions: [
       { label: "去视频拼接", page: "stitch" },
-      { label: "查看 libTV 任务", page: "libtv" }
+        { label: "查看视频任务", page: "libtv" }
     ]
   },
   dataRecovery: {
     title: "数据回收",
-    subtitle: "回收播放、点赞、评论、转化和账号面板数据，沉淀到中央数据库。",
+    subtitle: "回收播放、点赞、评论、转化和账号面板数据，形成可复盘的数据记录。",
     stage: "规划接入",
-    steps: ["拉取平台数据", "清洗账号面板", "写入中央数据库", "触发 AI 分析"],
+    steps: ["拉取平台数据", "整理账号面板", "保存数据记录", "触发 AI 分析"],
     actions: [
       { label: "查看任务看板", page: "tasks" },
       { label: "查看素材输出", page: "assets" }
@@ -910,8 +1163,8 @@ const batchTemplateHeaders = [
   "商品补充信息",
   "视频时长",
   "画幅",
-  "libTV模式",
-  "是否自动提交libTV"
+  "视频生成方式",
+  "是否自动提交视频"
 ];
 const batchTemplateRows = [
   ["男装-001", "男装-001.docx", "男装-001.png", "通勤男装短袖", "男装", "主推通勤穿搭，突出面料、版型、上身效果", 15, "9:16", "先验证", "是"],
@@ -921,7 +1174,6 @@ const batchTemplateRows = [
 function defaultBatchName() {
   return `批量生成 ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
 }
-
 const defaultModelSettings = {
   analysisModel: "",
   analysisCustomModel: "",
@@ -987,6 +1239,28 @@ function navItemIsActive(item, pageId) {
 
 function mobileTabIsActive(item, pageId) {
   return (item.activePages || [item.id]).includes(pageId);
+}
+
+function isMobileViewport() {
+  return Boolean(window.matchMedia?.("(max-width: 900px)").matches);
+}
+
+function writeRouteHash(nextPage, { replace = false } = {}) {
+  const nextHash = `#/${nextPage}`;
+  if (location.hash === nextHash) return;
+  if (replace && window.history?.replaceState) {
+    window.history.replaceState(window.history.state, "", `${location.pathname}${location.search}${nextHash}`);
+    return;
+  }
+  location.hash = `/${nextPage}`;
+}
+
+function resolveMobileReturnTarget(fromPage, nextPage) {
+  if (!nextPage || nextPage === "overview") return "";
+  if (fromPage && fromPage !== nextPage && mobileRootPageIds.has(fromPage)) {
+    return fromPage;
+  }
+  return mobileDefaultReturnTargets[nextPage] || "overview";
 }
 
 function parentNavIdForPage(pageId) {
@@ -3776,8 +4050,8 @@ function mergeAccountAssets(apiAccounts = []) {
       recommended: item.recommended || local.recommended || [],
       dataQualityWarnings: [
         ...(item.dataQualityWarnings || []),
-        hasBrokenDisplayText(item.name) ? "账号名称为异常占位文本，已用本地种子显示值修复。" : "",
-        hasBrokenDisplayText(item.position) ? "账号定位为异常占位文本，已用本地种子显示值修复。" : ""
+        hasBrokenDisplayText(item.name) ? "账号名称为异常占位文本，已用示例资料显示值修复。" : "",
+        hasBrokenDisplayText(item.position) ? "账号定位为异常占位文本，已用示例资料显示值修复。" : ""
       ].filter(Boolean)
     };
   });
@@ -4060,7 +4334,7 @@ function buildAccountReadinessRows(accounts = [], products = [], audit = buildAc
         label: "资料质量",
         status: qualityWarnings.length ? "warn" : "pass",
         detail: qualityWarnings.length ? qualityWarnings.join("；") : "账号资料未发现异常占位文本",
-        action: qualityWarnings.length ? "打开账号资产库保存一次，把自动修复后的名称和定位写回数据库。" : "资料质量可用。",
+        action: qualityWarnings.length ? "打开账号资产库保存一次，把自动修复后的名称和定位同步到账号资料。" : "资料质量可用。",
         owner: "账号运营",
         weight: qualityWarnings.length ? 33 : 8
       }),
@@ -4519,15 +4793,15 @@ function isLikelyGarbledText(value) {
 function cleanDisplayMessage(message) {
   const text = String(message || "");
   if (/libtv command failed|autoCompliance=1|Seedance2\.0|合规检测|真人|角色库/i.test(text)) {
-    return "libTV 合规校验未通过：参考图可能包含真人形象，请先在 libTV 角色库完成人物资产录入或合规校验后再重试。";
+    return "视频平台合规校验未通过：参考图可能包含真人形象，请先完成可用人物素材或合规校验后再重试。";
   }
   const questionCount = (text.match(/\?/g) || []).length;
   if (questionCount >= 8 && questionCount / Math.max(text.length, 1) > 0.2) {
-    return "libTV 返回的错误信息编码异常，请打开 libTV 任务详情查看真实失败原因。";
+    return "视频生成平台返回的错误信息编码异常，请打开任务详情查看真实失败原因。";
   }
   if (!isLikelyGarbledText(text)) return text;
   if (/libTV|bridge/i.test(text)) {
-    return "libTV 返回的错误信息编码异常，请打开 libTV 任务详情查看真实失败原因。";
+    return "视频生成平台返回的错误信息编码异常，请打开任务详情查看真实失败原因。";
   }
   return "错误信息编码异常，请刷新后重试或查看任务详情。";
 }
@@ -4663,6 +4937,11 @@ export function App() {
   const [page, setPage] = useState(() => location.hash.replace("#/", "") || "overview");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileCreateMenuOpen, setMobileCreateMenuOpen] = useState(false);
+  const [mobileSidebarDrag, setMobileSidebarDrag] = useState({ active: false, offset: 0, progress: 0 });
+  const pageRef = useRef(page);
+  const mobileReturnPageRef = useRef("");
+  const [mobileViewport, setMobileViewport] = useState(() => isMobileViewport());
   const [expandedGroups, setExpandedGroups] = useState(() => {
     const current = location.hash.replace("#/", "") || "overview";
     const parentId = parentNavIdForPage(current);
@@ -4682,7 +4961,7 @@ export function App() {
   const [jobs, setJobs] = useState([]);
   const [batchJobs, setBatchJobs] = useState([]);
   const [batchDetail, setBatchDetail] = useState(null);
-  const [assets, setAssets] = useState({ rows: [], outputFiles: [] });
+  const [assets, setAssets] = useState({ rows: [], outputFiles: [], sourceLinks: [] });
   const [selectionAssets, setSelectionAssets] = useState(() => ({
     products: selectionProducts,
     accounts: accountAssetSeeds,
@@ -4697,6 +4976,8 @@ export function App() {
   const [auth, setAuth] = useState({ loading: true, user: null });
   const [loginError, setLoginError] = useState("");
   const [loginSubmitting, setLoginSubmitting] = useState(false);
+  const [guestLoginVisible, setGuestLoginVisible] = useState(false);
+  const [pendingTemplateId, setPendingTemplateId] = useState("");
   const [pwaUpdateReady, setPwaUpdateReady] = useState(false);
   const [pwaInstallPrompt, setPwaInstallPrompt] = useState(null);
   const [pwaInstallDismissed, setPwaInstallDismissed] = useState(() => {
@@ -4717,10 +4998,28 @@ export function App() {
   const pwaInstallGuideForced = pwaInstallGuideForceEnabled();
   const showNativeInstallPrompt = Boolean(pwaInstallPrompt && !pwaInstallDismissed && !pwaInstallGuideForced);
   const showIosInstallGuide = Boolean((iosInstallGuideVisible || pwaInstallGuideForced) && !showNativeInstallPrompt && (!pwaInstallDismissed || pwaInstallGuideForced));
+  const isGuest = !auth.user;
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(max-width: 900px)");
+    if (!media) return undefined;
+    const handleChange = () => setMobileViewport(media.matches);
+    handleChange();
+    media.addEventListener?.("change", handleChange);
+    return () => media.removeEventListener?.("change", handleChange);
+  }, []);
+
+  useEffect(() => {
+    pageRef.current = page;
+    if (mobileRootPageIds.has(page)) {
+      mobileReturnPageRef.current = "";
+    }
+  }, [page]);
 
   useEffect(() => {
     const onHash = () => {
       const nextPage = location.hash.replace("#/", "") || "overview";
+      pageRef.current = nextPage;
       setPage(nextPage);
       const parentId = parentNavIdForPage(nextPage);
       if (parentId) setExpandedGroups((current) => ({ ...current, [parentId]: true }));
@@ -4732,6 +5031,23 @@ export function App() {
   useEffect(() => {
     checkAuthSession();
   }, []);
+
+  useEffect(() => {
+    if (auth.loading || auth.user || guestPreviewPages.has(page)) return;
+    writeRouteHash("overview", { replace: true });
+    pageRef.current = "overview";
+    mobileReturnPageRef.current = "";
+    setPage("overview");
+  }, [auth.loading, auth.user, page]);
+
+  useEffect(() => {
+    if (!auth.user || !pendingTemplateId) return;
+    const template = builtInPromptTemplates.find((item) => item.id === pendingTemplateId);
+    setPendingTemplateId("");
+    if (template) {
+      window.setTimeout(() => applyBuiltInTemplate(template), 0);
+    }
+  }, [auth.user, pendingTemplateId]);
 
   useEffect(() => {
     if (!auth.user) return undefined;
@@ -4761,10 +5077,91 @@ export function App() {
   }, [notifications]);
 
   useEffect(() => {
+    if (auth.loading || !auth.user || page !== "studio") return undefined;
+    let cancelled = false;
+    async function appendTextImageNodeToStudio() {
+      try {
+        const { consumeTextImageStudioHandoff } = await import("./shared/textImageStudioHandoff.js");
+        if (cancelled) return;
+        const handoff = consumeTextImageStudioHandoff();
+        if (!handoff) return;
+        const remoteImage = await readRemoteImageFile({
+          url: handoff.imageUrl,
+          name: handoff.imageName,
+          type: handoff.imageType,
+          size: handoff.imageSize
+        });
+        if (cancelled) return;
+        const linkedImage = {
+          ...remoteImage,
+          name: remoteImage.name || handoff.imageName,
+          sourceType: "text-image-canvas",
+          sourceUrl: handoff.imageUrl,
+          textImageCanvasNodeId: handoff.nodeId,
+          textImageRunId: handoff.runId,
+          textImagePrompt: handoff.prompt,
+          textImageNegativePrompt: handoff.negativePrompt,
+          textImageModel: handoff.model,
+          textImageSize: handoff.size,
+          textImageCreatedAt: handoff.createdAt,
+          textImageLinkedAt: handoff.linkedAt
+        };
+        setStudio((current) => {
+          const exists = current.images.some((image) =>
+            image.textImageCanvasNodeId === handoff.nodeId ||
+            (handoff.imageUrl && image.sourceUrl === handoff.imageUrl)
+          );
+          if (exists) return current;
+          return {
+            ...current,
+            images: [linkedImage, ...current.images].slice(0, 6)
+          };
+        });
+        addNotification({
+          level: "success",
+          title: "文生图图片已加入",
+          message: `${handoff.imageName} 已放入单条视频的商品图片列表。`,
+          target: "studio"
+        });
+      } catch (error) {
+        if (cancelled) return;
+        addNotification({
+          level: "error",
+          title: "文生图图片读取失败",
+          message: error.message || "请重新打开文生图节点后再送入单条视频。",
+          target: "textImage"
+        });
+      }
+    }
+    appendTextImageNodeToStudio();
+    return () => {
+      cancelled = true;
+    };
+  }, [auth.loading, auth.user, page]);
+
+  useEffect(() => {
     const handlePwaUpdate = () => setPwaUpdateReady(true);
     window.addEventListener("pwa:update-available", handlePwaUpdate);
     return () => window.removeEventListener("pwa:update-available", handlePwaUpdate);
   }, []);
+
+  useEffect(() => {
+    setMobileSidebarDrag((current) => (
+      current.active || current.offset || current.progress
+        ? { active: false, offset: 0, progress: 0 }
+        : current
+    ));
+  }, [mobileSidebarOpen, page]);
+
+  useEffect(() => {
+    const locked = mobileSidebarOpen;
+    document.documentElement.classList.toggle("mobile-sidebar-gesture-lock", locked);
+    document.body?.classList.toggle("mobile-sidebar-gesture-lock", locked);
+    return () => {
+      document.documentElement.classList.remove("mobile-sidebar-gesture-lock");
+      document.body?.classList.remove("mobile-sidebar-gesture-lock");
+    };
+  }, [mobileSidebarOpen]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (event) => {
@@ -4841,6 +5238,7 @@ export function App() {
       });
       setAuth({ loading: false, user: data.user });
       setLoginError("");
+      setGuestLoginVisible(false);
     } catch (error) {
       setLoginError(error.message || "登录失败");
     } finally {
@@ -4858,6 +5256,7 @@ export function App() {
       });
       setAuth({ loading: false, user: data.user });
       setLoginError("");
+      setGuestLoginVisible(false);
     } catch (error) {
       setLoginError(error.message || "注册失败");
     } finally {
@@ -4876,19 +5275,27 @@ export function App() {
     setJobs([]);
     setBatchJobs([]);
     setBatchDetail(null);
-    setAssets({ rows: [], outputFiles: [] });
+    setAssets({ rows: [], outputFiles: [], sourceLinks: [] });
     setAuth({ loading: false, user: null });
+    setGuestLoginVisible(false);
+    setPendingTemplateId("");
+    writeRouteHash("overview", { replace: true });
+    pageRef.current = "overview";
+    mobileReturnPageRef.current = "";
+    setPage("overview");
   }
 
   function toggleShellSidebar() {
     if (window.matchMedia?.("(max-width: 900px)").matches) {
+      setMobileSidebarDrag({ active: false, offset: 0, progress: 0 });
+      setSidebarCollapsed(false);
       setMobileSidebarOpen((current) => !current);
       return;
     }
     setSidebarCollapsed((current) => !current);
   }
 
-  function navigate(nextPage) {
+  function navigate(nextPage, options = {}) {
     if (String(nextPage || "").startsWith("productLibrary:")) {
       const productId = String(nextPage).slice("productLibrary:".length);
       setSelectionProductFocus(productId);
@@ -4906,11 +5313,42 @@ export function App() {
       setMobileCreateIntent(intent);
       nextPage = "studio";
     }
-    location.hash = `/${nextPage}`;
+    if (!auth.user && !guestPreviewPages.has(nextPage)) {
+      setLoginError("");
+      setGuestLoginVisible(true);
+      setMobileCreateMenuOpen(false);
+      setMobileSidebarDrag({ active: false, offset: 0, progress: 0 });
+      setMobileSidebarOpen(false);
+      return;
+    }
+    const mobile = isMobileViewport();
+    const fromPage = pageRef.current;
+    if (mobile) {
+      if (options.resetMobileReturn || mobileRootPageIds.has(nextPage)) {
+        mobileReturnPageRef.current = "";
+      } else if (fromPage !== nextPage) {
+        mobileReturnPageRef.current = resolveMobileReturnTarget(fromPage, nextPage);
+      }
+    }
+    writeRouteHash(nextPage, { replace: mobile || options.replace === true });
+    pageRef.current = nextPage;
     setPage(nextPage);
     const parentId = parentNavIdForPage(nextPage);
     if (parentId) setExpandedGroups((current) => ({ ...current, [parentId]: true }));
+    setMobileSidebarDrag({ active: false, offset: 0, progress: 0 });
     setMobileSidebarOpen(false);
+    setMobileCreateMenuOpen(false);
+  }
+
+  function openMobileCreateAction(nextPage) {
+    setMobileCreateMenuOpen(false);
+    navigate(nextPage);
+  }
+
+  function handleMobileReturnClick() {
+    const target = mobileReturnPageRef.current || mobileDefaultReturnTargets[pageRef.current] || "";
+    if (!target || target === pageRef.current) return;
+    navigate(target, { resetMobileReturn: true, replace: true });
   }
 
   function toggleNavGroup(itemId) {
@@ -4986,6 +5424,10 @@ export function App() {
     localStorage.setItem(pwaInstallDismissedKey, "true");
   }
 
+  function openPwaInstallGuide() {
+    window.open("/install.html", "_blank", "noopener,noreferrer");
+  }
+
   function openNotificationTarget(target) {
     if (target) navigate(target);
     setNotificationOpen(false);
@@ -5025,8 +5467,19 @@ export function App() {
 
   async function loadAssets(taskCode = assetTaskCode) {
     const query = taskCode ? `?taskCode=${encodeURIComponent(taskCode)}` : "";
-    const data = await requestJson(`/api/assets${query}`);
-    setAssets({ rows: data.rows || [], outputFiles: data.outputFiles || [] });
+    const [data, sourceData] = await Promise.all([
+      requestJson(`/api/assets${query}`),
+      requestJson(`/api/task-source-links${query}`).catch((error) => ({
+        sourceLinks: [],
+        sourceLinkError: error.message || "来源记录读取失败"
+      }))
+    ]);
+    setAssets({
+      rows: data.rows || [],
+      outputFiles: data.outputFiles || [],
+      sourceLinks: sourceData.sourceLinks || [],
+      sourceLinkError: sourceData.sourceLinkError || ""
+    });
   }
 
   async function loadSelectionAssets() {
@@ -5321,7 +5774,7 @@ export function App() {
       addNotification({
         level: "error",
         title: "生成前验证保存失败",
-        message: error.message || "请先到商品数据库保存验证记录后再建批次。",
+        message: error.message || "请先到商品资料库保存验证记录后再建批次。",
         target: productLibraryTarget(selected[0]?.id)
       });
       return null;
@@ -5424,6 +5877,62 @@ export function App() {
     setStudio((current) => ({ ...current, [field]: value }));
   }
 
+  async function resolveTemplatePromptPackText(template) {
+    if (template?.promptPackText) return template.promptPackText;
+    if (!template?.promptPackTextLoader) return "";
+    const promptPackText = await template.promptPackTextLoader();
+    return typeof promptPackText === "string" ? promptPackText : "";
+  }
+
+  async function applyBuiltInTemplate(template) {
+    if (!auth.user) {
+      setLoginError("");
+      setPendingTemplateId(template?.id || "");
+      setGuestLoginVisible(true);
+      return;
+    }
+    let promptPackText = "";
+    try {
+      promptPackText = await resolveTemplatePromptPackText(template);
+    } catch (error) {
+      addNotification({
+        level: "error",
+        title: "模板读取失败",
+        message: "请刷新页面后再套用模板。",
+        target: "studio"
+      });
+      return;
+    }
+    if (!promptPackText) return;
+    setPendingTemplateId("");
+    setStudio((current) => ({
+      ...current,
+      promptPackText,
+      promptPackage: {
+        name: template.packageName,
+        templateId: template.id,
+        size: promptPackText.length,
+        type: "builtin/template",
+        source: "内置模板"
+      },
+      productName: current.productName || template.productName || "",
+      productCategory: template.productCategory || current.productCategory || "",
+      productBrief: template.productBrief || current.productBrief || "",
+      targetDuration: 15,
+      aspectRatio: "9:16",
+      videoMode: current.videoMode || "dry_run",
+      autoSubmit: false
+    }));
+    addNotification({
+      level: "success",
+      title: "已套用女装轻奢模板",
+      message: "请继续上传人物参考图、女装服装图；有封面图或详情头图也可以一起上传。",
+      target: "studio"
+    });
+    setMobileCreateIntent("images");
+    navigate("studio");
+  }
+
   function updateModelSettings(field, value) {
     setModelSettings((current) => ({ ...current, [field]: value }));
   }
@@ -5486,7 +5995,7 @@ export function App() {
   }
 
   function upsertVideoStep(name, status, message, output = "", at = "") {
-    const key = String(name || "libTV").trim() || "libTV";
+    const key = String(name || "视频生成").trim() || "视频生成";
     setVideoSteps((current) => {
       const index = current.findIndex((item) => item.key === key);
       const next = { key, name: key, status, message: message || "", output: output || "", at: at || new Date().toISOString() };
@@ -5579,16 +6088,16 @@ export function App() {
       return;
     }
     if (!studio.images.length && !studio.productBrief.trim()) {
-      alert("请上传产品图，或填写商品补充信息。");
+      alert("请上传素材图片，或填写商品补充信息。");
       return;
     }
     resetRunState();
     setPromptRunning(true);
-    upsertPromptStep("提交后端", "running", "正在把提示词包和产品图片发送到后端。", "", new Date().toISOString());
+    upsertPromptStep("提交任务", "running", "正在把提示词包和素材图片发送到生成服务。", "", new Date().toISOString());
     addNotification({
       level: "info",
       title: "提示词生成已开始",
-      message: "正在分析提示词包和产品图片。",
+      message: "正在分析提示词包和素材图片。",
       target: "studio"
     });
     const payload = {
@@ -5610,7 +6119,7 @@ export function App() {
       connectPromptEvents(nextRunId);
     } catch (error) {
       setPromptRunning(false);
-      alert(error.message || "提示词任务创建失败，请检查网络或后端服务。");
+      alert(error.message || "提示词任务创建失败，请检查网络或生成服务。");
       upsertPromptStep("任务创建", "failed", error.message, "", new Date().toISOString());
       addNotification({
         level: "error",
@@ -5716,7 +6225,7 @@ export function App() {
       addNotification({
         level: "success",
         title: "最终提示词已生成",
-        message: result.suggestedCategory ? `识别类别：${result.suggestedCategory}` : "可以复制或提交到 libTV。",
+        message: result.suggestedCategory ? `识别类别：${result.suggestedCategory}` : "可以复制或提交生成视频。",
         target: "studio"
       });
       setStudio((current) => {
@@ -5790,7 +6299,7 @@ export function App() {
       return;
     }
     if (!source.images.length) {
-      alert("请先上传产品图片，libTV 需要产品参考图。");
+      alert("请先上传产品图片，生成视频需要产品参考图。");
       return;
     }
     videoRunningRef.current = true;
@@ -5816,8 +6325,8 @@ export function App() {
       upsertVideoStep("提交准备", "running", "正在创建视频任务。", "", new Date().toISOString());
       addNotification({
         level: "info",
-        title: source.videoMode === "dry_run" ? "libTV 验证已开始" : "libTV 视频任务已提交",
-        message: source.videoMode === "dry_run" ? "当前为先验证模式，不会真实生成视频。" : "正在提交并等待 libTV 返回结果。",
+        title: source.videoMode === "dry_run" ? "视频验证已开始" : "视频任务已提交",
+        message: source.videoMode === "dry_run" ? "当前为先验证模式，不会真实生成视频。" : "正在提交并等待视频结果。",
         target: "libtv"
       });
       const { runId: nextRunId } = await requestJson("/api/video-runs", {
@@ -5828,12 +6337,12 @@ export function App() {
     } catch (error) {
       videoRunningRef.current = false;
       setVideoRunning(false);
-      alert(error.message || "libTV 提交失败，请检查桥接服务和任务参数。");
+      alert(error.message || "视频提交失败，请检查生成服务和任务参数。");
       upsertVideoStep("提交失败", "failed", error.message, "", new Date().toISOString());
       appendVideoLog(error.message);
       addNotification({
         level: "error",
-        title: "libTV 提交失败",
+        title: "视频提交失败",
         message: error.message,
         target: "studio"
       });
@@ -5864,25 +6373,25 @@ export function App() {
       appendVideoLog(`[${event.phase}] ${event.message}`);
     }
     if (event.type === "completed") {
-      upsertVideoStep(event.phase || "libTV 完成", "done", event.message, JSON.stringify(event.result, null, 2), event.at);
+      upsertVideoStep(event.phase || "视频完成", "done", event.message, JSON.stringify(event.result, null, 2), event.at);
       appendVideoLog(`[${event.phase}] ${event.message}`);
       appendVideoLog(JSON.stringify(event.result, null, 2));
       addNotification({
         level: "success",
-        title: "libTV 视频任务完成",
-        message: event.message || "视频结果已返回，可到 libTV 任务或视频拼接查看。",
+        title: "视频任务完成",
+        message: event.message || "视频结果已返回，可到视频任务或视频拼接查看。",
         target: "libtv"
       });
     }
     if (event.type === "failed") {
-      const failedMessage = cleanDisplayMessage(event.message || "请查看 libTV 任务详情。");
+      const failedMessage = cleanDisplayMessage(event.message || "请查看视频任务详情。");
       const needsCompliance = /合规|真人|角色库|compliance/i.test(failedMessage);
-      const failedPhase = needsCompliance ? "需合规校验" : event.phase || "libTV 失败";
+      const failedPhase = needsCompliance ? "需合规校验" : event.phase || "视频生成失败";
       upsertVideoStep(failedPhase, "failed", failedMessage, "", event.at);
       appendVideoLog(`[${failedPhase}] ${failedMessage}`);
       addNotification({
         level: "error",
-        title: needsCompliance ? "libTV 需合规校验" : "libTV 视频任务失败",
+        title: needsCompliance ? "视频需合规校验" : "视频任务失败",
         message: failedMessage,
         target: "libtv"
       });
@@ -5903,23 +6412,42 @@ export function App() {
   }
 
   const currentPage = useMemo(() => {
-    if (page === "overview") {
+    const overviewPage = (
+      <OverviewPage
+        runtime={runtime}
+        tasks={tasks}
+        jobs={jobs}
+        assets={assets}
+        navigate={navigate}
+        guest={!auth.user}
+        onLogin={() => setGuestLoginVisible(true)}
+        onRefresh={() => {
+          if (!auth.user) {
+            setGuestLoginVisible(true);
+            return;
+          }
+          refreshRuntime();
+          loadTasks();
+          loadJobs();
+          loadAssets(assetTaskCode);
+        }}
+      />
+    );
+    if (page === "overview") return overviewPage;
+    if (page === "inspiration") {
       return (
-        <OverviewPage
-          runtime={runtime}
-          tasks={tasks}
-          jobs={jobs}
-          assets={assets}
-          navigate={navigate}
-          onRefresh={() => {
-            refreshRuntime();
-            loadTasks();
-            loadJobs();
-            loadAssets(assetTaskCode);
-          }}
-        />
+        <Suspense fallback={<div className="panel mobile-inspiration-page"><div className="empty-state">正在加载创意玩法</div></div>}>
+          <LazyMobileInspirationPage
+            navigate={navigate}
+            guest={!auth.user}
+            onLogin={() => setGuestLoginVisible(true)}
+            onApplyTemplate={applyBuiltInTemplate}
+            templates={builtInPromptTemplates}
+          />
+        </Suspense>
       );
     }
+    if (!auth.user) return overviewPage;
     if (page === "selectionAssets") {
       return <SelectionAssetsOverviewPage selectionAssets={selectionAssets} navigate={navigate} onRefresh={loadSelectionAssets} onCreateBatch={createSelectionBatch} onStartBatch={startSelectionBatchDraft} onUpdateProduct={updateSelectionProduct} onBulkUpdateProducts={bulkUpdateSelectionProducts} onSaveAccount={saveAccountAsset} />;
     }
@@ -5934,31 +6462,47 @@ export function App() {
     }
     if (workflowModulePages[page]) {
       return (
-        <WorkflowModulePage
-          module={workflowModulePages[page]}
-          navigate={navigate}
-        />
+        <Suspense fallback={<div className="panel workflow-module-page"><div className="empty-state">正在加载流程说明</div></div>}>
+          <LazyWorkflowModulePage
+            module={workflowModulePages[page]}
+            navigate={navigate}
+          />
+        </Suspense>
       );
     }
     if (page === "batch") {
       return (
-        <BatchPage
-          runtime={runtime}
-          modelSettings={modelSettings}
-          batchJobs={batchJobs}
-          batchDetail={batchDetail}
-          focusBatchId={batchFocusId}
-          loadBatchJobs={loadBatchJobs}
-          loadBatchDetail={loadBatchDetail}
-          addNotification={addNotification}
-          onBatchFocusHandled={() => setBatchFocusId("")}
-          onRefreshAll={() => {
-            loadBatchJobs();
-            loadTasks();
-            loadJobs();
-            loadAssets(assetTaskCode);
-          }}
-        />
+        <Suspense fallback={<div className="panel batch-hero"><div className="empty-state">正在加载批量生成</div></div>}>
+          <LazyBatchPage
+            runtime={runtime}
+            modelSettings={modelSettings}
+            batchJobs={batchJobs}
+            batchDetail={batchDetail}
+            focusBatchId={batchFocusId}
+            loadBatchJobs={loadBatchJobs}
+            loadBatchDetail={loadBatchDetail}
+            addNotification={addNotification}
+            onBatchFocusHandled={() => setBatchFocusId("")}
+            onRefreshAll={() => {
+              loadBatchJobs();
+              loadTasks();
+              loadJobs();
+              loadAssets(assetTaskCode);
+            }}
+          />
+        </Suspense>
+      );
+    }
+    if (page === "textImage") {
+      return (
+        <Suspense fallback={<div className="panel text-image-result-panel"><div className="empty-state">正在加载文生图画布</div></div>}>
+          <LazyTextImagePage
+            runtime={runtime}
+            modelSettings={modelSettings}
+            addNotification={addNotification}
+            onRefreshAssets={() => loadAssets(assetTaskCode)}
+          />
+        </Suspense>
       );
     }
     if (page === "stitch") {
@@ -5972,23 +6516,45 @@ export function App() {
       );
     }
     if (page === "tasks") {
-      return <TasksPage rows={tasks} onRefresh={loadTasks} onOpenAssets={(taskCode) => {
-        setAssetTaskCode(taskCode);
-        loadAssets(taskCode);
-        navigate("assets");
-      }} />;
+      return (
+        <Suspense fallback={<div className="panel"><div className="empty-state">正在加载任务看板</div></div>}>
+          <LazyTasksPage rows={tasks} onRefresh={loadTasks} onOpenAssets={(taskCode) => {
+            setAssetTaskCode(taskCode);
+            loadAssets(taskCode);
+            navigate("assets");
+          }} />
+        </Suspense>
+      );
     }
-    if (page === "libtv") return <LibtvPage rows={jobs} onRefresh={loadJobs} />;
+    if (page === "libtv") {
+      return (
+        <Suspense fallback={<div className="panel"><div className="empty-state">正在加载视频任务</div></div>}>
+          <LazyLibtvPage rows={jobs} outputFiles={assets.outputFiles || []} addNotification={addNotification} onRefresh={loadJobs} onOpenAssets={(taskCode) => {
+            setAssetTaskCode(taskCode);
+            loadAssets(taskCode);
+            navigate("assets");
+          }} />
+        </Suspense>
+      );
+    }
     if (page === "assets") {
       return (
-        <AssetsPage
-          tasks={tasks}
-          taskCode={assetTaskCode}
-          setTaskCode={setAssetTaskCode}
-          data={assets}
-          addNotification={addNotification}
-          onRefresh={() => loadAssets(assetTaskCode)}
-        />
+        <Suspense fallback={<div className="panel"><div className="empty-state">正在加载素材与输出</div></div>}>
+          <LazyAssetsPage
+            tasks={tasks}
+            taskCode={assetTaskCode}
+            setTaskCode={setAssetTaskCode}
+            onTaskCodeChange={(nextTaskCode) => {
+              setAssetTaskCode(nextTaskCode);
+              loadAssets(nextTaskCode).catch((error) => {
+                addNotification({ level: "error", title: "素材读取失败", message: error.message, target: "assets" });
+              });
+            }}
+            data={assets}
+            addNotification={addNotification}
+            onRefresh={() => loadAssets(assetTaskCode)}
+          />
+        </Suspense>
       );
     }
     if (page === "settings") {
@@ -6026,22 +6592,41 @@ export function App() {
         modelTrace={modelTrace}
       />
     );
-  }, [page, tasks, jobs, batchJobs, batchDetail, batchFocusId, assets, assetTaskCode, runtime, selectionAssets, studio, promptSteps, promptRunning, runId, videoRunning, videoSteps, videoLog, modelSettings, modelTrace]);
+  }, [page, auth.user, tasks, jobs, batchJobs, batchDetail, batchFocusId, assets, assetTaskCode, runtime, selectionAssets, studio, promptSteps, promptRunning, runId, videoRunning, videoSteps, videoLog, modelSettings, modelTrace]);
 
   if (auth.loading) {
     return <LoginScreen loading />;
   }
 
-  if (!auth.user) {
-        return <LoginScreen onSubmit={handleLogin} error={loginError} submitting={loginSubmitting} />;
-  }
+  const mobileSidebarVisible = mobileSidebarOpen;
+  const useDesktopCollapsedSidebar = sidebarCollapsed && !mobileSidebarVisible;
+  const mobileSidebarProgress = mobileSidebarOpen ? 1 : 0;
+  const mobileReturnTarget = mobileReturnPageRef.current || mobileDefaultReturnTargets[page] || "";
+  const showMobileReturnButton = mobileViewport && mobileReturnTarget && mobileReturnTarget !== page && !mobileRootPageIds.has(page);
+  const shellStyle = {
+    "--mobile-sidebar-x": "0px",
+    "--mobile-sidebar-backdrop-opacity": String(mobileSidebarProgress)
+  };
 
   return (
     <div className={[
-      sidebarCollapsed ? "console-shell sidebar-collapsed" : "console-shell",
-      mobileSidebarOpen ? "mobile-sidebar-open" : ""
-    ].filter(Boolean).join(" ")}>
-      {mobileSidebarOpen ? <button type="button" className="mobile-sidebar-backdrop" aria-label="关闭菜单" onClick={() => setMobileSidebarOpen(false)} /> : null}
+      useDesktopCollapsedSidebar ? "console-shell sidebar-collapsed" : "console-shell",
+      mobileSidebarVisible ? "mobile-sidebar-visible" : "",
+      isGuest ? "guest-preview" : "",
+      mobileSidebarOpen ? "mobile-sidebar-open" : "",
+      mobileCreateMenuOpen ? "mobile-create-menu-open" : ""
+    ].filter(Boolean).join(" ")} style={shellStyle}>
+      {mobileSidebarVisible ? (
+        <button
+          type="button"
+          className="mobile-sidebar-backdrop"
+          aria-label="关闭菜单"
+          onClick={() => {
+            setMobileSidebarDrag({ active: false, offset: 0, progress: 0 });
+            setMobileSidebarOpen(false);
+          }}
+        />
+      ) : null}
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">AI</div>
@@ -6049,6 +6634,20 @@ export function App() {
             <div className="brand-title">AI短视频</div>
               <div className="brand-subtitle">工作流控制台</div>
           </div>
+        </div>
+        <div className="mobile-drawer-account">
+          <div className="mobile-drawer-avatar">AI</div>
+          <div className="mobile-drawer-account-copy">
+            <strong>AI短视频</strong>
+            <span>
+              {isGuest
+                ? "游客预览 · 可先体验首页"
+                : `${auth.user?.displayName || auth.user?.name || auth.user?.username || "已登录账号"} · 记录已同步`}
+            </span>
+          </div>
+          <button type="button" onClick={isGuest ? () => setGuestLoginVisible(true) : () => navigate("settings")}>
+            {isGuest ? "登录" : "我的"}
+          </button>
         </div>
         <nav className="nav-list">
           {navItems.map((item) => {
@@ -6060,7 +6659,7 @@ export function App() {
                 <button
                   type="button"
                   className={active ? "nav-item active" : "nav-item"}
-                  onClick={() => item.children?.length ? toggleNavGroup(item.id) : navigate(item.id)}
+                  onClick={() => item.children?.length ? toggleNavGroup(item.id) : navigate(item.id, { resetMobileReturn: true })}
                   aria-expanded={item.children?.length ? expanded : undefined}
                 >
                   <Icon size={18} />
@@ -6079,7 +6678,7 @@ export function App() {
                           aria-current={page === child.id ? "page" : undefined}
                           onClick={(event) => {
                             event.stopPropagation();
-                            navigate(child.id);
+                    navigate(child.id, { resetMobileReturn: true });
                           }}
                         >
                           <ChildIcon size={14} />
@@ -6099,33 +6698,45 @@ export function App() {
           <div className="topbar-left">
             <button
               type="button"
-              className="sidebar-toggle"
-              onClick={toggleShellSidebar}
-              aria-label="收起或展开侧边栏"
+              className={showMobileReturnButton ? "sidebar-toggle mobile-return-button" : "sidebar-toggle"}
+              onClick={showMobileReturnButton ? handleMobileReturnClick : toggleShellSidebar}
+              aria-label={showMobileReturnButton ? "返回上一层" : "打开菜单"}
             >
-              <Menu size={18} />
+              {showMobileReturnButton ? <ArrowLeft size={18} /> : <Menu size={18} />}
             </button>
             <div>
-              <h1>{findNavItem(page)?.label || "提示词工作台"}</h1>
-              <p>提示词包 + 产品图片 → 最终提示词 → 数据库任务 → libTV 视频生成</p>
+              <h1>{isGuest ? "AI 视频创作" : (findNavItem(page)?.label || "提示词工作台")}</h1>
+              <p>{isGuest ? "先浏览功能，使用时登录账号" : "选择功能 → 上传素材 → 生成结果"}</p>
             </div>
           </div>
           <div className="top-actions">
-            <RuntimeStatus runtime={runtime} onRefresh={refreshRuntime} />
-            <NotificationCenter
-              open={notificationOpen}
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onToggle={() => setNotificationOpen((current) => !current)}
-              onClose={() => setNotificationOpen(false)}
-              onMarkAllRead={markNotificationsRead}
-              onClear={clearNotifications}
-              onOpenTarget={openNotificationTarget}
-            />
-            <ThemeSwitch theme={theme} setTheme={setTheme} />
-            <button type="button" className="icon-button top-icon" title="退出登录" onClick={handleLogout}>
-              <LogOut size={16} />
-            </button>
+            {isGuest ? (
+              <>
+                <MobileThemeToggle theme={theme} setTheme={setTheme} />
+                <button type="button" className="guest-login-cta" onClick={() => setGuestLoginVisible(true)}>
+                  登录
+                </button>
+              </>
+            ) : (
+              <>
+                <RuntimeStatus runtime={runtime} onRefresh={refreshRuntime} />
+                <NotificationCenter
+                  open={notificationOpen}
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  onToggle={() => setNotificationOpen((current) => !current)}
+                  onClose={() => setNotificationOpen(false)}
+                  onMarkAllRead={markNotificationsRead}
+                  onClear={clearNotifications}
+                  onOpenTarget={openNotificationTarget}
+                />
+                <ThemeSwitch theme={theme} setTheme={setTheme} />
+                <MobileThemeToggle theme={theme} setTheme={setTheme} />
+                <button type="button" className="icon-button top-icon" title="退出登录" onClick={handleLogout}>
+                  <LogOut size={16} />
+                </button>
+              </>
+            )}
           </div>
         </header>
         {pwaUpdateReady ? (
@@ -6146,8 +6757,14 @@ export function App() {
               <strong>安装到桌面</strong>
               <span>下次可以像 App 一样打开工作台。</span>
             </div>
-            <div className="pwa-install-actions">
+            <div className="pwa-install-hints" aria-label="安装步骤">
+              <span>浏览器打开</span>
+              <span>添加到桌面</span>
+              <span>桌面进入</span>
+            </div>
+            <div className="pwa-install-actions pwa-install-actions-three">
               <button type="button" className="primary-button" onClick={installPwaApp}>安装</button>
+              <button type="button" className="ghost-button" onClick={openPwaInstallGuide}>查看步骤</button>
               <button type="button" className="ghost-button" onClick={dismissPwaInstallPrompt}>稍后</button>
             </div>
           </section>
@@ -6159,15 +6776,49 @@ export function App() {
             </div>
             <div className="pwa-install-copy">
               <strong>添加到主屏幕</strong>
-              <span>在 Safari 点分享按钮，再选择“添加到主屏幕”。</span>
+              <span>在 Safari 点分享按钮，再选择“添加到主屏幕”。不会操作时点查看步骤。</span>
             </div>
-            <div className="pwa-install-actions pwa-install-actions-single">
+            <div className="pwa-install-hints" aria-label="iPhone 安装步骤">
+              <span>Safari 打开</span>
+              <span>点分享</span>
+              <span>添加到主屏幕</span>
+            </div>
+            <div className="pwa-install-actions">
+              <button type="button" className="primary-button" onClick={openPwaInstallGuide}>查看步骤</button>
               <button type="button" className="ghost-button" onClick={dismissPwaInstallPrompt}>知道了</button>
             </div>
           </section>
         ) : null}
         {currentPage}
       </main>
+      {mobileCreateMenuOpen ? (
+        <div className="mobile-create-popover" role="dialog" aria-label="选择创作功能">
+          <button type="button" className="mobile-create-popover-backdrop" aria-label="关闭创作菜单" onClick={() => setMobileCreateMenuOpen(false)} />
+          <div className="mobile-create-radial" aria-label="快捷创作">
+            <div className="mobile-create-radial-head">
+              <span>快速开始</span>
+              <strong>你想做什么？</strong>
+              <small>选一个入口，系统会带你到对应步骤。</small>
+            </div>
+            {mobileCreateActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  type="button"
+                  className={item.featured ? "mobile-create-radial-action featured" : "mobile-create-radial-action"}
+                  key={item.id}
+                  aria-label={`${item.label}，${item.detail}`}
+                  onClick={() => openMobileCreateAction(item.id)}
+                >
+                  <span><Icon size={20} /></span>
+                  <strong>{item.label}</strong>
+                  <small>{item.detail}</small>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
       <nav className="mobile-bottom-nav" aria-label="手机端主导航">
         {mobileTabItems.map((item) => {
           const Icon = item.icon;
@@ -6178,7 +6829,7 @@ export function App() {
               key={item.id}
               className={active ? "mobile-bottom-nav-item active" : "mobile-bottom-nav-item"}
               aria-current={active ? "page" : undefined}
-              onClick={() => navigate(item.id)}
+              onClick={() => navigate(item.id, { resetMobileReturn: true })}
             >
               <Icon size={20} />
               <span>{item.label}</span>
@@ -6186,6 +6837,25 @@ export function App() {
           );
         })}
       </nav>
+      <button
+        type="button"
+        className={mobileCreateMenuOpen ? "mobile-create-fab active" : "mobile-create-fab"}
+        aria-label={mobileCreateMenuOpen ? "关闭创作菜单" : "打开创作菜单"}
+        aria-expanded={mobileCreateMenuOpen}
+        onClick={() => setMobileCreateMenuOpen((current) => !current)}
+      >
+        {mobileCreateMenuOpen ? <X size={26} /> : <Plus size={28} />}
+      </button>
+      {guestLoginVisible ? (
+        <Suspense fallback={null}>
+          <LazyLoginPromptSheet
+            onClose={() => setGuestLoginVisible(false)}
+            onSubmit={handleLogin}
+            error={loginError}
+            submitting={loginSubmitting}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
@@ -6279,6 +6949,22 @@ function ThemeSwitch({ theme, setTheme }) {
   );
 }
 
+function MobileThemeToggle({ theme, setTheme }) {
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
+  return (
+    <button
+      type="button"
+      className="icon-button top-icon mobile-theme-toggle"
+      title={nextTheme === "light" ? "切换浅色模式" : "切换深色模式"}
+      aria-label={nextTheme === "light" ? "切换浅色模式" : "切换深色模式"}
+      onClick={() => setTheme(nextTheme)}
+    >
+      <Icon size={16} />
+    </button>
+  );
+}
+
 function isLibtvConnected(runtime) {
   const health = runtime?.libtvHealth || {};
   return Boolean(
@@ -6288,20 +6974,52 @@ function isLibtvConnected(runtime) {
   );
 }
 
-function RuntimeStatus({ runtime, onRefresh }) {
+function runtimeStatusCopy(runtime) {
   const hasRuntime = Boolean(runtime && Object.keys(runtime).length);
   const connected = isLibtvConnected(runtime);
-  const label = runtime?.error
-    ? "后端未连接"
-    : !hasRuntime
-      ? "后端 / libTV 检测中"
-      : connected
-        ? "后端 / libTV 已连接"
-        : "后端可用，libTV 未连接";
+  if (runtime?.error) {
+    return {
+      tone: "bad",
+      desktopLabel: "生成服务未连接",
+      mobileLabel: "服务异常",
+      mobileDetail: "点我重试"
+    };
+  }
+  if (!hasRuntime) {
+    return {
+      tone: "checking",
+      desktopLabel: "生成服务检测中",
+      mobileLabel: "连接中",
+      mobileDetail: "稍等一下"
+    };
+  }
+  if (connected) {
+    return {
+      tone: "ready",
+      desktopLabel: "生成服务已连接",
+      mobileLabel: "服务正常",
+      mobileDetail: "可以生成"
+    };
+  }
+  return {
+    tone: "warn",
+    desktopLabel: "视频通道待连接",
+    mobileLabel: "视频待连",
+    mobileDetail: "先别提交"
+  };
+}
+
+function RuntimeStatus({ runtime, onRefresh }) {
+  const copy = runtimeStatusCopy(runtime);
+  const mobileAriaLabel = `${copy.mobileLabel}，${copy.mobileDetail}，点按刷新状态`;
   return (
-    <button className={connected ? "runtime ready" : "runtime"} onClick={onRefresh}>
+    <button className={["runtime", copy.tone].filter(Boolean).join(" ")} onClick={onRefresh} title={copy.desktopLabel} aria-label={mobileAriaLabel}>
       <span className="status-dot" />
-      <span>{label}</span>
+      <span className="runtime-label desktop-runtime-label">{copy.desktopLabel}</span>
+      <span className="runtime-label mobile-runtime-label">
+        <strong>{copy.mobileLabel}</strong>
+        <small>{copy.mobileDetail}</small>
+      </span>
       <RefreshCw size={15} />
     </button>
   );
@@ -6360,958 +7078,6 @@ function NotificationCenter({ open, notifications, unreadCount, onToggle, onClos
   );
 }
 
-function BatchPage({ runtime, modelSettings, batchJobs, batchDetail, focusBatchId = "", loadBatchJobs, loadBatchDetail, addNotification, onBatchFocusHandled, onRefreshAll }) {
-  const [batchName, setBatchName] = useState(() => defaultBatchName());
-  const [promptFiles, setPromptFiles] = useState([]);
-  const [imageFiles, setImageFiles] = useState([]);
-  const [csvRows, setCsvRows] = useState([]);
-  const [rows, setRows] = useState([]);
-  const [matchMode, setMatchMode] = useState("filename");
-  const [concurrency, setConcurrency] = useState(2);
-  const [generationCount, setGenerationCount] = useState(1);
-  const [defaultVideoMode, setDefaultVideoMode] = useState("dry_run");
-  const [defaultDuration, setDefaultDuration] = useState(15);
-  const [defaultAspectRatio, setDefaultAspectRatio] = useState("9:16");
-  const [autoSubmit, setAutoSubmit] = useState(true);
-  const [selectedBatchId, setSelectedBatchId] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [guideOpen, setGuideOpen] = useState(false);
-  const [draftLoaded, setDraftLoaded] = useState(false);
-  const [draftSaving, setDraftSaving] = useState(false);
-  const [draftSavedAt, setDraftSavedAt] = useState("");
-  const activeDetail = batchDetail?.job?.id === selectedBatchId ? batchDetail : null;
-  const validatedRows = useMemo(() => validateBatchDraftRows(rows), [rows]);
-  const precheck = useMemo(() => summarizeBatchPrecheck(validatedRows), [validatedRows]);
-  const precheckIssues = useMemo(() => summarizeBatchIssueGroups(validatedRows), [validatedRows]);
-  const [onlyInvalidRows, setOnlyInvalidRows] = useState(false);
-  const visibleRows = onlyInvalidRows ? validatedRows.filter((row) => !row.validation.ok) : validatedRows;
-  const selectedRows = validatedRows.filter((row) => row.enabled !== false && row.validation.ok);
-  const totals = summarizeBatchItems(activeDetail?.items || []);
-  useEffect(() => {
-    if (!selectedBatchId && batchJobs.length) setSelectedBatchId(batchJobs[0].id);
-  }, [batchJobs, selectedBatchId]);
-
-  useEffect(() => {
-    if (!focusBatchId) return;
-    setSelectedBatchId(focusBatchId);
-    onBatchFocusHandled?.();
-  }, [focusBatchId]);
-
-  useEffect(() => {
-    if (!selectedBatchId) return undefined;
-    loadBatchDetail(selectedBatchId).catch(() => {});
-    const timer = setInterval(() => {
-      loadBatchDetail(selectedBatchId).catch(() => {});
-      loadBatchJobs().catch(() => {});
-    }, 2500);
-    return () => clearInterval(timer);
-  }, [selectedBatchId]);
-
-  useEffect(() => {
-    let cancelled = false;
-    requestJson("/api/batch-draft")
-      .then((data) => {
-        if (cancelled) return;
-        if (data.draft) {
-          restoreBatchDraft(data.draft);
-          setDraftSavedAt(data.draft.updatedAt || "");
-        }
-      })
-      .catch((error) => {
-        addNotification?.({ level: "warn", title: "批量草稿恢复失败", message: error.message, target: "batch" });
-      })
-      .finally(() => {
-        if (!cancelled) setDraftLoaded(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!draftLoaded) return undefined;
-    const hasDraftContent = promptFiles.length || imageFiles.length || csvRows.length || rows.length;
-    if (!hasDraftContent) return undefined;
-    const timer = setTimeout(() => {
-      saveBatchDraft({ silent: true }).catch(() => {});
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [
-    draftLoaded,
-    batchName,
-    promptFiles,
-    imageFiles,
-    csvRows,
-    rows,
-    matchMode,
-    concurrency,
-    generationCount,
-    defaultVideoMode,
-    defaultDuration,
-    defaultAspectRatio,
-    autoSubmit,
-  ]);
-
-  function restoreBatchDraft(draft) {
-    const savedPromptFiles = Array.isArray(draft.promptFiles) ? draft.promptFiles : [];
-    const savedImageFiles = Array.isArray(draft.imageFiles) ? draft.imageFiles : [];
-    setBatchName(draft.batchName || defaultBatchName());
-    setPromptFiles(savedPromptFiles);
-    setImageFiles(savedImageFiles);
-    setCsvRows(Array.isArray(draft.csvRows) ? draft.csvRows : []);
-    setRows(hydrateBatchDraftRows(Array.isArray(draft.rows) ? draft.rows : [], savedPromptFiles, savedImageFiles));
-    setMatchMode(draft.matchMode || "filename");
-    setConcurrency(Number(draft.concurrency || 2));
-    setGenerationCount(Number(draft.generationCount || 1));
-    setDefaultVideoMode(draft.defaultVideoMode || "dry_run");
-    setDefaultDuration(Number(draft.defaultDuration || 15));
-    setDefaultAspectRatio(draft.defaultAspectRatio || "9:16");
-    setAutoSubmit(draft.autoSubmit !== false);
-    setOnlyInvalidRows(false);
-  }
-
-  async function saveBatchDraft({ silent = false } = {}) {
-    setDraftSaving(true);
-    try {
-      const data = await requestJson("/api/batch-draft", {
-        method: "POST",
-        body: JSON.stringify(buildBatchDraftPayload({
-          batchName,
-          promptFiles,
-          imageFiles,
-          csvRows,
-          rows,
-          matchMode,
-          concurrency,
-          generationCount,
-          defaultVideoMode,
-          defaultDuration,
-          defaultAspectRatio,
-          autoSubmit,
-        }))
-      });
-      setDraftSavedAt(data.draft?.updatedAt || new Date().toISOString());
-      if (!silent) {
-        addNotification?.({ level: "success", title: "批量草稿已保存", message: "刷新页面后可以继续使用当前上传内容。", target: "batch" });
-      }
-    } catch (error) {
-      if (!silent) {
-        addNotification?.({ level: "error", title: "批量草稿保存失败", message: error.message, target: "batch" });
-        alert(error.message);
-      }
-      throw error;
-    } finally {
-      setDraftSaving(false);
-    }
-  }
-
-  async function clearBatchDraft() {
-    const confirmed = window.confirm("确定清空当前批量上传草稿吗？已上传的提示词包、商品图、表格和待创建任务表都会清空。");
-    if (!confirmed) return;
-    setBatchName(defaultBatchName());
-    setPromptFiles([]);
-    setImageFiles([]);
-    setCsvRows([]);
-    setRows([]);
-    setMatchMode("filename");
-    setConcurrency(2);
-    setGenerationCount(1);
-    setDefaultVideoMode("dry_run");
-    setDefaultDuration(15);
-    setDefaultAspectRatio("9:16");
-    setAutoSubmit(true);
-    setOnlyInvalidRows(false);
-    setDraftSavedAt("");
-    await requestJson("/api/batch-draft", { method: "DELETE" });
-    addNotification?.({ level: "info", title: "批量草稿已清空", message: "页面刷新后不会再恢复这次上传内容。", target: "batch" });
-  }
-
-  async function handlePromptFiles(files) {
-    const selected = Array.from(files || []);
-    const parsed = [];
-    for (const file of selected) {
-      const lower = file.name.toLowerCase();
-      if (lower.endsWith(".doc")) {
-        alert("当前批量入口支持 .docx、.txt、.md，请先把 .doc 另存为 .docx。");
-        continue;
-      }
-      const text = lower.endsWith(".docx") ? await extractDocxFile(file) : await file.text();
-      parsed.push({ id: `${file.name}-${file.size}-${file.lastModified}`, name: file.name, text });
-    }
-    setPromptFiles(parsed);
-  }
-
-  async function handleImageFiles(files) {
-    const selected = Array.from(files || []);
-    const parsed = await Promise.all(selected.map(readImageFile));
-    setImageFiles(parsed.map((image, index) => ({ ...image, id: `${image.name}-${image.size}-${index}` })));
-  }
-
-  async function handleCsv(file) {
-    if (!file) return;
-    const lower = file.name.toLowerCase();
-    const parsed = lower.endsWith(".xlsx") || lower.endsWith(".xls")
-      ? await parseWorkbookRows(await file.arrayBuffer())
-      : parseCsvRows(await file.text());
-    setCsvRows(parsed);
-    addNotification?.({
-      level: "info",
-      title: "批量表格已导入",
-      message: `读取到 ${parsed.length} 行任务配置。`,
-      target: "batch"
-    });
-  }
-
-  async function downloadBatchTemplate() {
-    const XLSX = await import("xlsx");
-    const workbook = XLSX.utils.book_new();
-    const taskSheet = XLSX.utils.aoa_to_sheet([batchTemplateHeaders, ...batchTemplateRows]);
-    taskSheet["!cols"] = [
-      { wch: 14 },
-      { wch: 24 },
-      { wch: 24 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 42 },
-      { wch: 10 },
-      { wch: 10 },
-      { wch: 14 },
-      { wch: 18 }
-    ];
-    XLSX.utils.book_append_sheet(workbook, taskSheet, "批量任务模板");
-    const ruleSheet = XLSX.utils.aoa_to_sheet([
-      ["字段", "是否必填", "填写规则"],
-      ["任务编号", "建议填写", "同一批次内不要重复，例如 男装-001"],
-      ["提示词包文件名", "必填", "必须和上传的提示词包文件名一致，支持 .docx/.txt/.md"],
-      ["商品图片文件名", "必填", "必须和上传的商品图片文件名一致，建议带后缀 .png/.jpg"],
-      ["商品名称", "可选", "不填时会按图片或文件名推断"],
-      ["类别", "可选", "不填时会按图片识别"],
-      ["商品补充信息", "可选", "填写卖点、人群、禁忌项、风格限制等"],
-      ["视频时长", "可选", "建议 3-60 秒，默认 15"],
-      ["画幅", "可选", "只支持 9:16、16:9、1:1"],
-      ["libTV模式", "可选", "可填：先验证、真实提交、提交并等待"],
-      ["是否自动提交libTV", "可选", "可填：是/否，默认跟页面开关一致"]
-    ]);
-    ruleSheet["!cols"] = [{ wch: 20 }, { wch: 12 }, { wch: 56 }];
-    XLSX.utils.book_append_sheet(workbook, ruleSheet, "字段说明");
-    const output = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const blob = new Blob([output], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "AI视频批量生成模板.xlsx";
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function buildRows() {
-    const built = buildBatchRows({
-      promptFiles,
-      imageFiles,
-      csvRows,
-      matchMode,
-      generationCount,
-      defaultDuration,
-      defaultAspectRatio,
-      defaultVideoMode,
-      autoSubmit
-    });
-    const checked = validateBatchDraftRows(built);
-    const summary = summarizeBatchPrecheck(checked);
-    setRows(built);
-    setOnlyInvalidRows(false);
-    addNotification?.({
-      level: summary.error ? "warn" : "success",
-      title: "批量预检完成",
-      message: `共 ${summary.total} 条，通过 ${summary.ok} 条，异常 ${summary.error} 条，提醒 ${summary.warn} 条。`,
-      target: "batch"
-    });
-  }
-
-  function rebuildRowsForGenerationCount(nextGenerationCount) {
-    const built = buildBatchRows({
-      promptFiles,
-      imageFiles,
-      csvRows,
-      matchMode,
-      generationCount: nextGenerationCount,
-      defaultDuration,
-      defaultAspectRatio,
-      defaultVideoMode,
-      autoSubmit
-    });
-    setRows(built);
-    setOnlyInvalidRows(false);
-  }
-
-  function handleGenerationCountChange(event) {
-    const next = clampInteger(event.target.value, 1, 50);
-    setGenerationCount(next);
-    if (promptFiles.length || imageFiles.length || csvRows.length || rows.length) {
-      rebuildRowsForGenerationCount(next);
-    }
-  }
-
-  function updateRow(id, field, value) {
-    setRows((current) => current.map((row) => row.id === id ? { ...row, [field]: value } : row));
-  }
-
-  function toggleAllRows(checked) {
-    setRows((current) => validateBatchDraftRows(current).map((row) => stripBatchValidation({ ...row, enabled: checked ? row.validation.ok : false })));
-  }
-
-  async function createBatch(autoStart = true) {
-    const enabledRows = validatedRows.filter((row) => row.enabled !== false);
-    const invalidEnabled = enabledRows.filter((row) => !row.validation.ok);
-    if (!selectedRows.length) {
-      alert(invalidEnabled.length ? "已勾选的任务没有通过预检，请先处理异常行。" : "请先生成并勾选通过预检的批量任务行。");
-      return;
-    }
-    setCreating(true);
-    try {
-      const data = await requestJson("/api/batches", {
-        method: "POST",
-        body: JSON.stringify({
-          name: batchName,
-          concurrency,
-          autoStart,
-          source: "console-batch",
-          items: selectedRows.map((row) => ({
-            taskNo: row.taskNo,
-            promptFileName: row.prompt?.name || row.promptFileName,
-            promptPackText: row.prompt?.text || "",
-            images: row.image ? [row.image] : [],
-            productName: row.productName,
-            productCategory: row.productCategory,
-            productBrief: row.productBrief,
-            targetDuration: Number(row.targetDuration || defaultDuration),
-            aspectRatio: row.aspectRatio || defaultAspectRatio,
-            videoMode: row.videoMode || defaultVideoMode,
-            autoSubmit: row.autoSubmit,
-            modelSettings: buildModelSettingsPayload(modelSettings),
-            maxRetries: 1
-          }))
-        })
-      });
-      setSelectedBatchId(data.job?.id || "");
-      await loadBatchJobs();
-      if (data.job?.id) await loadBatchDetail(data.job.id);
-      addNotification?.({
-        level: "success",
-        title: autoStart ? "批量任务已启动" : "批量任务已创建",
-        message: `已创建 ${selectedRows.length} 条通过预检的视频任务${invalidEnabled.length ? `，已跳过 ${invalidEnabled.length} 条异常任务` : ""}，并发数 ${concurrency}。`,
-        target: "batch"
-      });
-      onRefreshAll?.();
-    } catch (error) {
-      addNotification?.({ level: "error", title: "批量任务创建失败", message: error.message, target: "batch" });
-      alert(error.message);
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function batchAction(action) {
-    if (!selectedBatchId) return;
-    const data = await requestJson(`/api/batches/${encodeURIComponent(selectedBatchId)}/${action}`, { method: "POST", body: "{}" });
-    await loadBatchJobs();
-    await loadBatchDetail(data.job?.id || selectedBatchId);
-    addNotification?.({
-      level: action === "cancel" ? "warn" : "info",
-      title: batchActionTitle(action),
-      message: data.job?.name || "",
-      target: "batch"
-    });
-  }
-
-  function exportResultCsv() {
-    if (!activeDetail?.items?.length) return;
-    const headers = ["row_no", "status", "task_no", "prompt_file_name", "image_file_name", "product_name", "category", "current_step", "tokens", "libtv_task_code", "video_url", "error_message", "started_at", "finished_at"];
-    const lines = [
-      headers.join(","),
-      ...activeDetail.items.map((item) =>
-        headers.map((key) => csvEscape(resultValueForExport(item, key))).join(",")
-      )
-    ];
-    const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${activeDetail.job.name || "batch-result"}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <section className="batch-page">
-      <div className="panel batch-hero">
-        <div>
-          <h2>批量生成中心</h2>
-          <p>多个提示词包和多张商品图在这里拆成任务队列，后端按并发数自动执行，适合每天 300-1000 条的视频批量生产。</p>
-        </div>
-        <div className="batch-hero-side">
-          <button className="batch-guide-button" type="button" onClick={() => setGuideOpen(true)}>
-            <BookOpen size={18} />
-            <span>使用说明</span>
-            <small>上传前先看规则</small>
-          </button>
-          <div className="batch-hero-actions">
-            <button className="secondary-button" type="button" onClick={() => loadBatchJobs()}>
-              <RefreshCw size={16} />
-              <span>刷新批次</span>
-            </button>
-            <button className="primary-button" type="button" onClick={() => createBatch(true)} disabled={creating || !selectedRows.length}>
-              <Play size={16} />
-              <span>{creating ? "创建中" : "创建并启动"}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {guideOpen ? (
-        <div className="guide-backdrop" role="dialog" aria-modal="true" aria-label="批量生成使用说明" onClick={() => setGuideOpen(false)}>
-          <div className="guide-modal" onClick={(event) => event.stopPropagation()}>
-            <div className="guide-head">
-              <div>
-                <span>上传规则</span>
-                <h2>文件上传说明</h2>
-                <p>这里只说明三个上传口应该放什么文件、怎么命名、表格字段怎么写。</p>
-              </div>
-              <button className="icon-button" type="button" onClick={() => setGuideOpen(false)} title="关闭">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="guide-steps">
-              <article>
-                <strong>01</strong>
-                <h3>提示词包</h3>
-                <p>支持 .docx、.txt、.md，可一次选择多个。一个文件就是一个提示词包；中文内容可以直接上传。.doc 需要先另存为 .docx。</p>
-              </article>
-              <article>
-                <strong>02</strong>
-                <h3>商品图片</h3>
-                <p>支持常见图片格式，如 .png、.jpg、.jpeg、.webp，可一次选择多张。图片要清晰、主体完整，尽量不要有水印、拼图或过多背景干扰。</p>
-              </article>
-              <article>
-                <strong>03</strong>
-                <h3>CSV / Excel</h3>
-                <p>这是可选上传项，用来批量补充商品名、类别、补充信息、时长、画幅等。一行代表一条任务配置。</p>
-              </article>
-              <article>
-                <strong>04</strong>
-                <h3>文件名一对一</h3>
-                <p>如果选择“按文件名一对一”，建议提示词包和图片使用同一个主文件名，例如 A001.docx 对 A001.png，男装01.txt 对 男装01.jpg，也支持 .md。</p>
-              </article>
-              <article>
-                <strong>05</strong>
-                <h3>表格字段</h3>
-                <p>表头可写：提示词包文件名、商品图片文件名、任务编号、商品名称、类别、商品补充信息、视频时长、画幅、libTV模式、自动提交。</p>
-              </article>
-              <article>
-                <strong>06</strong>
-                <h3>上传限制</h3>
-                <p>不要上传压缩包、模糊图片、空白文档、重复命名文件。文件名不要只写 1、2、3，建议带品类或编号，方便后续查找。</p>
-              </article>
-            </div>
-
-            <div className="guide-notes">
-              <div>
-                <h3>推荐命名</h3>
-                <p>推荐格式：类别-编号，例如 男装-001.docx、男装-001.png；女装-002.txt、女装-002.jpg；也支持 .md。</p>
-              </div>
-              <div>
-                <h3>表格文件名</h3>
-                <p>表格里填写的文件名要和上传文件一致，包含后缀最好，例如 男装-001.docx、男装-001.txt、男装-001.md、男装-001.png。</p>
-              </div>
-              <div>
-                <h3>不填表格也可以</h3>
-                <p>不上传 CSV / Excel 时，系统会根据上传的提示词包和商品图自动生成任务，商品名称会优先从文件名推断。</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <MobileBatchCards jobs={batchJobs} selectedBatchId={selectedBatchId} onSelect={setSelectedBatchId} />
-
-      <div className="batch-layout">
-        <div className="panel batch-builder">
-          <div className="panel-head">
-            <div>
-              <h2>任务构建</h2>
-              <p className="panel-note">第一版支持多提示词包、多商品图、CSV 导入和文件名自动匹配。</p>
-            </div>
-            <div className="batch-draft-status">
-              <span>{draftSaving ? "草稿保存中" : draftSavedAt ? `草稿已保存 ${formatDate(draftSavedAt)}` : draftLoaded ? "暂无草稿" : "正在恢复草稿"}</span>
-            </div>
-          </div>
-          <div className="three-col">
-            <label className="field">
-              <span>批次名称</span>
-              <input value={batchName} onChange={(event) => setBatchName(event.target.value)} />
-            </label>
-            <label className="field">
-              <span>每组生成条数</span>
-              <input type="number" min="1" max="50" value={generationCount} onChange={handleGenerationCountChange} />
-            </label>
-            <label className="field">
-              <span>并发数</span>
-              <input type="number" min="1" max={runtime?.batchMaxWorkers || 30} value={concurrency} onChange={(event) => setConcurrency(Number(event.target.value || 1))} />
-            </label>
-          </div>
-          <div className="batch-upload-grid">
-            <label className="field upload-box">
-              <span>提示词包，可多选文档</span>
-              <input className="file-input-native" type="file" multiple onChange={(event) => handlePromptFiles(event.target.files)} />
-              <span className="file-picker-shell">
-                <span className="file-picker-button">
-                  <Upload size={16} />
-                  <span>上传文件</span>
-                </span>
-                <span className="file-picker-status">{promptFiles.length ? `已选择 ${promptFiles.length} 个文件` : "未选择文件"}</span>
-              </span>
-              <em>{promptFiles.length} 个提示词包</em>
-            </label>
-            <label className="field upload-box">
-              <span>商品图片，可多选</span>
-              <input className="file-input-native" type="file" accept="image/*" multiple onChange={(event) => handleImageFiles(event.target.files)} />
-              <span className="file-picker-shell">
-                <span className="file-picker-button">
-                  <Upload size={16} />
-                  <span>上传图片</span>
-                </span>
-                <span className="file-picker-status">{imageFiles.length ? `已选择 ${imageFiles.length} 张图片` : "未选择图片"}</span>
-              </span>
-              <em>{imageFiles.length} 张商品图</em>
-            </label>
-            <label className="field upload-box">
-              <span>CSV / Excel 导入</span>
-              <input className="file-input-native" type="file" accept=".xlsx,.xls,.csv,.txt" onChange={(event) => handleCsv(event.target.files?.[0])} />
-              <span className="file-picker-shell">
-                <span className="file-picker-button">
-                  <Upload size={16} />
-                  <span>导入表格</span>
-                </span>
-                <span className="file-picker-status">{csvRows.length ? `已导入 ${csvRows.length} 行配置` : "未导入表格"}</span>
-              </span>
-              <em>{csvRows.length} 行表格配置</em>
-            </label>
-          </div>
-          <div className="batch-config-grid">
-            <label className="field">
-              <span>匹配规则</span>
-              <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)}>
-                <option value="filename">按文件名一对一</option>
-                <option value="one_prompt_all_images">第一个提示词包跑全部图片</option>
-                <option value="cross_join">多提示词包 × 多图片</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>默认时长</span>
-              <input type="number" min="4" max="15" value={defaultDuration} onChange={(event) => setDefaultDuration(Number(event.target.value || 15))} />
-            </label>
-            <label className="field">
-              <span>默认画幅</span>
-              <select value={defaultAspectRatio} onChange={(event) => setDefaultAspectRatio(event.target.value)}>
-                <option value="9:16">9:16 竖屏</option>
-                <option value="16:9">16:9 横屏</option>
-                <option value="1:1">1:1 方形</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>libTV 模式</span>
-              <select value={defaultVideoMode} onChange={(event) => setDefaultVideoMode(event.target.value)}>
-                <option value="dry_run">先验证</option>
-                <option value="submit">真实提交</option>
-                <option value="run">提交并等待</option>
-              </select>
-            </label>
-          </div>
-          <div className="batch-builder-actions">
-            <label className="checkbox-line batch-submit-check">
-              <input type="checkbox" checked={autoSubmit} onChange={(event) => setAutoSubmit(event.target.checked)} />
-              <span>生成最终提示词后自动提交 libTV</span>
-            </label>
-            <div className="batch-builder-buttons">
-              <button className="secondary-button" type="button" onClick={downloadBatchTemplate}>
-                <Download size={16} />
-                <span>下载模板</span>
-              </button>
-              <button className="secondary-button" type="button" onClick={buildRows}>
-                <ListChecks size={16} />
-                <span>生成任务表</span>
-              </button>
-              <button className="secondary-button" type="button" onClick={() => saveBatchDraft({ silent: false })} disabled={draftSaving}>
-                <span>{draftSaving ? "保存中" : "保存草稿"}</span>
-              </button>
-              <button className="secondary-button danger-light" type="button" onClick={clearBatchDraft}>清空草稿</button>
-              <button className="secondary-button" type="button" onClick={() => createBatch(false)} disabled={creating || !selectedRows.length}>只创建不启动</button>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel batch-list-panel">
-          <div className="panel-head">
-            <div>
-              <h2>批次列表</h2>
-              <p className="panel-note">选择一个批次查看实时状态。</p>
-            </div>
-          </div>
-          <div className="batch-job-list">
-            {batchJobs.length ? batchJobs.map((job) => (
-              <button
-                type="button"
-                key={job.id}
-                className={selectedBatchId === job.id ? "batch-job-item active" : "batch-job-item"}
-                onClick={() => setSelectedBatchId(job.id)}
-              >
-                <strong>{displayBatchName(job)}</strong>
-                <span>{job.success_count || 0}/{job.total_count || 0} 完成 · 失败 {job.failed_count || 0}</span>
-                <StatusBadge value={job.status} />
-              </button>
-            )) : <div className="empty-inline">暂无批次</div>}
-          </div>
-        </div>
-      </div>
-
-      <div className="panel batch-table-panel">
-        <div className="panel-head">
-          <div>
-            <h2>待创建任务表</h2>
-            <p className="panel-note">一行就是一条视频任务，勾选后可批量创建。</p>
-          </div>
-          <div className="panel-actions">
-            <button className="ghost-button" type="button" onClick={() => toggleAllRows(true)}>全选</button>
-            <button className="ghost-button" type="button" onClick={() => toggleAllRows(false)}>全不选</button>
-          </div>
-        </div>
-        {rows.length ? (
-          <div className={`batch-precheck-panel ${precheck.error ? "has-error" : precheck.warn ? "has-warn" : "is-ok"}`}>
-            <div className="batch-precheck-top">
-              <div>
-                <strong>导入预检</strong>
-                <p>{precheck.error ? "发现阻断问题，异常行不会进入批量创建。" : precheck.warn ? "基础校验已通过，但仍有需要人工确认的提醒项。" : "文件匹配和基础参数正常，可以创建批量任务。"}</p>
-              </div>
-              <span className={`precheck-ready-badge ${precheck.error ? "error" : precheck.warn ? "warn" : "ok"}`}>
-                {precheck.error ? "需要处理" : precheck.warn ? "可创建，需确认" : "可创建"}
-              </span>
-            </div>
-
-            <div className="precheck-metrics">
-              <div>
-                <span>总任务</span>
-                <strong>{precheck.total}</strong>
-              </div>
-              <div>
-                <span>已勾选可创建</span>
-                <strong>{selectedRows.length}</strong>
-              </div>
-              <div>
-                <span>阻断问题</span>
-                <strong>{precheck.error}</strong>
-              </div>
-              <div>
-                <span>提醒确认</span>
-                <strong>{precheck.warn}</strong>
-              </div>
-            </div>
-
-            <div className="precheck-issue-grid">
-              <div className="precheck-issue-card">
-                <div className="precheck-issue-title">
-                  <AlertTriangle size={15} />
-                  <span>阻断问题</span>
-                </div>
-                {precheckIssues.errors.length ? (
-                  <ul>
-                    {precheckIssues.errors.slice(0, 4).map((item) => <li key={item.message}><span>{item.message}</span><em>{item.count} 行</em></li>)}
-                  </ul>
-                ) : <p>没有阻断问题。</p>}
-              </div>
-              <div className="precheck-issue-card">
-                <div className="precheck-issue-title">
-                  <Info size={15} />
-                  <span>提醒项</span>
-                </div>
-                {precheckIssues.warnings.length ? (
-                  <ul>
-                    {precheckIssues.warnings.slice(0, 4).map((item) => <li key={item.message}><span>{item.message}</span><em>{item.count} 行</em></li>)}
-                  </ul>
-                ) : <p>没有提醒项。</p>}
-              </div>
-            </div>
-
-            <div className="precheck-next-line">
-              <span>下一步：先处理阻断问题，再勾选要执行的任务；系统只会创建通过预检且已勾选的行。</span>
-              <button className="ghost-button" type="button" onClick={() => setOnlyInvalidRows((value) => !value)}>
-                {onlyInvalidRows ? "查看全部任务" : "只看异常行"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-        <MobileBatchDraftCards rows={visibleRows} hasRows={rows.length > 0} onUpdateRow={updateRow} />
-        <div className={`table-wrap batch-draft-table ${visibleRows.length ? "" : "is-empty"}`}>
-          <table>
-            <thead>
-              <tr>
-                <th>选择</th>
-                <th>预检</th>
-                <th>任务</th>
-                <th>提示词包</th>
-                <th>商品图</th>
-                <th>商品名</th>
-                <th>类别</th>
-                <th>补充信息</th>
-                <th>参数</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.length ? visibleRows.map((row) => {
-                const invalid = !row.validation.ok;
-                const validationLabel = invalid ? "异常" : row.validation.warnings.length ? "提醒" : "通过";
-                return (
-                <tr key={row.id} className={invalid ? "draft-row-error" : row.validation.warnings.length ? "draft-row-warn" : ""}>
-                  <td><input type="checkbox" disabled={invalid} checked={row.enabled !== false && !invalid} onChange={(event) => updateRow(row.id, "enabled", event.target.checked)} /></td>
-                  <td className="precheck-cell">
-                    <span className={`precheck-badge ${invalid ? "error" : row.validation.warnings.length ? "warn" : "ok"}`}>{validationLabel}</span>
-                    {[...row.validation.errors, ...row.validation.warnings].slice(0, 3).map((message) => <small key={message}>{message}</small>)}
-                  </td>
-                  <td>{row.taskNo}</td>
-                  <td title={row.prompt?.name}>{row.prompt?.name || "-"}</td>
-                  <td title={row.image?.name}>{row.image?.name || "-"}</td>
-                  <td><input value={row.productName} onChange={(event) => updateRow(row.id, "productName", event.target.value)} /></td>
-                  <td><input value={row.productCategory} onChange={(event) => updateRow(row.id, "productCategory", event.target.value)} placeholder="可空" /></td>
-                  <td><textarea rows={2} value={row.productBrief} onChange={(event) => updateRow(row.id, "productBrief", event.target.value)} /></td>
-                  <td className="batch-param-cell">
-                    <span>{row.targetDuration}s</span>
-                    <span>{row.aspectRatio}</span>
-                    <span>{row.videoMode}</span>
-                  </td>
-                </tr>
-              );
-              }) : (
-                <tr><td className="batch-empty-row-cell" colSpan={9}>{rows.length ? "当前没有异常行。" : "上传提示词包和商品图后，点击“生成任务表”。"}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="panel batch-runtime-panel">
-        <div className="panel-head">
-          <div>
-            <h2>执行状态</h2>
-            <p className="panel-note">后端 worker 按并发数领取任务，页面自动刷新。</p>
-          </div>
-          <div className="panel-actions">
-            <button className="secondary-button" type="button" onClick={() => batchAction("start")} disabled={!selectedBatchId}>启动</button>
-            <button className="secondary-button" type="button" onClick={() => batchAction("pause")} disabled={!selectedBatchId}>暂停</button>
-            <button className="secondary-button danger-light" type="button" onClick={() => batchAction("cancel")} disabled={!selectedBatchId}>取消</button>
-            <button className="secondary-button" type="button" onClick={() => batchAction("retry")} disabled={!selectedBatchId}>失败重试</button>
-            <button className="secondary-button" type="button" onClick={exportResultCsv} disabled={!activeDetail?.items?.length}>导出结果</button>
-          </div>
-        </div>
-        <div className="batch-stats">
-          <div><span>总任务</span><strong>{totals.total}</strong></div>
-          <div><span>排队</span><strong>{totals.pending}</strong></div>
-          <div><span>运行中</span><strong>{totals.running}</strong></div>
-          <div><span>成功</span><strong>{totals.success}</strong></div>
-          <div><span>失败</span><strong>{totals.failed}</strong></div>
-          <div><span>取消</span><strong>{totals.cancelled}</strong></div>
-        </div>
-        <MobileBatchItemCards items={activeDetail?.items || []} />
-        <div className="table-wrap batch-result-table">
-          <table>
-            <thead>
-              <tr>
-                <th>序号</th>
-                <th>状态</th>
-                <th>当前步骤</th>
-                <th>任务编号</th>
-                <th>商品 / 类别</th>
-                <th>进度</th>
-                <th>tokens</th>
-                <th>视频结果</th>
-                <th>错误</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeDetail?.items?.length ? activeDetail.items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.row_no}</td>
-                  <td><StatusBadge value={item.status} /></td>
-                  <td>{item.current_step || "-"}</td>
-                  <td>{item.libtv_task_code || item.task_no || "-"}</td>
-                  <td>
-                    <strong>{displayItemProductName(item)}</strong>
-                    <span>{displayItemCategory(item)}</span>
-                  </td>
-                  <td>
-                    <div className="mini-progress"><span style={{ width: `${Number(item.progress || 0)}%` }} /></div>
-                    <em>{Number(item.progress || 0)}%</em>
-                  </td>
-                  <td>{tokenTotal(item.token_usage_json)}</td>
-                  <td>{batchVideoResultLabel(item)}</td>
-                  <td title={item.error_message || ""}>{item.error_message || "-"}</td>
-                </tr>
-              )) : (
-                <tr><td colSpan="9">选择或创建一个批次后查看执行状态。</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function MobileBatchDraftCards({ rows = [], hasRows = false, onUpdateRow }) {
-  return (
-    <div className="mobile-batch-draft-cards" aria-label="手机端待创建任务卡片">
-      {rows.length ? rows.map((row) => {
-        const invalid = !row.validation.ok;
-        const validationLabel = invalid ? "异常" : row.validation.warnings.length ? "提醒" : "通过";
-        const issues = [...row.validation.errors, ...row.validation.warnings].slice(0, 3);
-        return (
-          <article className={invalid ? "mobile-batch-draft-card error" : row.validation.warnings.length ? "mobile-batch-draft-card warn" : "mobile-batch-draft-card"} key={row.id}>
-            <div className="mobile-batch-draft-head">
-              <label className="mobile-batch-draft-check">
-                <input type="checkbox" disabled={invalid} checked={row.enabled !== false && !invalid} onChange={(event) => onUpdateRow(row.id, "enabled", event.target.checked)} />
-                <span>{row.taskNo || "未编号"}</span>
-              </label>
-              <span className={`precheck-badge ${invalid ? "error" : row.validation.warnings.length ? "warn" : "ok"}`}>{validationLabel}</span>
-            </div>
-            {issues.length ? (
-              <ul className="mobile-batch-draft-issues">
-                {issues.map((message) => <li key={message}>{message}</li>)}
-              </ul>
-            ) : null}
-            <div className="mobile-batch-draft-files">
-              <div>
-                <span>提示词包</span>
-                <strong title={row.prompt?.name}>{row.prompt?.name || "-"}</strong>
-              </div>
-              <div>
-                <span>商品图</span>
-                <strong title={row.image?.name}>{row.image?.name || "-"}</strong>
-              </div>
-            </div>
-            <div className="mobile-batch-draft-fields">
-              <label>
-                <span>商品名</span>
-                <input value={row.productName || ""} onChange={(event) => onUpdateRow(row.id, "productName", event.target.value)} />
-              </label>
-              <label>
-                <span>类别</span>
-                <input value={row.productCategory || ""} onChange={(event) => onUpdateRow(row.id, "productCategory", event.target.value)} placeholder="可空" />
-              </label>
-              <label className="wide">
-                <span>补充信息</span>
-                <textarea rows={3} value={row.productBrief || ""} onChange={(event) => onUpdateRow(row.id, "productBrief", event.target.value)} />
-              </label>
-            </div>
-            <div className="mobile-batch-draft-params">
-              <span>{row.targetDuration}s</span>
-              <span>{row.aspectRatio}</span>
-              <span>{row.videoMode}</span>
-            </div>
-          </article>
-        );
-      }) : <div className="mobile-empty-card">{hasRows ? "当前没有异常行" : "上传提示词包和商品图后，点击“生成任务表”"}</div>}
-    </div>
-  );
-}
-
-function MobileBatchItemCards({ items = [] }) {
-  return (
-    <div className="mobile-batch-item-cards" aria-label="手机端批量任务明细">
-      {items.length ? items.map((item) => {
-        const progress = Math.max(0, Math.min(100, Number(item.progress || 0)));
-        const taskCode = item.libtv_task_code || item.task_no || `第 ${item.row_no || "-"} 条`;
-        return (
-          <article className="mobile-batch-item-card" key={item.id}>
-            <div className="mobile-batch-item-head">
-              <div>
-                <span>#{item.row_no || "-"}</span>
-                <strong>{displayItemProductName(item)}</strong>
-                <em>{displayItemCategory(item)}</em>
-              </div>
-              <StatusBadge value={item.status} />
-            </div>
-            <div className="mobile-batch-item-progress">
-              <span style={{ width: `${progress}%` }} />
-            </div>
-            <div className="mobile-batch-item-meta">
-              <div><span>任务</span><strong>{taskCode}</strong></div>
-              <div><span>步骤</span><strong>{item.current_step || "-"}</strong></div>
-              <div><span>进度</span><strong>{progress}%</strong></div>
-              <div><span>Tokens</span><strong>{tokenTotal(item.token_usage_json)}</strong></div>
-            </div>
-            <div className="mobile-batch-item-foot">
-              <div>
-                <span>视频结果</span>
-                <strong>{batchVideoResultLabel(item)}</strong>
-              </div>
-              {item.error_message ? (
-                <p title={item.error_message}>{item.error_message}</p>
-              ) : null}
-            </div>
-          </article>
-        );
-      }) : <div className="mobile-empty-card">选择或创建一个批次后查看执行状态</div>}
-    </div>
-  );
-}
-
-function MobileBatchCards({ jobs = [], selectedBatchId, onSelect }) {
-  return (
-    <section className="mobile-batch-cards" aria-label="手机端批次卡片">
-      <div className="mobile-batch-cards-head">
-        <div>
-          <span>批次状态</span>
-          <strong>{jobs.length ? `${jobs.length} 个批次` : "暂无批次"}</strong>
-        </div>
-        <em>点选查看执行明细</em>
-      </div>
-      <div className="mobile-batch-card-list">
-        {jobs.length ? jobs.map((job) => {
-          const metrics = summarizeBatchJob(job);
-          const isActive = selectedBatchId === job.id;
-          return (
-            <button
-              type="button"
-              className={isActive ? "mobile-batch-card active" : "mobile-batch-card"}
-              key={job.id}
-              onClick={() => onSelect(job.id)}
-              aria-current={isActive ? "true" : undefined}
-            >
-              <div className="mobile-batch-card-top">
-                <div>
-                  <strong>{displayBatchName(job)}</strong>
-                  <span>{formatDate(job.updated_at || job.created_at) || "暂无更新时间"}</span>
-                </div>
-                <StatusBadge value={job.status} />
-              </div>
-              <div className="mobile-batch-progress" aria-label={`批次进度 ${metrics.percent}%`}>
-                <span style={{ width: `${metrics.percent}%` }} />
-              </div>
-              <div className="mobile-batch-card-metrics">
-                <div><span>总数</span><strong>{metrics.total}</strong></div>
-                <div><span>成功</span><strong>{metrics.success}</strong></div>
-                <div><span>运行</span><strong>{metrics.running}</strong></div>
-                <div><span>失败</span><strong>{metrics.failed}</strong></div>
-                <div><span>排队</span><strong>{metrics.pending}</strong></div>
-                <div><span>完成率</span><strong>{metrics.percent}%</strong></div>
-              </div>
-            </button>
-          );
-        }) : <div className="mobile-empty-card">创建批量任务后会在这里显示状态</div>}
-      </div>
-    </section>
-  );
-}
-
 function buildBatchRows({ promptFiles, imageFiles, csvRows, matchMode, generationCount = 1, defaultDuration, defaultAspectRatio, defaultVideoMode, autoSubmit }) {
   const rows = [];
   const repeatCount = clampInteger(generationCount, 1, 50);
@@ -7335,8 +7101,8 @@ function buildBatchRows({ promptFiles, imageFiles, csvRows, matchMode, generatio
         productBrief: pickCsvValue(item, ["商品补充信息", "补充信息", "product_brief", "productBrief"]),
         targetDuration: pickCsvValue(item, ["视频时长", "duration", "targetDuration"]) || defaultDuration,
         aspectRatio: pickCsvValue(item, ["画幅", "aspect_ratio", "aspectRatio"]) || defaultAspectRatio,
-        videoMode: normalizeBatchVideoMode(pickCsvValue(item, ["libTV模式", "libTV 模式", "videoMode"])) || defaultVideoMode,
-        autoSubmit: csvBool(pickCsvValue(item, ["是否自动提交libTV", "自动提交", "autoSubmit"]), autoSubmit)
+        videoMode: normalizeBatchVideoMode(pickCsvValue(item, ["视频生成方式", "libTV模式", "libTV 模式", "videoMode"])) || defaultVideoMode,
+        autoSubmit: csvBool(pickCsvValue(item, ["是否自动提交视频", "是否自动提交libTV", "自动提交", "autoSubmit"]), autoSubmit)
       }));
     });
     return expandBatchRowsForGenerationCount(rows, repeatCount);
@@ -7452,7 +7218,7 @@ function validateBatchDraftRows(rows = []) {
     if (!row.image) errors.push("缺商品图片");
     if (!Number.isFinite(duration) || duration < 4 || duration > 15) errors.push("视频时长需为 4-15 秒");
     if (!["9:16", "16:9", "1:1"].includes(aspectRatio)) errors.push("画幅只支持 9:16、16:9、1:1");
-    if (!["dry_run", "submit", "run"].includes(videoMode)) errors.push("libTV 模式不合法");
+    if (!["dry_run", "submit", "run"].includes(videoMode)) errors.push("视频生成方式不合法");
 
     if (!String(row.productName || "").trim()) warnings.push("商品名称为空，将按文件名推断");
     if (!String(row.productCategory || "").trim()) warnings.push("类别为空，将按图片识别");
@@ -7752,7 +7518,7 @@ function batchVideoResultLabel(item = {}) {
   const mode = String(item.video_mode || item.videoMode || "").toLowerCase();
   const status = String(item.status || "").toLowerCase();
   if (mode === "dry_run" && ["succeeded", "prompt_ready"].includes(status)) {
-    return <span title="当前 libTV 模式为先验证，不会生成真实视频链接。">先验证完成</span>;
+    return <span title="当前为先验证，不会生成真实视频链接。">先验证完成</span>;
   }
   if (item.final_prompt) return "有提示词";
   return "-";
@@ -10070,7 +9836,7 @@ function generationStatusTone(record) {
 }
 
 function GenerationRecordsList({ records = [] }) {
-  if (!records.length) return <p className="selection-muted">暂未回流生成记录。创建测品批次后，这里会自动显示提示词、libTV 任务和视频结果。</p>;
+  if (!records.length) return <p className="selection-muted">暂未回流生成记录。创建测品批次后，这里会自动显示提示词、视频任务和视频结果。</p>;
   return (
     <div className="generation-record-list">
       {records.slice(0, 6).map((record) => (
@@ -10087,8 +9853,8 @@ function GenerationRecordsList({ records = [] }) {
             <span>素材：{record.materialImageCount || record.materialAttachments?.length || 0} 张</span>
             <span>模式：{record.videoMode || "dry_run"}</span>
             <span>时长：{record.targetDuration || 15}s</span>
-            <span>{record.autoSubmit ? "已接 libTV" : "未自动提交"}</span>
-            {record.libtvTaskCode ? <span>任务码：{record.libtvTaskCode}</span> : null}
+            <span>{record.autoSubmit ? "已提交视频" : "未自动提交"}</span>
+            {record.libtvTaskCode ? <span>视频单号：{record.libtvTaskCode}</span> : null}
           </div>
           {record.finalPromptPreview ? <p className="prompt-preview">{record.finalPromptPreview}</p> : null}
           {record.errorMessage ? <p className="generation-error">{record.errorMessage}</p> : null}
@@ -13150,7 +12916,7 @@ function SelectionAssetsOverviewPage({ selectionAssets, navigate, onRefresh, onC
 function DataSourceBadge({ selectionAssets }) {
   return (
     <span className={`data-source-badge ${selectionAssets?.source === "database" ? "good" : "warn"}`}>
-      {selectionAssets?.source === "database" ? "数据库资产" : "本地种子"}
+      {selectionAssets?.source === "database" ? "已保存资料" : "示例资料"}
     </span>
   );
 }
@@ -14073,7 +13839,7 @@ function ProductScoringPage({ selectionAssets, navigate, onRefresh, onCreateBatc
         <div className="panel-head">
           <div>
             <h2>动态评分库</h2>
-            <p>按当前运营策略调整 8 个维度，预览排序变化后回写商品数据库。</p>
+            <p>按当前运营策略调整 8 个维度，预览排序变化后同步到商品资料。</p>
           </div>
           <div className="score-config-actions">
             <span className={`score-total ${scoringTotal === 100 ? "good" : "bad"}`}>合计 {scoringTotal}</span>
@@ -14787,7 +14553,7 @@ function ProductLibraryPage({ selectionAssets, navigate, onRefresh, onUpdateProd
       <div className="panel selection-hero">
         <div>
           <span className="workflow-stage">商品资产包</span>
-          <h2>商品数据库</h2>
+          <h2>商品资料库</h2>
           <p>每个 SKU 以商品事实、商品卡承接、卖点白名单、禁用话术、素材和生成记录为一个资产包。</p>
         </div>
         <div className="hero-actions">
@@ -15707,53 +15473,259 @@ function AccountAssetsPage({ selectionAssets, navigate, onRefresh, onSaveAccount
   );
 }
 
-function WorkflowModulePage({ module, navigate }) {
-  return (
-    <section className="panel workflow-module-page">
-      <div className="workflow-module-hero">
-        <div>
-          <span className="workflow-stage">{module.stage}</span>
-          <h2>{module.title}</h2>
-          <p>{module.subtitle}</p>
-        </div>
-      </div>
-      <div className="workflow-module-grid">
-        <div className="workflow-module-card">
-          <div className="mini-panel-head">
-            <Workflow size={17} />
-            <strong>闭环位置</strong>
-          </div>
-          <ol className="workflow-step-list">
-            {module.steps.map((step, index) => (
-              <li key={step}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step}</strong>
-              </li>
-            ))}
-          </ol>
-        </div>
-        <div className="workflow-module-card">
-          <div className="mini-panel-head">
-            <Sparkles size={17} />
-            <strong>当前可先使用</strong>
-          </div>
-          <p className="workflow-module-note">这个入口先用于产品结构占位，后续会按数据库表和接口逐步接入真实功能。</p>
-          <div className="workflow-action-list">
-            {module.actions.map((action) => (
-              <button className="secondary-button" type="button" key={action.page} onClick={() => navigate(action.page)}>
-                <span>{action.label}</span>
-                <ChevronRight size={15} />
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
+function buildMobileImageChecklist(studio = {}, template = null) {
+  const count = studio.images?.length || 0;
+  const isFashionTemplate = template?.id === fashionLuxuryIndoorTemplate.id;
+  const items = isFashionTemplate
+    ? [
+        {
+          id: "person",
+          label: "人物参考图",
+          detail: "参考气质、发型、身材比例",
+          requiredCount: 1
+        },
+        {
+          id: "product",
+          label: "女装商品图",
+          detail: "看清颜色、版型、领口、腰线和面料",
+          requiredCount: 2
+        },
+        {
+          id: "cover",
+          label: "封面/画报图",
+          detail: "可选，用来参考版式、色系和系列感",
+          requiredCount: 3,
+          optional: true
+        }
+      ]
+    : [
+        {
+          id: "product",
+          label: "商品主体图",
+          detail: "至少一张清楚看到商品主体",
+          requiredCount: 1
+        },
+        {
+          id: "detail",
+          label: "细节/场景图",
+          detail: "可补充材质、使用场景或卖点",
+          requiredCount: 2,
+          optional: true
+        },
+        {
+          id: "cover",
+          label: "封面参考图",
+          detail: "可选，用来参考画面风格",
+          requiredCount: 3,
+          optional: true
+        }
+      ];
+  return items.map((item) => {
+    const done = count >= item.requiredCount;
+    const previousDone = item.requiredCount <= 1 || count >= item.requiredCount - 1;
+    return {
+      ...item,
+      state: done ? "done" : previousDone ? "current" : "todo",
+      statusLabel: done ? "已准备" : item.optional ? "可选" : "待上传"
+    };
+  });
 }
 
-function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
+function buildMobilePromptChecklist(studio = {}, template = null) {
+  const textReady = Boolean(String(studio.promptPackText || "").trim());
+  const fileReady = Boolean(studio.promptPackage);
+  const templateReady = Boolean(template && studio.promptPackage?.templateId === template.id);
+  return [
+    {
+      id: "file",
+      label: "上传文件",
+      detail: "支持 .docx / .txt / .md 提示词包",
+      state: fileReady ? "done" : textReady ? "todo" : "current",
+      statusLabel: fileReady ? "已准备" : "二选一"
+    },
+    {
+      id: "text",
+      label: "粘贴文本",
+      detail: "也可以直接粘贴 SOP 或提示词正文",
+      state: textReady ? "done" : fileReady ? "todo" : "current",
+      statusLabel: textReady ? "已填写" : "二选一"
+    },
+    {
+      id: "template",
+      label: "内置模板",
+      detail: template ? "已自动放入模板提示词" : "从创意页套用模板会自动填写",
+      state: templateReady ? "done" : "todo",
+      statusLabel: templateReady ? "已套用" : "可选"
+    }
+  ];
+}
+
+function mobileVideoModeLabel(mode) {
+  if (mode === "submit") return "真实提交";
+  if (mode === "run") return "提交并等待";
+  return "先验证";
+}
+
+function buildMobileProductChecklist(studio = {}) {
+  const productName = String(studio.productName || "").trim();
+  const category = String(studio.productCategory || "").trim();
+  const brief = String(studio.productBrief || "").trim();
+  const duration = Number(studio.targetDuration || 15);
+  const durationReady = Number.isFinite(duration) && duration >= 4 && duration <= 15;
+  const modeReady = ["dry_run", "submit", "run"].includes(studio.videoMode || "dry_run");
+  return [
+    {
+      id: "name",
+      label: "商品名称",
+      detail: "方便在任务和资产里查找",
+      state: productName ? "done" : "todo",
+      statusLabel: productName ? "已填写" : "可选"
+    },
+    {
+      id: "category",
+      label: "商品类别",
+      detail: category ? "会作为画面方向参考" : "不填会根据图片识别",
+      state: category ? "done" : "todo",
+      statusLabel: category ? "已填写" : "可选"
+    },
+    {
+      id: "brief",
+      label: "卖点/人群",
+      detail: "写清卖点、人群、禁忌项更稳",
+      state: brief ? "done" : "current",
+      statusLabel: brief ? "已补充" : "建议填"
+    },
+    {
+      id: "params",
+      label: "视频参数",
+      detail: `${durationReady ? `${duration} 秒` : "检查时长"} · ${studio.aspectRatio || "9:16"} · ${mobileVideoModeLabel(studio.videoMode)}`,
+      state: durationReady && modeReady ? "done" : "current",
+      statusLabel: durationReady && modeReady ? "已设置" : "请检查"
+    }
+  ];
+}
+
+function buildMobileSubmitChecklist({ studio = {}, videoRunning = false, videoUrl = "" } = {}) {
+  const imageCount = studio.images?.length || 0;
+  const imageReady = imageCount > 0;
+  const promptReady = Boolean(String(studio.finalPrompt || "").trim());
+  const canSubmit = imageReady && promptReady && !videoRunning;
+  return [
+    {
+      id: "prompt",
+      label: "最终提示词",
+      detail: promptReady ? "已经生成，可以手动检查" : "先生成或粘贴最终提示词",
+      state: promptReady ? "done" : "current",
+      statusLabel: promptReady ? "已准备" : "待准备"
+    },
+    {
+      id: "images",
+      label: "参考图片",
+      detail: imageReady ? `已放入 ${imageCount} 张图片` : "生成视频需要至少一张商品参考图",
+      state: imageReady ? "done" : "current",
+      statusLabel: imageReady ? "已准备" : "待上传"
+    },
+    {
+      id: "mode",
+      label: "生成方式",
+      detail: studio.videoMode === "dry_run" ? "适合先测试，不会真实生成" : "会提交到视频生成通道",
+      state: "done",
+      statusLabel: mobileVideoModeLabel(studio.videoMode)
+    },
+    {
+      id: "submit",
+      label: "提交状态",
+      detail: videoUrl ? "视频已生成" : videoRunning ? "正在生成，不用重复点击" : canSubmit ? "可以点击保存并生成视频" : "补齐上面内容后再提交",
+      state: videoUrl || canSubmit ? "done" : videoRunning ? "current" : "todo",
+      statusLabel: videoUrl ? "已完成" : videoRunning ? "生成中" : canSubmit ? "可提交" : "未就绪"
+    }
+  ];
+}
+
+function buildMobileVideoRecovery({ videoLogSummary = null, videoUrl = "", videoSteps = [], videoRunning = false, studio = {} } = {}) {
+  const failedStep = videoSteps.find((step) => step.status === "failed");
+  const failed = Boolean(failedStep || videoLogSummary?.tone === "warn");
+  const logText = `${failedStep?.name || ""}\n${failedStep?.message || ""}\n${videoLogSummary?.title || ""}\n${videoLogSummary?.detail || ""}`;
+  const hasImages = Boolean(studio.images?.length);
+  const hasPrompt = Boolean(String(studio.finalPrompt || "").trim());
+  const canRetry = hasImages && hasPrompt && !videoRunning;
+
+  if (videoUrl) {
+    return {
+      tone: "done",
+      label: "结果已返回",
+      title: "下一步可以做什么？",
+      detail: "先预览视频，不满意就回到提示词或图片继续微调。",
+      tips: ["打开视频检查画面和声音", "保留这套提示词，可以继续生成变体"],
+      actions: [
+        { id: "open-video", label: "打开视频", primary: true },
+        { id: "prompt", label: "改提示词" },
+        { id: "images", label: "换图片" }
+      ]
+    };
+  }
+
+  if (videoRunning) return null;
+
+  if (failed) {
+    const complianceIssue = /合规|审核|真人|人物|肖像|face|copyright|版权/i.test(logText);
+    const imageIssue = /图片|素材|参考图|image|size|尺寸|像素|分辨率/i.test(logText);
+    const promptIssue = /提示词|prompt|参数|时长|画幅|比例|非法|invalid/i.test(logText);
+    const serviceIssue = /连接|网络|超时|timeout|排队|服务|503|429|busy|limit/i.test(logText);
+    const title = complianceIssue
+      ? "先处理素材或合规问题"
+      : imageIssue
+        ? "先检查图片是否合适"
+        : promptIssue
+          ? "先检查提示词和参数"
+          : serviceIssue
+            ? "可能是通道繁忙或连接问题"
+            : "按失败提示调整后重试";
+    const detail = failedStep?.message || videoLogSummary?.detail || "任务没有完成，先按下面三步处理，再重新生成。";
+    const tips = complianceIssue
+      ? ["换成可商用、授权清晰的参考图", "避免真人敏感、品牌侵权和平台禁用画面"]
+      : imageIssue
+        ? ["补一张清晰商品图或封面参考图", "避免模糊、遮挡、拼图和尺寸过小"]
+        : promptIssue
+          ? ["删掉互相冲突的要求", "确认视频时长、画幅和生成方式"]
+          : serviceIssue
+            ? ["稍等后直接重试一次", "如果连续失败，再检查生成通道状态"]
+            : ["先补图片或改提示词", "再点击重试生成"];
+    return {
+      tone: serviceIssue ? "warn" : "bad",
+      label: "失败后处理",
+      title,
+      detail,
+      tips,
+      actions: [
+        { id: "images", label: imageIssue || complianceIssue ? "换/补图片" : "补图片" },
+        { id: "prompt", label: promptIssue ? "改提示词" : "检查提示词" },
+        { id: "retry", label: canRetry ? "重试生成" : "先补齐再重试", primary: true, disabled: !canRetry }
+      ]
+    };
+  }
+
+  if (videoLogSummary?.tone === "info") {
+    return {
+      tone: "info",
+      label: "已有任务记录",
+      title: "还没有拿到视频结果",
+      detail: "如果长时间没有变化，可以稍后刷新，或检查提示词和图片后重新提交。",
+      tips: ["先确认最终提示词没有空着", "确认至少上传了一张参考图"],
+      actions: [
+        { id: "prompt", label: "看提示词" },
+        { id: "images", label: "看图片" },
+        { id: "retry", label: canRetry ? "重新提交" : "先补齐资料", primary: true, disabled: !canRetry }
+      ]
+    };
+  }
+
+  return null;
+}
+
+function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh, guest = false, onLogin }) {
   const [beginnerMode, setBeginnerMode] = useState("video");
+  const [overviewDetailsOpen, setOverviewDetailsOpen] = useState(false);
   const jobStats = useMemo(() => {
     const values = jobs.map(jobStatusText);
     return {
@@ -15772,8 +15744,8 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
   const libtvOutputs = outputFiles.filter((file) => file.kind === "libtv" || /[\\/]libtv[\\/]/i.test(file.path || ""));
   const latestOutputs = outputFiles.filter((file) => /\.mp4$/i.test(file.name || file.path || "")).slice(0, 6);
   const storageSize = sumFileSize(outputFiles);
-  const connected = !runtime?.error;
-  const libtvReady = isLibtvConnected(runtime);
+  const connected = Boolean(runtime && !runtime?.error);
+  const libtvReady = !guest && isLibtvConnected(runtime);
   const canViewInternalRuntime = String(runtime?.currentUser?.username || "").toLowerCase() === "zkr";
   const modelChannels = [
     { name: "提示词分析", model: runtime?.currentModels?.analysis || "-", ready: Boolean(runtime?.doubaoConfigured || runtime?.qianwenTextConfigured) },
@@ -15783,40 +15755,70 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
   ];
   const statusCards = [
     {
-      label: "后端 API",
-      value: connected ? "已连接" : "未连接",
-      detail: connected ? "端口 :3001" : runtime?.error || "等待检测",
+      label: "生成服务",
+      value: guest ? "登录后使用" : connected ? "已连接" : "未连接",
+      detail: guest ? "点击功能时会提示登录" : connected ? "运行正常" : "等待检测",
       good: connected,
       icon: Server
     },
     {
-      label: "libTV 桥接",
+      label: "视频通道",
       value: libtvReady ? "已连接" : "未连接",
-      detail: canViewInternalRuntime ? (runtime?.libtvBridgeUrl || "127.0.0.1:8799") : "运行正常",
+      detail: libtvReady ? "可以提交视频" : "等待连接",
       good: libtvReady,
       icon: Video
     },
     {
-      label: "数据库",
-      value: runtime?.libtvDatabase ? "SQLite" : "未返回",
-      detail: canViewInternalRuntime ? (runtime?.libtvDatabase || "等待后端配置") : "已配置",
-      good: Boolean(runtime?.libtvDatabase),
+      label: "账号数据",
+      value: guest ? "登录可见" : runtime?.libtvDatabase ? "已保存" : "待检查",
+      detail: guest ? "保护账号数据" : runtime?.libtvDatabase ? "素材和任务已隔离保存" : "等待系统检查",
+      good: !guest && Boolean(runtime?.libtvDatabase),
       icon: Database
     },
     {
       label: "模型配置",
-      value: runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured ? "可用" : "待配置",
-      detail: runtime?.currentModels?.analysis || runtime?.currentModels?.vision || "查看系统设置",
-      good: Boolean(runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured),
+      value: guest ? "登录可见" : runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured ? "可用" : "待配置",
+      detail: guest ? "登录后自动检测" : runtime?.currentModels?.analysis || runtime?.currentModels?.vision || "查看系统设置",
+      good: !guest && Boolean(runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured),
+      icon: Brain
+    }
+  ];
+  const mobileStatusCards = [
+    {
+      label: "生成服务",
+      value: guest ? "登录后用" : connected ? "可用" : "异常",
+      detail: guest ? "登录后可以提交生成任务" : connected ? "可以创建和保存任务" : "点顶部状态重试",
+      good: !guest && connected,
+      icon: Server
+    },
+    {
+      label: "视频通道",
+      value: guest ? "登录后查" : libtvReady ? "可生成" : "待检查",
+      detail: guest ? "登录后检测视频生成通道" : libtvReady ? "可以提交视频生成" : "先确认生成服务是否打开",
+      good: !guest && libtvReady,
+      icon: Video
+    },
+    {
+      label: "账号数据",
+      value: guest ? "未登录" : runtime?.libtvDatabase ? "已保护" : "检查中",
+      detail: guest ? "登录后只看自己的任务" : "任务和素材按账号隔离",
+      good: !guest && Boolean(runtime?.libtvDatabase),
+      icon: ShieldCheck
+    },
+    {
+      label: "AI 能力",
+      value: guest ? "登录后查" : runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured ? "可用" : "待配置",
+      detail: guest ? "登录后自动检查" : "用于识别图片和生成提示词",
+      good: !guest && Boolean(runtime?.doubaoConfigured || runtime?.qianwenVisionConfigured),
       icon: Brain
     }
   ];
   const productionCards = [
     { label: "今日任务", value: todayTaskCount, detail: "按任务更新时间统计", icon: Timer, tone: "good" },
-    { label: "libTV 成功率", value: formatPercent(jobStats.succeeded, jobStats.total), detail: `${jobStats.succeeded}/${jobStats.total || 0} 个任务成功`, icon: Gauge, tone: "good" },
-    { label: "拼接成片", value: stitchedOutputs.length, detail: "outputs/stitched", icon: Scissors, tone: "info" },
-    { label: "libTV 视频", value: libtvOutputs.length, detail: "outputs/libtv", icon: Video, tone: "info" },
-    { label: "异常任务", value: failedTaskCount + jobStats.failed, detail: "任务与 libTV 失败合计", icon: ShieldCheck, tone: failedTaskCount + jobStats.failed ? "bad" : "good" },
+    { label: "视频成功率", value: formatPercent(jobStats.succeeded, jobStats.total), detail: `${jobStats.succeeded}/${jobStats.total || 0} 个任务成功`, icon: Gauge, tone: "good" },
+    { label: "拼接成片", value: stitchedOutputs.length, detail: "可下载的拼接视频", icon: Scissors, tone: "info" },
+    { label: "生成视频", value: libtvOutputs.length, detail: "已生成的视频文件", icon: Video, tone: "info" },
+    { label: "异常任务", value: failedTaskCount + jobStats.failed, detail: "任务与视频生成失败合计", icon: ShieldCheck, tone: failedTaskCount + jobStats.failed ? "bad" : "good" },
     { label: "本地存储", value: formatBytes(storageSize), detail: `${outputCount} 个输出文件`, icon: HardDrive, tone: "info" }
   ];
   const modules = [
@@ -15838,7 +15840,7 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
       page: "stitch",
       title: "视频拼接",
       code: "VIDEO_STITCH",
-      desc: "勾选已生成视频，按组调用 ffmpeg 合成完整素材。",
+      desc: "勾选已生成视频，按组拼成完整素材。",
       icon: Scissors
     },
     {
@@ -15850,16 +15852,16 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
     },
     {
       page: "libtv",
-      title: "libTV 任务",
-      code: "LIBTV_JOBS",
+      title: "视频任务",
+      code: "VIDEO_TASKS",
       desc: "追踪真实提交、轮询结果、视频链接和失败原因。",
       icon: Video
     },
     {
       page: "assets",
       title: "素材与输出",
-      code: "ASSETS_OUTPUT",
-      desc: "按任务查看上传图片、生成文件、本地输出和素材路径。",
+      code: "ASSETS",
+      desc: "按任务查看上传图片、生成文件、本地输出和下载入口。",
       icon: FolderOpen
     },
     {
@@ -15951,10 +15953,163 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
     ]
   };
   const beginnerActions = beginnerActionGroups[beginnerMode] || beginnerActionGroups.video;
+  const beginnerPrimaryActions = beginnerActions.slice(0, 2);
+  const beginnerSecondaryActions = beginnerActions.slice(2);
+  const beginnerGoal = beginnerMode === "video"
+    ? {
+        title: "今日目标：完成 1 条商品短视频",
+        detail: "先传商品图，再放提示词包，最后点生成视频。"
+      }
+    : {
+        title: "今日目标：准备一组可用素材",
+        detail: "先上传图片和提示词，后面可以直接生成视频。"
+      };
+  const mobileNextStep = (() => {
+    if (guest) {
+      return {
+        eyebrow: "下一步",
+        title: "先看模板，再决定怎么做",
+        detail: "不用登录也能先看创意模板，真正使用功能时再登录。",
+        action: "看模板",
+        page: "inspiration",
+        icon: Sparkles,
+        tone: "green"
+      };
+    }
+    if (failedTaskCount + jobStats.failed > 0) {
+      return {
+        eyebrow: "需要处理",
+        title: "有任务失败，先看原因",
+        detail: "处理失败任务比继续新建更重要，避免重复浪费素材。",
+        action: "看任务",
+        page: "tasks",
+        icon: AlertTriangle,
+        tone: "bad"
+      };
+    }
+    if (jobStats.pending > 0) {
+      return {
+        eyebrow: "正在生成",
+        title: "已有任务在排队或生成中",
+        detail: "先看进度，完成后再去素材页下载结果。",
+        action: "看进度",
+        page: "tasks",
+        icon: Timer,
+        tone: "cyan"
+      };
+    }
+    if (latestOutputs.length > 0) {
+      return {
+        eyebrow: "已有结果",
+        title: "有生成好的视频可以查看",
+        detail: "去素材与输出页下载视频，或者继续做下一条。",
+        action: "看结果",
+        page: "assets",
+        icon: Download,
+        tone: "green"
+      };
+    }
+    if (beginnerMode === "image") {
+      return {
+        eyebrow: "推荐开始",
+        title: "先做一张商品主图",
+        detail: "适合先准备封面、活动图或商品场景图。",
+        action: "做图片",
+        page: "textImage",
+        icon: Image,
+        tone: "purple"
+      };
+    }
+    return {
+      eyebrow: "推荐开始",
+      title: "先做 1 条商品短视频",
+      detail: "上传商品图和提示词包，系统会按步骤生成。",
+      action: "做视频",
+      page: "studio:images",
+      icon: Video,
+      tone: "cyan"
+    };
+  })();
+  const MobileNextStepIcon = mobileNextStep.icon;
+  const serviceCheck = (() => {
+    if (guest) {
+      return {
+        state: "guest",
+        eyebrow: "生成前检查",
+        title: "登录后自动检查生成服务",
+        detail: "账号登录后会显示任务、素材、视频通道和运行状态。",
+        primaryLabel: "登录",
+        primaryIcon: LockKeyhole,
+        primaryAction: onLogin,
+        secondaryLabel: "先看模板",
+        secondaryAction: () => navigate("inspiration")
+      };
+    }
+    if (connected && libtvReady) {
+      return {
+        state: "ready",
+        eyebrow: "生成前检查",
+        title: "生成服务和视频通道都可用",
+        detail: "可以直接上传商品图和提示词包，提交后到任务中心看进度。",
+        primaryLabel: "开始生成",
+        primaryIcon: Play,
+        primaryAction: () => navigate("studio:images"),
+        secondaryLabel: "看任务",
+        secondaryAction: () => navigate("tasks")
+      };
+    }
+    if (connected && !libtvReady) {
+      return {
+        state: "warn",
+        eyebrow: "生成前检查",
+        title: "生成服务可用，视频通道待检查",
+        detail: "可以先准备图片和提示词；提交视频前建议刷新一次状态。",
+        primaryLabel: "刷新状态",
+        primaryIcon: RefreshCw,
+        primaryAction: onRefresh,
+        secondaryLabel: "去我的",
+        secondaryAction: () => navigate("settings")
+      };
+    }
+    return {
+      state: "bad",
+      eyebrow: "生成前检查",
+      title: "生成服务暂时未连接",
+      detail: "先刷新状态；如果还不行，到我的页面查看准备中心。",
+      primaryLabel: "刷新状态",
+      primaryIcon: RefreshCw,
+      primaryAction: onRefresh,
+      secondaryLabel: "去我的",
+      secondaryAction: () => navigate("settings")
+    };
+  })();
+  const MobileServicePrimaryIcon = serviceCheck.primaryIcon || RefreshCw;
+  const mobileWorkStats = [
+    { label: "今日", value: guest ? "-" : todayTaskCount, icon: Timer },
+    { label: "待处理", value: guest ? "-" : jobStats.pending, icon: Gauge },
+    { label: "产出", value: guest ? "-" : outputCount, icon: FolderOpen },
+    { label: "状态", value: guest ? "登录" : libtvReady ? "可用" : "检查", icon: Server }
+  ];
+  const mobileHotPlays = [
+    { title: "商品主图成片", detail: "适合女装、穿搭、上新", page: "studio:images" },
+    { title: "文生图主视觉", detail: "直接生成封面和场景图", page: "textImage" },
+    { title: "批量跑多商品", detail: "一次准备多条视频", page: "batch" },
+    { title: "多段素材拼接", detail: "把结果合成一条成片", page: "stitch" }
+  ];
 
   return (
     <section className="overview-page">
       <section className="mobile-beginner-launcher" aria-label="新手快捷入口">
+        <div className="mobile-app-hero">
+          <div>
+            <span>AI短视频</span>
+            <strong>商品图变短视频</strong>
+            <small>{guest ? "先看功能，使用时登录。" : "选入口，按步骤上传素材。"}</small>
+          </div>
+          <button type="button" onClick={guest ? onLogin : () => navigate("studio:images")}>
+            {guest ? "登录" : "开始"}
+          </button>
+        </div>
         <div className="mobile-beginner-copy">
           <span>新手模式</span>
           <strong>你想先做什么？</strong>
@@ -15979,8 +16134,46 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
             视频
           </button>
         </div>
+        <div className="mobile-goal-strip">
+          <span>推荐路线</span>
+          <strong>{beginnerGoal.title}</strong>
+          <small>{beginnerGoal.detail}</small>
+        </div>
+        <button
+          type="button"
+          className={`mobile-next-step-card tone-${mobileNextStep.tone}`}
+          onClick={() => navigate(mobileNextStep.page)}
+        >
+          <span className="mobile-next-step-icon">
+            <MobileNextStepIcon size={22} />
+          </span>
+          <span className="mobile-next-step-copy">
+            <small>{mobileNextStep.eyebrow}</small>
+            <strong>{mobileNextStep.title}</strong>
+            <em>{mobileNextStep.detail}</em>
+          </span>
+          <b>{mobileNextStep.action}</b>
+        </button>
+        <div className={`mobile-service-check-card state-${serviceCheck.state}`} aria-label="生成前检查">
+          <div className="mobile-service-check-copy">
+            <span>{serviceCheck.eyebrow}</span>
+            <strong>{serviceCheck.title}</strong>
+            <small>{serviceCheck.detail}</small>
+          </div>
+          <div className="mobile-service-check-actions">
+            <button type="button" onClick={serviceCheck.primaryAction}>
+              <MobileServicePrimaryIcon size={14} />
+              <span>{serviceCheck.primaryLabel}</span>
+            </button>
+            <button type="button" onClick={serviceCheck.secondaryAction}>
+              <ChevronRight size={14} />
+              <span>{serviceCheck.secondaryLabel}</span>
+            </button>
+          </div>
+        </div>
         <div className="mobile-action-grid">
           {beginnerActions.map((item) => {
+            if (!beginnerPrimaryActions.includes(item)) return null;
             const Icon = item.icon;
             return (
               <button
@@ -15999,12 +16192,127 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
             );
           })}
         </div>
+        {beginnerSecondaryActions.length ? (
+          <div className="mobile-secondary-actions" aria-label="更多快捷入口" data-horizontal-scroll="true">
+            {beginnerSecondaryActions.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button type="button" className={`mobile-secondary-action tone-${item.tone}`} key={item.title} onClick={() => navigate(item.page)}>
+                  <Icon size={16} />
+                  <span>{item.title}</span>
+                  {item.badge ? <em>{item.badge}</em> : null}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+        {guest ? (
+          <button type="button" className="mobile-guest-data-note" onClick={onLogin}>
+            <ShieldCheck size={16} />
+            <span>登录后查看任务、产出和运行状态</span>
+          </button>
+        ) : (
+          <div className="mobile-home-workbar" aria-label="首页工作栏">
+            {mobileWorkStats.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button type="button" className="mobile-home-workbar-item" key={item.label} onClick={() => item.label === "状态" ? onRefresh?.() : navigate(item.label === "产出" ? "assets" : "tasks")}>
+                  <Icon size={16} />
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div className="mobile-hot-play-section" aria-label="热门玩法">
+          <div className="mobile-hot-play-head">
+            <strong>热门玩法</strong>
+            <button type="button" onClick={guest ? onLogin : () => navigate("studio")}>更多</button>
+          </div>
+          <div className="mobile-hot-play-list" data-horizontal-scroll="true">
+            {mobileHotPlays.map((item) => (
+              <button type="button" className="mobile-hot-play-card" key={item.title} onClick={() => navigate(item.page)}>
+                <span>{item.title}</span>
+                <small>{item.detail}</small>
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
+      <section className={overviewDetailsOpen ? "mobile-overview-fold open" : "mobile-overview-fold"}>
+        <button type="button" className="mobile-fold-toggle" onClick={() => setOverviewDetailsOpen((current) => !current)}>
+          <span>
+            <strong>生产详情</strong>
+            <small>任务、状态、最近产出</small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+        {overviewDetailsOpen ? (
+          <div className="mobile-fold-body">
+            <div className="mobile-fold-section">
+              <div className="mobile-fold-section-head">
+                <BarChart3 size={16} />
+                <strong>今日概况</strong>
+              </div>
+              <div className="mobile-mini-stat-grid">
+                {productionCards.slice(0, 4).map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div className={`mobile-mini-stat ${card.tone}`} key={card.label}>
+                      <Icon size={16} />
+                      <span>{card.label}</span>
+                      <strong>{card.value}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mobile-fold-section">
+              <div className="mobile-fold-section-head">
+                <ShieldCheck size={16} />
+                <strong>运行状态</strong>
+              </div>
+              <div className="mobile-status-list">
+                {mobileStatusCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <div className={card.good ? "mobile-status-row ready" : "mobile-status-row"} key={card.label}>
+                      <Icon size={16} />
+                      <span>
+                        <small>{card.label}</small>
+                        <em>{card.detail}</em>
+                      </span>
+                      <strong>{card.value}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="mobile-fold-section">
+              <div className="mobile-fold-section-head">
+                <Clipboard size={16} />
+                <strong>最近任务</strong>
+              </div>
+              <div className="mobile-recent-list">
+                {latestTasks.length ? latestTasks.slice(0, 3).map((row) => (
+                  <button type="button" className="mobile-recent-row" key={row["任务编号"]} onClick={() => navigate("tasks")}>
+                    <span>{taskDisplayName(row)}</span>
+                    <StatusBadge value={row["任务状态"]} />
+                  </button>
+                )) : <div className="empty-inline">暂无任务记录</div>}
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
+      <div className="overview-desktop-detail">
       <div className="overview-hero panel">
         <div>
           <h2>AI 视频生成工作流平台</h2>
-          <p>围绕商品图、提示词包、模型分析、libTV 生成和视频拼接组织生产流程，首页直接看到产能、状态、输出和模型通道。</p>
+          <p>围绕商品图、提示词包、模型分析、视频生成和视频拼接组织生产流程，首页直接看到产能、状态、输出和模型通道。</p>
         </div>
         <div className="hero-actions">
           <button className="primary-button" onClick={() => navigate("studio")}>
@@ -16081,7 +16389,7 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
             </div>
             <div className="stats-grid stats-grid-wide">
               <div><span>总任务</span><strong>{tasks.length}</strong></div>
-              <div><span>libTV</span><strong>{jobStats.total}</strong></div>
+              <div><span>视频</span><strong>{jobStats.total}</strong></div>
               <div><span>待处理</span><strong>{jobStats.pending}</strong></div>
               <div><span>成功</span><strong>{jobStats.succeeded}</strong></div>
               <div><span>失败</span><strong>{jobStats.failed}</strong></div>
@@ -16098,7 +16406,7 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
               <li><Workflow size={15} />提示词包 + 商品图</li>
               <li><Workflow size={15} />视觉识别 + 类别判断</li>
               <li><Workflow size={15} />生成最终完整提示词</li>
-              <li><Workflow size={15} />写入 SQLite 并提交 libTV</li>
+              <li><Workflow size={15} />保存任务并生成视频</li>
               <li><Workflow size={15} />按需拼接成片</li>
             </ol>
           </div>
@@ -16159,18 +16467,18 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
           <table>
             <thead>
               <tr>
-                <th>任务编号</th>
-                <th>最终视频名称</th>
+                <th>任务</th>
+                <th>视频名称</th>
                 <th>类别</th>
                 <th>状态</th>
                 <th>更新时间</th>
               </tr>
             </thead>
             <tbody>
-              {latestTasks.length ? latestTasks.map((row) => (
+              {latestTasks.length ? latestTasks.map((row, index) => (
                 <tr key={row["任务编号"]}>
-                  <td>{row["任务编号"]}</td>
-                  <td>{row["最终视频名称"] || "-"}</td>
+                  <td>{taskDisplayLabel(row, index)}</td>
+                  <td>{taskDisplayName(row)}</td>
                   <td>{row["类别"] || "-"}</td>
                   <td><StatusBadge value={row["任务状态"]} /></td>
                   <td>{formatDate(row["更新时间"])}</td>
@@ -16183,6 +16491,7 @@ function OverviewPage({ runtime, tasks, jobs, assets, navigate, onRefresh }) {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </section>
   );
@@ -16213,15 +16522,151 @@ function StudioPage(props) {
   const [mobileEntryIntent] = useState(() => consumeMobileCreateIntent());
   const [mobileCreateView, setMobileCreateView] = useState(() => mobileCreateViewForIntent(mobileEntryIntent));
   const [mobileInputStep, setMobileInputStep] = useState(() => mobileInputStepForIntent(mobileEntryIntent));
+  const [videoProgressNow, setVideoProgressNow] = useState(() => Date.now());
   const promptProgress = progressPercent(promptSteps);
-  const videoProgress = progressPercent(videoSteps);
   const promptTokenUsage = summarizeTokenUsage(promptSteps, modelTrace);
   const outputPanelTitle = mobileCreateView === "video" ? "视频生成" : "过程进度";
   const mobileInputIssues = buildMobileInputIssues(studio);
   const mobileComplianceHints = buildStudioComplianceHints(studio);
+  const isFashionTemplateActive = Boolean(
+    studio.promptPackage?.name === fashionLuxuryIndoorTemplate.packageName ||
+    studio.promptPackText?.includes("女装轻奢室内空间 15 秒") ||
+    studio.promptPackText?.includes("女装服装带货\n15 秒生活使用状态视频提示词规范包 V3.0")
+  );
+  const activeBuiltInTemplate = builtInPromptTemplates.find((template) => (
+    studio.promptPackage?.templateId === template.id ||
+    studio.promptPackage?.name === template.packageName
+  ));
+  const templateUploadHint = activeBuiltInTemplate?.id === fashionLuxuryIndoorTemplate.id
+    ? "下一步：上传人物参考图、女装商品图；有封面图或详情头图也可以一起上传。"
+    : "下一步：上传商品图、场景参考图，再按提示生成完整提示词。";
+  const hasTemplateImages = Boolean(studio.images?.length);
+  const hasTemplatePrompt = Boolean(studio.finalPrompt?.trim());
+  const mobileImageChecklist = buildMobileImageChecklist(studio, activeBuiltInTemplate);
+  const mobileImageGuideTitle = hasTemplateImages
+    ? `已上传 ${studio.images.length} 张图片`
+    : "先上传图片";
+  const mobileImageGuideDetail = hasTemplateImages
+    ? "图片已放入任务，可以继续补充参考图，或进入提示词包步骤。"
+    : activeBuiltInTemplate?.id === fashionLuxuryIndoorTemplate.id
+      ? "建议先准备人物参考图和女装商品图，封面/画报图可选。"
+      : "建议先准备商品主体图，细节图和封面参考图可选。";
+  const promptPackReady = Boolean(studio.promptPackage || studio.promptPackText?.trim());
+  const mobilePromptChecklist = buildMobilePromptChecklist(studio, activeBuiltInTemplate);
+  const mobilePromptGuideTitle = promptPackReady ? "提示词包已准备" : "准备提示词包";
+  const mobilePromptGuideDetail = promptPackReady
+    ? activeBuiltInTemplate
+      ? "模板提示词已经放入，可以继续检查文本，或进入商品信息步骤。"
+      : "已经有提示词内容，可以继续检查文本，或进入商品信息步骤。"
+    : "上传文件或粘贴文本二选一；套用模板时会自动填好。";
+  const productInfoReady = Boolean(studio.productName?.trim() || studio.productCategory?.trim() || studio.productBrief?.trim());
+  const mobileProductChecklist = buildMobileProductChecklist(studio);
+  const mobileProductGuideTitle = productInfoReady ? "商品信息已补充" : "补充商品信息";
+  const mobileProductGuideDetail = productInfoReady
+    ? "这些信息会帮助 AI 锁定商品卖点、受众和画面重点。"
+    : "商品名和类别可选，卖点、人群、禁忌项建议填写，生成更稳定。";
   const videoUrl =
     findDeepValue(videoLog ? safeJsonFromLog(videoLog) : {}, ["video_url", "视频链接"]) ||
     (videoLog.match(/https?:\/\/\S+?\.mp4/)?.[0] || "");
+  const mobileSubmitReady = Boolean(studio.finalPrompt?.trim() && studio.images?.length && !videoRunning);
+  const mobileSubmitChecklist = buildMobileSubmitChecklist({ studio, videoRunning, videoUrl });
+  const mobileSubmitTitle = videoUrl
+    ? "视频已生成"
+    : videoRunning
+      ? "正在生成视频"
+      : mobileSubmitReady
+        ? "可以生成视频"
+        : "提交前确认";
+  const mobileSubmitDetail = videoUrl
+    ? "可以打开视频预览，或到资产页下载。"
+    : videoRunning
+      ? "保持页面打开即可，完成后会自动出现视频入口。"
+      : mobileSubmitReady
+        ? "最终提示词和图片都已准备好，可以点击保存并生成视频。"
+        : "确认最终提示词、参考图片和生成方式后，再提交视频。";
+  const templateNextAction = videoUrl
+    ? {
+        state: "done",
+        kicker: "已完成",
+        title: "视频已经生成",
+        detail: "可以打开视频预览，或到资产页下载成片。"
+      }
+    : videoRunning
+      ? {
+          state: "running",
+          kicker: "生成中",
+          title: "正在等待视频结果",
+          detail: "保持页面打开即可，完成后会自动出现视频入口。"
+        }
+      : promptRunning
+        ? {
+            state: "running",
+            kicker: "整理中",
+            title: "正在生成最终提示词",
+            detail: "系统正在把模板、图片和商品信息整理成完整提示词。"
+          }
+        : hasTemplatePrompt
+          ? {
+              state: "current",
+              kicker: "当前要做",
+              title: "提交视频生成",
+              detail: "最终提示词已经准备好，下一步直接生成视频。"
+            }
+          : hasTemplateImages
+            ? {
+                state: "current",
+                kicker: "当前要做",
+                title: "生成最终提示词",
+                detail: `已上传 ${studio.images.length} 张图片，下一步让 AI 整理成完整视频提示词。`
+              }
+            : {
+                state: "current",
+                kicker: "当前要做",
+                title: "先上传图片",
+                detail: activeBuiltInTemplate?.id === fashionLuxuryIndoorTemplate.id
+                  ? "建议先上传人物参考图和女装商品图，封面/画报图可选。"
+                  : "建议先上传商品图和场景参考图，后面会自动套用模板。"
+              };
+  const mobileTemplateNextSteps = [
+    {
+      id: "images",
+      label: "上传图片",
+      note: hasTemplateImages ? `${studio.images.length} 张` : "先做这步",
+      state: hasTemplateImages ? "done" : "current"
+    },
+    {
+      id: "prompt",
+      label: "生成提示词",
+      note: hasTemplatePrompt ? "已准备" : "自动填写",
+      state: hasTemplatePrompt ? "done" : hasTemplateImages ? "current" : "todo"
+    },
+    {
+      id: "video",
+      label: "提交视频",
+      note: videoUrl ? "已完成" : videoRunning ? "生成中" : "最后一步",
+      state: videoUrl ? "done" : videoRunning || hasTemplatePrompt ? "current" : "todo"
+    }
+  ];
+  const videoEstimate = buildVideoGenerationEstimate({
+    steps: videoSteps,
+    running: videoRunning,
+    targetDuration: Number(studio.targetDuration || 15),
+    mode: studio.videoMode,
+    hasVideo: Boolean(videoUrl),
+    now: videoProgressNow
+  });
+  const videoProgress = videoEstimate.percent;
+  const mobileSubmitWaitDetail = videoEstimate.completed
+    ? "结果已经返回，可以打开视频或到资产页下载。"
+    : videoEstimate.failed
+      ? "生成没有完成，先看失败提示，再调整图片或提示词。"
+      : videoEstimate.overdue
+        ? "等待时间比预估更久，任务仍在排队，请稍后刷新任务。"
+        : videoEstimate.running
+          ? `预计还需 ${videoEstimate.remainingLabel}，当前阶段：${videoEstimate.currentPhaseLabel || "生成视频"}。可以切到任务页或稍后回来。`
+          : "";
+  const videoLogSummary = buildVideoLogSummary({ videoLog, videoUrl, videoSteps, videoRunning });
+  const mobileVideoRecovery = buildMobileVideoRecovery({ videoLogSummary, videoUrl, videoSteps, videoRunning, studio });
 
   useEffect(() => {
     if (!mobileEntryIntent) return;
@@ -16232,6 +16677,16 @@ function StudioPage(props) {
       document.querySelector(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }, [mobileEntryIntent]);
+
+  useEffect(() => {
+    if (!videoRunning) {
+      setVideoProgressNow(Date.now());
+      return undefined;
+    }
+    setVideoProgressNow(Date.now());
+    const timer = window.setInterval(() => setVideoProgressNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [videoRunning, videoSteps.length]);
 
   function openMobileCreateView(view) {
     setMobileCreateView(view);
@@ -16246,7 +16701,31 @@ function StudioPage(props) {
     submitVideo();
   }
 
-  function downloadStudioAiEvidencePack() {
+  function handleMobileVideoRecoveryAction(actionId) {
+    if (actionId === "open-video" && videoUrl) {
+      window.open(videoUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (actionId === "images") {
+      openMobileCreateView("input");
+      openMobileInputStep("images");
+      return;
+    }
+    if (actionId === "prompt") {
+      openMobileCreateView("prompt");
+      return;
+    }
+    if (actionId === "retry") {
+      submitVideoFromMobile();
+    }
+  }
+
+  async function downloadStudioAiEvidencePack() {
+    const {
+      buildAiDisclosureEvidencePack,
+      downloadJsonFile,
+      safeDownloadName
+    } = await import("./shared/compliance/aiEvidencePack.js");
     const pack = buildAiDisclosureEvidencePack({
       studio,
       runId,
@@ -16273,6 +16752,7 @@ function StudioPage(props) {
     <>
       <MobileCreateGuide
         steps={buildMobileCreateSteps({ studio, promptSteps, promptRunning, videoSteps, videoRunning, videoUrl })}
+        videoEstimate={videoEstimate}
         canSubmitVideo={Boolean(studio.finalPrompt) && !videoRunning}
         promptRunning={promptRunning}
         videoRunning={videoRunning}
@@ -16290,6 +16770,31 @@ function StudioPage(props) {
 
         <MobileInputTabs value={mobileInputStep} onChange={openMobileInputStep} studio={studio} />
 
+        {activeBuiltInTemplate ? (
+          <div className="mobile-template-applied" role="status" aria-live="polite">
+            <span>
+              <CheckCircle2 size={15} />
+              模板已套用
+            </span>
+            <strong>{activeBuiltInTemplate.productName || activeBuiltInTemplate.packageName}</strong>
+            <p>{templateUploadHint}</p>
+            <div className={`mobile-template-next-action state-${templateNextAction.state}`}>
+              <span>{templateNextAction.kicker}</span>
+              <strong>{templateNextAction.title}</strong>
+              <small>{templateNextAction.detail}</small>
+            </div>
+            <div className="mobile-template-next-steps" aria-label="模板下一步">
+              {mobileTemplateNextSteps.map((step, index) => (
+                <span className={step.state} key={step.id}>
+                  <em>{index + 1}</em>
+                  <strong>{step.label}</strong>
+                  <small>{step.note}</small>
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="mobile-input-section mobile-input-section-prompt">
         <label className="field file-field">
           <span>提示词包</span>
@@ -16302,6 +16807,22 @@ function StudioPage(props) {
             <span className="file-picker-status">{studio.promptPackage?.name || (studio.promptPackText ? "已读取提示词文本" : "未选择文件")}</span>
           </span>
         </label>
+        <div className="mobile-image-checklist mobile-prompt-checklist" aria-label="提示词包准备清单">
+          <div className="mobile-image-checklist-head">
+            <span>提示词准备</span>
+            <strong>{mobilePromptGuideTitle}</strong>
+            <p>{mobilePromptGuideDetail}</p>
+          </div>
+          <div className="mobile-image-checklist-grid">
+            {mobilePromptChecklist.map((item) => (
+              <span className={item.state} key={item.id}>
+                <em>{item.statusLabel}</em>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </span>
+            ))}
+          </div>
+        </div>
         <label className="field">
           <span>提示词包正文</span>
           <textarea rows={10} value={studio.promptPackText} onChange={(event) => updateStudio("promptPackText", event.target.value)} placeholder="粘贴 SOP / 提示词包文本" />
@@ -16316,7 +16837,7 @@ function StudioPage(props) {
 
         <div className="mobile-input-section mobile-input-section-images">
         <label className="field file-field">
-          <span>产品图片</span>
+          <span>素材图片</span>
           <input className="file-input-native" type="file" accept="image/*" multiple onChange={(event) => handleImages(event.target.files)} />
           <span className="file-picker-shell">
             <span className="file-picker-button">
@@ -16326,6 +16847,32 @@ function StudioPage(props) {
             <span className="file-picker-status">{studio.images.length ? `已选择 ${studio.images.length} 张图片` : "未选择图片"}</span>
           </span>
         </label>
+        <div className="mobile-image-checklist" aria-label="图片准备清单">
+          <div className="mobile-image-checklist-head">
+            <span>图片准备</span>
+            <strong>{mobileImageGuideTitle}</strong>
+            <p>{mobileImageGuideDetail}</p>
+          </div>
+          <div className="mobile-image-checklist-grid">
+            {mobileImageChecklist.map((item) => (
+              <span className={item.state} key={item.id}>
+                <em>{item.statusLabel}</em>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </span>
+            ))}
+          </div>
+        </div>
+        {isFashionTemplateActive ? (
+          <div className="mobile-template-upload mobile-upload-guide">
+            <strong>女装模板建议上传</strong>
+            <ul>
+              <li>人物参考图：成年女性正面或半身/全身图，用来参考气质、发型和身材比例。</li>
+              <li>女装商品图：清楚看到颜色、版型、领口、腰线、裙摆、面料和纽扣等细节。</li>
+              <li>封面图/详情页头图：可以一起上传，用来参考画报版式、色系、系列感和卖点表达。</li>
+            </ul>
+          </div>
+        ) : null}
         <div className="image-grid">
           {studio.images.map((image) => (
             <div className="image-thumb" key={`${image.name}-${image.size}`}>
@@ -16342,6 +16889,22 @@ function StudioPage(props) {
         </div>
 
         <div className="mobile-input-section mobile-input-section-info">
+        <div className="mobile-image-checklist mobile-product-checklist" aria-label="商品信息准备清单">
+          <div className="mobile-image-checklist-head">
+            <span>商品信息</span>
+            <strong>{mobileProductGuideTitle}</strong>
+            <p>{mobileProductGuideDetail}</p>
+          </div>
+          <div className="mobile-image-checklist-grid">
+            {mobileProductChecklist.map((item) => (
+              <span className={item.state} key={item.id}>
+                <em>{item.statusLabel}</em>
+                <strong>{item.label}</strong>
+                <small>{item.detail}</small>
+              </span>
+            ))}
+          </div>
+        </div>
         <div className="two-col">
           <label className="field">
             <span>商品名称 / 任务名称</span>
@@ -16370,7 +16933,7 @@ function StudioPage(props) {
             </select>
           </label>
           <label className="field">
-            <span>libTV 模式</span>
+            <span>视频生成方式</span>
             <select value={studio.videoMode} onChange={(event) => updateStudio("videoMode", event.target.value)}>
               <option value="dry_run">先验证</option>
               <option value="submit">真实提交</option>
@@ -16380,7 +16943,7 @@ function StudioPage(props) {
         </div>
         <label className="check-row">
           <input type="checkbox" checked={studio.autoSubmit} onChange={(event) => updateStudio("autoSubmit", event.target.checked)} />
-          <span>最终提示词生成后自动提交 libTV</span>
+          <span>最终提示词生成后自动提交视频</span>
         </label>
         <MobileComplianceHints hints={mobileComplianceHints} />
         <MobileInputStepActions
@@ -16430,25 +16993,86 @@ function StudioPage(props) {
                 <Download size={16} />
                 <span>AI 证据包</span>
               </button>
-              <button type="button" className="secondary-button" onClick={submitVideo} disabled={!studio.finalPrompt || videoRunning}>
-                <Database size={16} />
-                <span>写库并提交 libTV</span>
+              <button
+                type="button"
+                className={`secondary-button video-submit-button ${videoRunning ? "waiting" : ""}`}
+                onClick={submitVideo}
+                disabled={!studio.finalPrompt || videoRunning}
+                aria-busy={videoRunning}
+                title={videoRunning ? "视频正在生成，不用重复点击。" : "保存任务并生成视频"}
+              >
+                <Video size={16} />
+                <span>{videoRunning ? "等待结果" : "保存并生成视频"}</span>
               </button>
             </div>
           </div>
           <textarea className="final-prompt" rows={9} value={studio.finalPrompt} onChange={(event) => updateStudio("finalPrompt", event.target.value)} placeholder="可以手动粘贴最终提示词，也可以等待分析流程自动填入" />
-          {studio.promptPackage ? <pre className="json-box">{JSON.stringify(studio.promptPackage, null, 2)}</pre> : null}
+          <div className="mobile-submit-check-card" aria-label="提交视频前确认">
+            <div className="mobile-image-checklist-head">
+              <span>提交确认</span>
+              <strong>{mobileSubmitTitle}</strong>
+              <p>{mobileSubmitDetail}</p>
+            </div>
+            <div className="mobile-submit-check-grid mobile-image-checklist-grid">
+              {mobileSubmitChecklist.map((item) => (
+                <span className={item.state} key={item.id}>
+                  <em>{item.statusLabel}</em>
+                  <strong>{item.label}</strong>
+                  <small>{item.detail}</small>
+                </span>
+              ))}
+            </div>
+            {videoEstimate.visible ? (
+              <div className={`mobile-submit-wait-summary ${videoEstimate.running ? "running" : ""} ${videoEstimate.completed ? "done" : ""} ${videoEstimate.failed ? "bad" : ""}`} aria-label="提交后等待提示">
+                <div className="mobile-submit-wait-head">
+                  <span>{videoEstimate.statusLabel}</span>
+                  <strong>{videoEstimate.resultLabel}</strong>
+                </div>
+                <div className="mobile-submit-wait-track" aria-hidden="true">
+                  <i style={{ width: `${videoEstimate.percent}%` }} />
+                </div>
+                <p>{mobileSubmitWaitDetail}</p>
+                <a className="secondary-button" href="#/libtv">
+                  <Timer size={16} />
+                  <span>查看任务</span>
+                </a>
+              </div>
+            ) : null}
+          </div>
+          {studio.promptPackage ? (
+            <>
+              <div className="prompt-package-summary" aria-label="提示词包状态">
+                <span>提示词包已准备</span>
+                <strong>{studio.promptPackage.name || "内置提示词包"}</strong>
+                <small>{studio.promptPackage.source || studio.promptPackage.type || "可直接用于生成视频"}</small>
+              </div>
+              <pre className="json-box prompt-package-debug">{JSON.stringify(studio.promptPackage, null, 2)}</pre>
+            </>
+          ) : null}
         </div>
 
         <div className="result-block mobile-video-section">
           <div className="panel-head">
-            <h2>libTV 进度</h2>
-            <span className="run-id">{videoRunning ? "处理中" : ""}</span>
+            <h2>视频生成进度</h2>
+            <span className="run-id">{videoRunning ? `${videoProgress}%` : ""}</span>
           </div>
-          <ProgressBar value={videoProgress} />
-          <StepList steps={videoSteps} emptyText="等待提交 libTV" />
+          <VideoWaitStatus estimate={videoEstimate} />
+          {!videoEstimate.visible ? (
+            <ProgressBar value={videoProgress} label={videoSteps.length || videoRunning ? `${videoProgress}%` : ""} />
+          ) : null}
+          <StepList steps={videoSteps} emptyText="等待提交视频" />
           {videoUrl ? <a className="video-link" href={videoUrl} target="_blank" rel="noreferrer">打开生成视频</a> : null}
-          {videoLog ? <pre className="log-box">{videoLog}</pre> : null}
+          <MobileVideoRecoveryCard recovery={mobileVideoRecovery} onAction={handleMobileVideoRecoveryAction} />
+          {videoLogSummary ? (
+            <>
+              <div className={`video-log-summary ${videoLogSummary.tone}`} aria-label="视频生成状态">
+                <span>{videoLogSummary.label}</span>
+                <strong>{videoLogSummary.title}</strong>
+                <small>{videoLogSummary.detail}</small>
+              </div>
+              <pre className="log-box video-log-debug">{videoLog}</pre>
+            </>
+          ) : null}
         </div>
         <ModelTraceDrawer
           open={traceOpen}
@@ -16469,7 +17093,7 @@ function StudioPage(props) {
 function MobileInputTabs({ value, onChange, studio }) {
   const promptReady = Boolean(studio.promptPackage || studio.promptPackText?.trim());
   const items = [
-    { id: "images", label: "商品图", icon: Image, meta: studio.images.length ? `${studio.images.length} 张` : "未上传" },
+    { id: "images", label: "素材图", icon: Image, meta: studio.images.length ? `${studio.images.length} 张` : "未上传" },
     { id: "prompt", label: "提示词包", icon: FileText, meta: promptReady ? "已准备" : "未填写" },
     { id: "info", label: "商品信息", icon: Info, meta: studio.productName || studio.productCategory ? "已补充" : "待补充" }
   ];
@@ -16556,9 +17180,42 @@ function MobileComplianceHints({ hints = [] }) {
   );
 }
 
+function MobileVideoRecoveryCard({ recovery, onAction }) {
+  if (!recovery) return null;
+  return (
+    <div className={`mobile-video-recovery-card ${recovery.tone}`} aria-label="视频生成补救建议">
+      <div className="mobile-video-recovery-head">
+        <span>{recovery.label}</span>
+        <strong>{recovery.title}</strong>
+        <p>{recovery.detail}</p>
+      </div>
+      {recovery.tips?.length ? (
+        <div className="mobile-video-recovery-tips">
+          {recovery.tips.map((tip) => (
+            <span key={tip}>{tip}</span>
+          ))}
+        </div>
+      ) : null}
+      <div className="mobile-video-recovery-actions">
+        {recovery.actions.map((action) => (
+          <button
+            type="button"
+            className={action.primary ? "primary-button" : "secondary-button"}
+            disabled={action.disabled}
+            key={action.id}
+            onClick={() => onAction?.(action.id)}
+          >
+            <span>{action.label}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function buildMobileInputIssues(studio) {
   const promptReady = Boolean(studio.promptPackage || studio.promptPackText?.trim());
-  const imageBlockers = studio.images?.length ? [] : ["请先上传至少一张清晰商品图。"];
+  const imageBlockers = studio.images?.length ? [] : ["请先上传至少一张清晰素材图。"];
   const promptBlockers = promptReady ? [] : ["请上传提示词包，或粘贴 SOP / 提示词包正文。"];
   const infoSuggestions = [];
   if (!String(studio.productName || "").trim()) infoSuggestions.push("商品名可选，但建议填写，方便后续查找。");
@@ -16673,7 +17330,7 @@ function buildMobileCreateSteps({ studio, promptSteps, promptRunning, videoSteps
   return [
     {
       label: "商品资料",
-      detail: hasProductImages ? `已选择 ${studio.images.length} 张商品图` : "上传商品图，补充商品名和卖点",
+      detail: hasProductImages ? `已选择 ${studio.images.length} 张素材图` : "上传商品/人物/封面参考图，补充商品名和卖点",
       status: hasProductImages ? "done" : "current"
     },
     {
@@ -16699,9 +17356,12 @@ function buildMobileCreateSteps({ studio, promptSteps, promptRunning, videoSteps
   ];
 }
 
-function MobileCreateGuide({ steps, canSubmitVideo, promptRunning, videoRunning, onOpenInput, onOpenOutput, onSubmitVideo }) {
+function MobileCreateGuide({ steps, videoEstimate, canSubmitVideo, promptRunning, videoRunning, onOpenInput, onOpenOutput, onSubmitVideo }) {
   const completedCount = steps.filter((step) => step.status === "done").length;
   const activeStep = steps.find((step) => ["current", "running", "failed"].includes(step.status)) || steps[0];
+  const nextHint = activeStep?.detail || "按提示补齐资料后继续。";
+  const submitLabel = videoRunning ? (videoEstimate?.overdue ? "排队中" : "等待结果") : "生成视频";
+  const submitTitle = videoRunning ? "视频已经提交，不用重复点击。" : "提交当前提示词和图片生成视频";
   return (
     <section className="mobile-create-guide" aria-label="手机端创建视频向导">
       <div className="mobile-create-guide-head">
@@ -16711,6 +17371,11 @@ function MobileCreateGuide({ steps, canSubmitVideo, promptRunning, videoRunning,
         </div>
         <em>{completedCount}/{steps.length}</em>
       </div>
+      <div className="mobile-create-next-hint">
+        <span>下一步</span>
+        <strong>{nextHint}</strong>
+      </div>
+      {videoEstimate?.visible ? <VideoWaitStatus estimate={videoEstimate} compact /> : null}
       <div className="mobile-create-step-list">
         {steps.map((step, index) => {
           const Icon = step.status === "done"
@@ -16740,19 +17405,29 @@ function MobileCreateGuide({ steps, canSubmitVideo, promptRunning, videoRunning,
           <FileText size={16} />
           <span>看提示词</span>
         </button>
-        <button type="button" className="primary-button" onClick={onSubmitVideo} disabled={!canSubmitVideo || videoRunning || promptRunning}>
+        <button
+          type="button"
+          className={`primary-button ${videoRunning ? "is-waiting" : ""}`}
+          onClick={onSubmitVideo}
+          disabled={!canSubmitVideo || videoRunning || promptRunning}
+          aria-busy={videoRunning}
+          title={submitTitle}
+        >
           <Video size={16} />
-          <span>{videoRunning ? "生成中" : "生成视频"}</span>
+          <span>{submitLabel}</span>
         </button>
       </div>
+      {videoRunning ? (
+        <p className="mobile-create-wait-tip">已提交生成，不用重复点击；可以切到任务页查看状态。</p>
+      ) : null}
     </section>
   );
 }
 
 function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime, modelSettings }) {
   if (!open) return null;
-  const analysisModel = resolveModelChoice(modelSettings, "analysis") || runtime?.currentModels?.analysis || "后端默认";
-  const visionModel = resolveModelChoice(modelSettings, "vision") || runtime?.currentModels?.vision || "后端默认";
+  const analysisModel = resolveModelChoice(modelSettings, "analysis") || runtime?.currentModels?.analysis || "系统默认";
+  const visionModel = resolveModelChoice(modelSettings, "vision") || runtime?.currentModels?.vision || "系统默认";
   const records = trace.length
     ? trace
     : steps.map((step) => ({
@@ -16766,7 +17441,7 @@ function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime,
   const traceTokenUsage = summarizeTokenUsage(steps, records);
   const inputSummary = [
     `提示词包字数：${studio.promptPackText?.length || 0}`,
-    `产品图片：${studio.images?.length || 0} 张${studio.images?.length ? `（${studio.images.map((image) => image.name).join("，")}）` : ""}`,
+    `素材图片：${studio.images?.length || 0} 张${studio.images?.length ? `（${studio.images.map((image) => image.name).join("，")}）` : ""}`,
     `商品名称：${studio.productName || "未填写"}`,
     `类别：${studio.productCategory || studio.suggestedCategory || "未识别"}`,
     `视频规格：${studio.targetDuration || 15} 秒，${studio.aspectRatio || "9:16"}`,
@@ -16833,376 +17508,12 @@ function ModelTraceDrawer({ open, onClose, runId, steps, trace, studio, runtime,
   );
 }
 
-function TasksPage({ rows, onRefresh, onOpenAssets }) {
-  const taskRows = rows || [];
-  return (
-    <section className="panel">
-      <TableHead title="任务看板" onRefresh={onRefresh} />
-      <MobileTaskCards rows={taskRows} onOpenAssets={onOpenAssets} />
-      <div className="table-wrap task-board-table">
-        <table>
-          <thead>
-            <tr>
-              <th>任务编号</th>
-              <th>最终视频名称</th>
-              <th>类别</th>
-              <th>商品名称</th>
-              <th>任务状态</th>
-              <th>libTV 状态</th>
-              <th>更新时间</th>
-              <th>素材</th>
-            </tr>
-          </thead>
-          <tbody>
-            {taskRows.map((row) => (
-              <tr key={row["任务编号"]}>
-                <td>{row["任务编号"]}</td>
-                <td>{row["最终视频名称"]}</td>
-                <td>{row["类别"]}</td>
-                <td>{row["商品名称"]}</td>
-                <td><StatusBadge value={row["任务状态"]} /></td>
-                <td><StatusBadge value={row["libTV状态"]} /></td>
-                <td>{formatDate(row["更新时间"])}</td>
-                <td><button className="icon-button" onClick={() => onOpenAssets(row["任务编号"])} title="查看素材"><FolderOpen size={16} /></button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
+function taskDisplayName(row = {}) {
+  return row["最终视频名称"] || row["商品名称"] || "未命名任务";
 }
 
-function LibtvPage({ rows, onRefresh }) {
-  const jobRows = rows || [];
-  return (
-    <section className="panel">
-      <TableHead title="libTV 任务" onRefresh={onRefresh} />
-      <MobileLibtvCards rows={jobRows} />
-      <div className="table-wrap libtv-table">
-        <table>
-          <thead>
-            <tr>
-              <th>任务编号</th>
-              <th>最终视频名称</th>
-              <th>状态</th>
-              <th>外部任务 ID</th>
-              <th>视频链接</th>
-              <th>完成时间</th>
-              <th>错误信息</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobRows.map((row) => (
-              <tr key={`${row["任务编号"]}-${row["外部任务ID"]}`}>
-                <td>{row["任务编号"]}</td>
-                <td>{row["最终视频名称"]}</td>
-                <td><StatusBadge value={row["libTV状态"]} /></td>
-                <td>{row["外部任务ID"] || "-"}</td>
-                <td>{row["视频链接"] ? <a href={row["视频链接"]} target="_blank" rel="noreferrer">打开</a> : "-"}</td>
-                <td>{formatDate(row["完成时间"])}</td>
-                <td>{cleanDisplayMessage(row["错误信息"]) || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function MobileTaskCards({ rows = [], onOpenAssets }) {
-  return (
-    <div className="mobile-task-card-list" aria-label="手机端任务卡片">
-      {rows.length ? rows.map((row) => {
-        const taskCode = row["任务编号"] || "-";
-        return (
-          <article className="mobile-task-card" key={taskCode}>
-            <div className="mobile-task-card-head">
-              <div>
-                <strong>{row["最终视频名称"] || taskCode}</strong>
-                <span>{taskCode} / {row["类别"] || "未分类"}</span>
-              </div>
-              <StatusBadge value={row["任务状态"]} />
-            </div>
-            <div className="mobile-task-card-body">
-              <div>
-                <span>商品</span>
-                <strong>{row["商品名称"] || "-"}</strong>
-              </div>
-              <div>
-                <span>libTV</span>
-                <StatusBadge value={row["libTV状态"]} />
-              </div>
-              <div>
-                <span>更新</span>
-                <strong>{formatDate(row["更新时间"])}</strong>
-              </div>
-            </div>
-            <div className="mobile-task-card-actions">
-              <button type="button" className="secondary-button" onClick={() => onOpenAssets(taskCode)}>
-                <FolderOpen size={16} />
-                <span>素材</span>
-              </button>
-            </div>
-          </article>
-        );
-      }) : <div className="mobile-empty-card">暂无任务记录</div>}
-    </div>
-  );
-}
-
-function MobileLibtvCards({ rows = [] }) {
-  return (
-    <div className="mobile-task-card-list mobile-libtv-card-list" aria-label="手机端 libTV 任务卡片">
-      {rows.length ? rows.map((row) => {
-        const taskCode = row["任务编号"] || "-";
-        const videoUrl = row["视频链接"] || "";
-        const errorMessage = cleanDisplayMessage(row["错误信息"]);
-        return (
-          <article className="mobile-task-card mobile-libtv-card" key={`${taskCode}-${row["外部任务ID"] || ""}`}>
-            <div className="mobile-task-card-head">
-              <div>
-                <strong>{row["最终视频名称"] || taskCode}</strong>
-                <span>{taskCode} / {row["外部任务ID"] || "未返回外部 ID"}</span>
-              </div>
-              <StatusBadge value={row["libTV状态"]} />
-            </div>
-            <div className="mobile-task-card-body">
-              <div>
-                <span>完成</span>
-                <strong>{formatDate(row["完成时间"])}</strong>
-              </div>
-              <div>
-                <span>错误</span>
-                <strong>{errorMessage || "-"}</strong>
-              </div>
-            </div>
-            {videoUrl ? (
-              <div className="mobile-task-card-actions">
-                <a className="secondary-button" href={videoUrl} target="_blank" rel="noreferrer">
-                  <Video size={16} />
-                  <span>打开视频</span>
-                </a>
-              </div>
-            ) : null}
-          </article>
-        );
-      }) : <div className="mobile-empty-card">暂无 libTV 任务</div>}
-    </div>
-  );
-}
-
-function AssetsPage({ tasks, taskCode, setTaskCode, data, onRefresh, addNotification }) {
-  const assetRows = data.rows || [];
-  const outputFiles = data.outputFiles || [];
-  async function copyAssetText(value, label = "素材路径") {
-    const text = String(value || "").trim();
-    if (!text) {
-      addNotification?.({ level: "warn", title: "没有可复制内容", message: `${label}为空。`, target: "assets" });
-      return;
-    }
-    try {
-      await copyTextToClipboard(text);
-      addNotification?.({ level: "success", title: "已复制", message: label, target: "assets" });
-    } catch (error) {
-      addNotification?.({ level: "error", title: "复制失败", message: error.message, target: "assets" });
-    }
-  }
-  return (
-    <section className="panel assets-panel">
-      <div className="panel-head">
-        <div>
-          <h2>素材与输出</h2>
-          <p className="panel-note">查看提示词、商品图、本地视频和拼接产出。</p>
-        </div>
-        <div className="button-row assets-actions">
-          <select className="assets-select" value={taskCode} onChange={(event) => setTaskCode(event.target.value)}>
-            <option value="">全部任务</option>
-            {tasks.map((task) => <option value={task["任务编号"]} key={task["任务编号"]}>{task["任务编号"]}</option>)}
-          </select>
-          <button className="secondary-button assets-refresh" onClick={onRefresh}><RefreshCw size={16} /><span>刷新</span></button>
-        </div>
-      </div>
-      <MobileAssetCards rows={assetRows} outputFiles={outputFiles} onCopy={copyAssetText} />
-      <div className="table-wrap assets-table">
-        <table>
-          <thead>
-            <tr>
-              <th>任务编号</th>
-              <th>类型</th>
-              <th>格式</th>
-              <th>大小</th>
-              <th>本地路径</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assetRows.map((row, index) => (
-              <tr key={`${row.file_path}-${index}`}>
-                <td>{row.task_code || "-"}</td>
-                <td>{row.asset_type}</td>
-                <td>{row.format || "-"}</td>
-                <td>{formatBytes(row.size_bytes)}</td>
-                <td className="path-cell">{row.file_path || row.file_url || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <h3 className="subhead">本地视频输出</h3>
-      <div className="table-wrap assets-table output-files-table">
-        <table>
-          <thead>
-            <tr>
-              <th>文件名</th>
-              <th>大小</th>
-              <th>更新时间</th>
-              <th>路径</th>
-            </tr>
-          </thead>
-          <tbody>
-            {outputFiles.map((file) => (
-              <tr key={file.path}>
-                <td>{file.name}</td>
-                <td>{formatBytes(file.size)}</td>
-                <td>{formatDate(file.updatedAt)}</td>
-                <td className="path-cell">{file.path}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function MobileAssetCards({ rows = [], outputFiles = [], onCopy }) {
-  return (
-    <div className="mobile-assets-view" aria-label="手机端素材卡片">
-      <section className="mobile-assets-section">
-        <div className="mobile-assets-section-head">
-          <strong>素材记录</strong>
-          <span>{rows.length} 条</span>
-        </div>
-        <div className="mobile-asset-card-list">
-          {rows.length ? rows.map((row, index) => {
-            const source = row.file_url || row.file_path || "";
-            const previewUrl = isRenderableSource(row.file_url || "") && isImageAsset(row, source) ? row.file_url : "";
-            return (
-              <article className={previewUrl ? "mobile-asset-card has-preview" : "mobile-asset-card"} key={`${source}-${index}`}>
-                {previewUrl ? (
-                  <div className="mobile-asset-preview">
-                    <img src={previewUrl} alt={row.asset_type || "素材预览"} loading="lazy" />
-                  </div>
-                ) : (
-                  <div className="mobile-asset-icon">
-                    {isImageAsset(row, source) ? <Image size={18} /> : <FolderOpen size={18} />}
-                  </div>
-                )}
-                <div className="mobile-asset-copy">
-                  <strong>{row.asset_type || "素材"}</strong>
-                  <span>{row.task_code || "未绑定任务"} / {row.format || "未知格式"} / {formatBytes(row.size_bytes)}</span>
-                  <p title={source}>{source || "暂无路径"}</p>
-                </div>
-                <div className="mobile-asset-actions">
-                  {source ? (
-                    <button type="button" className="mobile-asset-action" onClick={() => onCopy?.(source, "素材路径")} aria-label="复制素材路径">
-                      <Copy size={16} />
-                    </button>
-                  ) : null}
-                  {previewUrl ? (
-                    <a className="mobile-asset-open" href={previewUrl} target="_blank" rel="noreferrer" aria-label="打开素材预览">
-                      <Download size={16} />
-                    </a>
-                  ) : null}
-                </div>
-              </article>
-            );
-          }) : <div className="mobile-empty-card">暂无素材记录</div>}
-        </div>
-      </section>
-
-      <section className="mobile-assets-section">
-        <div className="mobile-assets-section-head">
-          <strong>视频输出</strong>
-          <span>{outputFiles.length} 个</span>
-        </div>
-        <div className="mobile-asset-card-list">
-          {outputFiles.length ? outputFiles.map((file) => {
-            const canPreviewVideo = isRenderableSource(file.url || "") && isVideoSource(file.name || file.path || file.url);
-            const copyTarget = file.url || file.path || "";
-            return (
-              <article className={canPreviewVideo ? "mobile-asset-card mobile-output-card has-video-preview" : "mobile-asset-card mobile-output-card"} key={file.path || file.name}>
-                {canPreviewVideo ? (
-                  <video className="mobile-video-preview" src={file.url} controls preload="metadata" />
-                ) : (
-                  <div className="mobile-asset-icon">
-                    <Video size={18} />
-                  </div>
-                )}
-                <div className="mobile-asset-copy">
-                  <strong title={file.name}>{file.name}</strong>
-                  <span>{file.kind || "output"} / {formatBytes(file.size)} / {formatDate(file.updatedAt)}</span>
-                  <p title={file.path}>{file.path || "暂无路径"}</p>
-                </div>
-                <div className="mobile-asset-actions">
-                  {copyTarget ? (
-                    <button type="button" className="mobile-asset-action" onClick={() => onCopy?.(copyTarget, "视频链接或路径")} aria-label={`复制 ${file.name}`}>
-                      <Copy size={16} />
-                    </button>
-                  ) : null}
-                  {file.url ? (
-                    <a className="mobile-asset-open" href={file.url} target="_blank" rel="noreferrer" aria-label={`打开 ${file.name}`}>
-                      <Download size={16} />
-                    </a>
-                  ) : null}
-                </div>
-              </article>
-            );
-          }) : <div className="mobile-empty-card">暂无视频输出</div>}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function isRenderableSource(value) {
-  return /^(https?:\/\/|\/|data:|blob:)/i.test(String(value || ""));
-}
-
-function isImageAsset(row = {}, source = "") {
-  const text = `${row.asset_type || ""} ${row.format || ""} ${source || ""}`;
-  return /image|图片|png|jpe?g|webp|gif|avif/i.test(text);
-}
-
-function isVideoSource(value = "") {
-  return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(String(value || ""));
-}
-
-async function copyTextToClipboard(text) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  const ok = document.execCommand("copy");
-  document.body.removeChild(textarea);
-  if (!ok) throw new Error("当前浏览器不允许写入剪贴板。");
-}
-
-function TableHead({ title, onRefresh }) {
-  return (
-    <div className="panel-head">
-      <h2>{title}</h2>
-      <button className="secondary-button" onClick={onRefresh}><RefreshCw size={16} /><span>刷新</span></button>
-    </div>
-  );
+function taskDisplayLabel(_row = {}, index = 0) {
+  return `任务 ${index + 1}`;
 }
 
 function StepList({ steps, emptyText }) {
@@ -17229,10 +17540,69 @@ function StepList({ steps, emptyText }) {
   );
 }
 
-function ProgressBar({ value }) {
+function VideoWaitStatus({ estimate, compact = false }) {
+  if (!estimate?.visible) return null;
+  const cardClassName = [
+    "video-wait-card",
+    compact ? "compact" : "",
+    estimate.running ? "running" : "",
+    estimate.completed ? "completed" : "",
+    estimate.failed ? "failed" : "",
+    estimate.overdue ? "overdue" : ""
+  ].filter(Boolean).join(" ");
+  const remainingTitle = estimate.overdue ? "当前状态" : "预计剩余";
+  const remainingValue = estimate.running ? estimate.remainingLabel : estimate.resultLabel;
   return (
-    <div className="progress-track">
-      <div className="progress-bar" style={{ width: `${value}%` }} />
+    <div className={cardClassName} role="status" aria-live="polite">
+      <div className="video-wait-head">
+        <div>
+          <span>{estimate.statusLabel}</span>
+          <strong>{estimate.percent}%</strong>
+        </div>
+        <em>{estimate.headlineLabel}</em>
+      </div>
+      <div className="video-wait-meter" aria-hidden="true">
+        <span style={{ width: `${estimate.percent}%` }} />
+      </div>
+      <div className="video-wait-current-note">{estimate.currentNote}</div>
+      {estimate.phases?.length ? (
+        <div className="video-wait-phases" aria-label="视频生成阶段">
+          {estimate.phases.map((phase) => (
+            <span className={`video-wait-phase ${phase.status}`} key={phase.key}>
+              <em>{phase.index}</em>
+              <strong>{phase.label}</strong>
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="video-wait-stats">
+        <span>
+          <small>{remainingTitle}</small>
+          <strong>{remainingValue}</strong>
+        </span>
+        <span>
+          <small>已等待</small>
+          <strong>{estimate.elapsedLabel}</strong>
+        </span>
+        <span>
+          <small>视频时长</small>
+          <strong>{estimate.durationLabel}</strong>
+        </span>
+      </div>
+      <div className="video-wait-meta">{estimate.estimateLabel}</div>
+      <p>{estimate.helpText}</p>
+    </div>
+  );
+}
+
+function ProgressBar({ value, label = "" }) {
+  const percent = clampPercent(value);
+  return (
+    <div className="progress-wrap">
+      <div className="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={percent}>
+        <div className="progress-bar" style={{ width: `${percent}%` }} />
+      </div>
+      {label ? <span className="progress-label">{label}</span> : null}
     </div>
   );
 }
@@ -17333,6 +17703,198 @@ function progressPercent(steps) {
   const running = steps.filter((step) => step.status === "running").length;
   const cancelled = steps.filter((step) => step.status === "cancelled").length;
   return Math.min(100, Math.round(((done + running * 0.45 + cancelled * 0.2) / steps.length) * 100));
+}
+
+function lastTruthyIndex(items = []) {
+  let result = -1;
+  items.forEach((item, index) => {
+    if (item) result = index;
+  });
+  return result;
+}
+
+function buildVideoWaitPhases({ steps = [], running = false, completed = false, failed = false, mode = "run" } = {}) {
+  const stepText = steps
+    .map((step) => `${step.name || ""}\n${step.message || ""}\n${step.output || ""}\n${step.status || ""}`)
+    .join("\n");
+  const hasSubmit = running || completed || failed || steps.length > 0;
+  const hasQueue = completed || failed || /提交|创建|任务|queued|queue|排队|等待|外部|job|准备/i.test(stepText);
+  const hasGenerate = completed || failed || /生成|processing|running|progress|进度|seedance|libTV|视频|返回/i.test(stepText);
+  const hasReturn = completed || /完成|成功|返回|video_url|视频链接|ready/i.test(stepText);
+  const labels = mode === "dry_run"
+    ? ["提交验证", "验证参数", "检查链路", "返回结果"]
+    : ["提交任务", "等待排队", "生成视频", "返回结果"];
+  const hits = [hasSubmit, hasQueue, hasGenerate, hasReturn || failed];
+  const activeIndex = failed
+    ? Math.max(0, lastTruthyIndex(hits))
+    : completed
+      ? 3
+      : hasGenerate
+        ? 2
+        : hasQueue
+          ? 1
+          : hasSubmit
+            ? 0
+            : -1;
+  return labels.map((label, index) => ({
+    key: ["submit", "queue", "generate", "return"][index],
+    label,
+    index: String(index + 1).padStart(2, "0"),
+    status: failed && index === activeIndex
+      ? "failed"
+      : completed || index < activeIndex
+        ? "done"
+        : index === activeIndex
+          ? "current"
+          : "pending"
+  }));
+}
+
+function buildVideoLogSummary({ videoLog = "", videoUrl = "", videoSteps = [], videoRunning = false } = {}) {
+  if (!String(videoLog || "").trim()) return null;
+  const failed = videoSteps.some((step) => step.status === "failed");
+  if (videoUrl) {
+    return {
+      tone: "done",
+      label: "视频已生成",
+      title: "可以打开结果视频",
+      detail: "原始任务日志已收起，下载或复用素材可到资产页查看。"
+    };
+  }
+  if (failed) {
+    const failedStep = videoSteps.find((step) => step.status === "failed");
+    return {
+      tone: "warn",
+      label: "需要处理",
+      title: failedStep?.name || "视频生成遇到问题",
+      detail: failedStep?.message || "请按上方步骤提示调整素材或提示词后重试。"
+    };
+  }
+  if (videoRunning) {
+    return {
+      tone: "running",
+      label: "正在生成",
+      title: "后台还在处理视频",
+      detail: "保持页面打开即可，完成后会显示视频入口。"
+    };
+  }
+  return {
+    tone: "info",
+    label: "已有记录",
+    title: "后台返回了任务记录",
+    detail: "手机端已隐藏技术日志，继续查看上方进度或到任务中心确认结果。"
+  };
+}
+
+function buildVideoGenerationEstimate({ steps = [], running = false, targetDuration = 15, mode = "run", hasVideo = false, now = Date.now() }) {
+  const failed = steps.some((step) => step.status === "failed");
+  const completed = hasVideo || steps.some((step) => step.status === "done" && /完成|成功|返回|libTV/i.test(`${step.name} ${step.message}`));
+  const firstTime = firstStepTime(steps);
+  const elapsedSeconds = firstTime ? Math.max(0, Math.floor((now - firstTime) / 1000)) : 0;
+  const targetSeconds = boundedNumberValue(targetDuration, 15, 4, 15);
+  const estimatedSeconds = estimateVideoWaitSeconds(targetSeconds, mode);
+  const timePercent = firstTime ? Math.min(96, Math.round((elapsedSeconds / Math.max(estimatedSeconds, 1)) * 96)) : 0;
+  const realPercent = extractProgressPercentFromSteps(steps);
+  const stepPercent = progressPercent(steps);
+  const percent = completed
+    ? 100
+    : failed
+      ? Math.max(realPercent, stepPercent)
+      : running
+        ? clampPercent(Math.max(8, realPercent, stepPercent, timePercent))
+        : clampPercent(Math.max(realPercent, stepPercent));
+  const remainingSeconds = completed || failed
+    ? 0
+    : Math.max(0, estimatedSeconds - elapsedSeconds);
+  const overdue = running && elapsedSeconds > estimatedSeconds;
+  const phases = buildVideoWaitPhases({ steps, running, completed, failed, mode });
+  const activePhase = phases.find((phase) => phase.status === "current" || phase.status === "failed");
+  return {
+    visible: running || completed || failed || steps.length > 0,
+    running,
+    completed,
+    failed,
+    overdue,
+    percent,
+    elapsedSeconds,
+    estimatedSeconds,
+    remainingSeconds,
+    elapsedLabel: formatShortDuration(elapsedSeconds),
+    remainingLabel: overdue ? "排队中" : formatShortDuration(remainingSeconds),
+    estimateLabel: overdue ? "已超过预估，但任务还在等待返回" : `预估 ${formatShortDuration(estimatedSeconds)}`,
+    durationLabel: `${targetSeconds} 秒视频`,
+    phases,
+    currentPhaseLabel: activePhase?.label || "",
+    statusLabel: completed ? "视频已完成" : failed ? "生成未完成" : mode === "dry_run" ? "正在验证参数" : activePhase?.label ? `正在${activePhase.label}` : "正在生成视频",
+    headlineLabel: completed ? "完成" : failed ? "需处理" : overdue ? "仍在排队" : running ? `约剩 ${formatShortDuration(remainingSeconds)}` : `${percent}%`,
+    resultLabel: completed ? "100%" : failed ? "需处理" : `${percent}%`,
+    currentNote: completed
+      ? "结果已返回，可以打开视频或到资产页下载。"
+      : failed
+        ? "请根据失败提示调整素材或提示词后重试。"
+        : overdue
+          ? "排队时间比预估更久，页面会继续自动等待结果。"
+          : running
+            ? `当前阶段：${activePhase?.label || "生成视频"}，页面会自动更新。`
+            : "准备好后点击生成视频。",
+    helpText: completed
+      ? "视频结果已经返回，可以打开查看或去素材页继续处理。"
+      : failed
+        ? "任务没有完成，请查看下方失败原因或到任务中心处理。"
+        : overdue
+          ? "生成时间受排队和模型负载影响，页面会继续等待结果。"
+          : "这是根据视频秒数和当前阶段估算的进度，真实结果返回后会自动完成。"
+  };
+}
+
+function firstStepTime(steps = []) {
+  return steps
+    .map((step) => new Date(step.at || "").getTime())
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((left, right) => left - right)[0] || 0;
+}
+
+function estimateVideoWaitSeconds(targetDuration = 15, mode = "run") {
+  if (mode === "dry_run") return 24;
+  if (mode === "submit") return 42;
+  const seconds = boundedNumberValue(targetDuration, 15, 4, 15);
+  return Math.round(58 + seconds * 11);
+}
+
+function extractProgressPercentFromSteps(steps = []) {
+  const values = [];
+  for (const step of steps) {
+    const text = `${step.name || ""}\n${step.message || ""}\n${step.output || ""}`;
+    for (const match of text.matchAll(/(?:progress|进度)\s*[:=：]?\s*(\d+(?:\.\d+)?)\s*%?/gi)) {
+      const value = Number(match[1]);
+      if (Number.isFinite(value)) values.push(value <= 1 ? value * 100 : value);
+    }
+    for (const match of text.matchAll(/(\d{1,3}(?:\.\d+)?)\s*%/g)) {
+      const value = Number(match[1]);
+      if (Number.isFinite(value)) values.push(value);
+    }
+  }
+  return clampPercent(Math.max(0, ...values));
+}
+
+function boundedNumberValue(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function clampPercent(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return 0;
+  return Math.min(100, Math.max(0, Math.round(number)));
+}
+
+function formatShortDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  if (!minutes) return `${rest}秒`;
+  return `${minutes}分${String(rest).padStart(2, "0")}秒`;
 }
 
 function truncate(value, max) {

@@ -30,6 +30,8 @@ GENERATION_KEYS = (
     "enable_sound",
     "count",
     "team_id",
+    "project_id",
+    "project_name",
     "node_name",
     "auto_compliance",
     "search_enabled",

@@ -4,7 +4,7 @@
 
 旧版 `POST /openapi/session` 现在只返回“已升级为 LibTV CLI”的提示，所以真实生成使用官方 `libtv` CLI：
 
-- `libtv project create`：创建画布项目
+- `libtv project create`：首次创建共享画布项目
 - `libtv node create ... -t video -r`：创建视频节点并触发生成
 - `libtv node <node>`：轮询节点，读取视频 URL
 - `libtv download`：可选下载生成结果
@@ -61,6 +61,15 @@ py -3 .\libtv_runner\libtv_cli_db_runner.py submit --task-code PROD-001 --dry-ru
 py -3 .\libtv_runner\libtv_cli_db_runner.py submit --task-code PROD-001
 ```
 
+默认情况下，所有新任务复用同一个 `AI视频工作台` 项目，并按任务编号创建画布分组。这样 LibTV 的“视频”分类下只需要维护一个项目，不会每生成一条视频就新增一个项目。可通过以下环境变量固定项目：
+
+```env
+LIBTV_SHARED_PROJECT_NAME=AI视频工作台
+LIBTV_SHARED_PROJECT_UUID=<首次创建后返回的项目 UUID>
+```
+
+已有任务如果已经保存了 `video_tasks.libtv_project_id`，仍会继续使用原项目，避免影响历史节点和轮询。只有显式传入 `--per-task-project` 时，才恢复每个任务单独建项目的旧行为。
+
 脚本会写回：
 
 - `libtv_jobs.external_job_id` = LibTV `nodeKey` 或节点名
@@ -89,4 +98,4 @@ py -3 .\libtv_runner\libtv_cli_db_runner.py poll --task-code PROD-001
 py -3 .\libtv_runner\libtv_cli_db_runner.py run --task-code PROD-001 --download
 ```
 
-默认模型是 `star-video2`，参数是 `9:16`、`15` 秒、`720p`、无声音。可以用 `--model`、`--duration`、`--ratio`、`--resolution` 覆盖。
+默认模型是 `star-video2`，参数是 `9:16`、`15` 秒、`720p`、开启声音。可以用 `--model`、`--duration`、`--ratio`、`--resolution`、`--enable-sound` 覆盖。

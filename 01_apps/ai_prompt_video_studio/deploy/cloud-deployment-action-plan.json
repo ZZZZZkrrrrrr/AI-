@@ -200,6 +200,51 @@
       ]
     },
     {
+      "id": "text-image-canvas-storage",
+      "order": 4.5,
+      "title": "Text-image canvas storage and metadata migration",
+      "owner": "platform",
+      "status": "design-ready-waiting-storage-adapter",
+      "objective": "Keep text-to-image outputs, canvas nodes, prompts, and AI evidence metadata durable and tenant-safe before opening the feature to external users.",
+    "warningMappings": [
+      "IMAGE_OUTPUT_DIR writes to local workspace outputs",
+      "text_image_canvas_nodes is stored in SQLite",
+      "video_task_source_links is stored in SQLite",
+      "Text-image generated files need object storage migration"
+    ],
+      "inputs": [
+        "Object storage bucket or mounted persistent media volume",
+        "Image retention and deletion policy",
+      "PostgreSQL target tables for text_image_canvas_nodes and video_task_source_links",
+      "Evidence-pack linkage for generated image nodes"
+    ],
+      "productionValues": [
+        "TEXT_IMAGE_STORAGE_MODE=mounted-volume for private pilot",
+      "TEXT_IMAGE_STORAGE_MODE=object-storage for public release",
+      "TEXT_IMAGE_BUCKET=ai-video-studio-generated-images",
+      "TEXT_IMAGE_CANVAS_TABLE=text_image_canvas_nodes",
+      "TEXT_IMAGE_TASK_SOURCE_TABLE=video_task_source_links",
+      "TEXT_IMAGE_OUTPUT_PREFIX=text-to-image/{tenantId}/{ownerUserId}/"
+    ],
+      "evidence": [
+        "npm run text-image:check verifies the account-level canvas behavior before and after storage changes",
+        "cloud:check reports the text-image storage migration workstream is present",
+      "Generated image files are stored in persistent media storage, not ephemeral deployment directories",
+      "Canvas nodes keep owner_user_id and future tenant_id ownership fields",
+      "Video task source links keep task_code, source_type, source_id, and owner_user_id traceability fields",
+      "GET /api/task-source-links and account export return textImageSourceLinks for the current account only",
+      "Deleting a canvas node does not delete the underlying media unless a separate retention action is confirmed",
+      "AI evidence packs can reference textImageCanvasNodeId before generated images are reused in video workflows"
+    ],
+      "nextActions": [
+      "Keep local IMAGE_OUTPUT_DIR only for desktop/private pilot",
+      "Add a storage adapter before multi-user public launch",
+      "Move text_image_canvas_nodes and video_task_source_links from SQLite to PostgreSQL with tenant_id, owner_user_id, object_key, prompt_hash, task_code, source_type, source_id, and deleted_at",
+      "Add lifecycle cleanup for orphaned image files after retention expires",
+      "Link text-image nodes to AI evidence packs and account export"
+    ]
+    },
+    {
       "id": "production-execution-switches",
       "order": 5,
       "title": "Production execution switches and limits",

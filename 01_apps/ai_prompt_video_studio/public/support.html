@@ -10,9 +10,9 @@
   <body>
     <main class="legal-shell">
       <header class="legal-header">
-        <span class="legal-kicker">AI 视频工作台</span>
-        <h1>帮助与支持</h1>
-        <p>这里提供账号、生成任务、素材、隐私、安装和应用商店审核相关的支持入口，适用于手机网页、PWA、封装 App 用户和审核人员。</p>
+        <span class="legal-kicker">帮助中心</span>
+        <h1>遇到问题先点这里</h1>
+        <p>这里把安装、生成、素材、账号和审核说明放在一起。手机端用户不用理解技术原因，先按问题类型进入对应处理方式。</p>
         <div class="legal-meta">
           <span>版本：内测发布准备版</span>
           <span>更新日期：2026-06-10</span>
@@ -27,27 +27,60 @@
         <a href="/legal/ai-disclosure.html">AI 生成说明</a>
       </nav>
 
-      <section class="legal-card legal-warning">
-        <h2>正式发布前需要替换</h2>
-        <p>公开上架前，请将本页部署到真实 HTTPS 域名，并在应用商店材料中填写真实支持邮箱、联系电话、隐私政策 URL、账号删除 URL 和审核测试账号。内测阶段可以先通过 App 内“我的”页面导出数据或提交删除账号申请。</p>
+      <section class="legal-card support-quick-panel" aria-label="常见问题快捷排查">
+        <div>
+          <span class="legal-kicker">先选问题</span>
+          <h2>你现在遇到什么？</h2>
+        </div>
+        <div class="support-action-grid">
+          <a class="support-action-card" href="/install.html">
+            <strong>打不开 / 不会安装</strong>
+            <small>按手机系统一步步安装到桌面。</small>
+          </a>
+          <a class="support-action-card" href="#task-stuck">
+            <strong>生成卡住</strong>
+            <small>先刷新任务中心，再看生成状态。</small>
+          </a>
+          <a class="support-action-card" href="#asset-help">
+            <strong>素材找不到</strong>
+            <small>去“资产”页按任务查看和下载。</small>
+          </a>
+          <a class="support-action-card" href="#result-help">
+            <strong>结果不满意</strong>
+            <small>补充图片、卖点和禁用表达后重试。</small>
+          </a>
+          <a class="support-action-card" href="#account-help">
+            <strong>账号 / 数据</strong>
+            <small>导出数据或提交删除申请。</small>
+          </a>
+          <a class="support-action-card" href="#review-help">
+            <strong>审核 / 合作</strong>
+            <small>查看给审核人员看的说明。</small>
+          </a>
+        </div>
       </section>
 
-      <section class="legal-section">
+      <section class="legal-card support-status-card">
+        <h2>联系与处理说明</h2>
+        <p>内测阶段可以先在 App 的“我的”页面提交反馈，建议附上截图、账号名、任务时间和你点了哪个按钮。正式公开发布时，本页会同步展示可联系的支持邮箱、电话和处理时限。</p>
+      </section>
+
+      <section class="legal-section" id="install-help">
         <h2>安装与打开</h2>
         <p>手机用户可以先访问 <a href="https://www.zkraiflow.top/">https://www.zkraiflow.top/</a>，再按 <a href="/install.html">安装到手机桌面</a> 页面操作。安装后从桌面图标进入，体验会更接近 App。</p>
       </section>
 
       <section class="legal-section">
         <h2>常见问题</h2>
-        <h3>生成任务一直处理中</h3>
-        <p>请先在 App 的任务列表中刷新，确认任务状态是否已经更新。如果任务长时间停留在处理中，通常与模型服务、libTV worker、队列并发或视频生成额度有关。</p>
-        <h3>上传图片或素材失败</h3>
+        <h3 id="task-stuck">生成任务一直处理中</h3>
+        <p>请先在 App 的“任务中心”刷新状态。如果仍然没有变化，通常是生成服务排队、视频通道暂时不可用或额度不足。你可以先返回创意页继续准备下一条素材。</p>
+        <h3 id="asset-help">上传图片或素材失败</h3>
         <p>请确认文件格式、大小和网络连接。移动端建议优先使用常见图片格式，并避免一次上传过多大文件。</p>
-        <h3>AI 生成结果不符合预期</h3>
+        <h3 id="result-help">AI 生成结果不符合预期</h3>
         <p>请在创建页补充商品信息、使用场景、禁用表达和审核要求。发布前应人工复核生成的视频、文案、商品卖点和版权风险。</p>
       </section>
 
-      <section class="legal-section">
+      <section class="legal-section" id="account-help">
         <h2>账号与数据</h2>
         <ul>
           <li>已登录用户可以在 App 的“我的”页面导出账号数据摘要。</li>
@@ -57,7 +90,7 @@
         </ul>
       </section>
 
-      <section class="legal-section">
+      <section class="legal-section" id="review-help">
         <h2>审核人员说明</h2>
         <p>本产品用于把商品资料、图片和运营要求整理成 AI 短视频生产任务。移动端重点路径包括登录、创建任务、查看素材、查看生成状态、下载或预览结果、导出数据和提交删除账号申请。</p>
         <p>如需审核测试账号、公开视频、国内备案信息或正式联系方式，请以上架材料中的最终信息为准。</p>

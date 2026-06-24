@@ -134,7 +134,17 @@ export function buildAiDisclosureEvidencePack({
       images: images.map((image) => ({
         name: image.name || "",
         type: image.type || "",
-        size: Number(image.size || 0)
+        size: Number(image.size || 0),
+        sourceType: image.sourceType || "",
+        sourceUrl: image.sourceUrl || "",
+        textImageCanvasNodeId: image.textImageCanvasNodeId || "",
+        textImageRunId: image.textImageRunId || "",
+        textImagePromptPreview: compactEvidenceText(image.textImagePrompt, 500),
+        textImageNegativePromptPreview: compactEvidenceText(image.textImageNegativePrompt, 300),
+        textImageModel: image.textImageModel || "",
+        textImageSize: image.textImageSize || "",
+        textImageCreatedAt: image.textImageCreatedAt || "",
+        textImageLinkedAt: image.textImageLinkedAt || ""
       }))
     },
     outputSummary: {

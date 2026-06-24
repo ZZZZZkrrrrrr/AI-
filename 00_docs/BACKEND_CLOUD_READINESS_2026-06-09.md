@@ -15,6 +15,7 @@
 - 已新增公开合规页面和 `npm run compliance:check`，发布前可以检查隐私政策、用户协议、AI 生成内容说明、PWA 缓存和设置页入口。
 - 已新增 `npm run release:check`，串起合规页面检查、云端严格审计、截图计划、商店材料检查和 App 健康检查。
 - 已新增账号数据摘要导出接口、删除账号申请记录接口和管理员数据权利审核队列，满足后续 App 上架对数据权利入口和处理闭环的基础要求。
+- 2026-06-12 已把文生图新增的 `outputs/text-to-image`、`text_image_canvas_nodes` 和 `video_task_source_links` 纳入云端化计划：`deploy/cloud-deployment-action-plan.json` 新增 `text-image-canvas-storage`，`npm run cloud:check` 会检查该工作流和生产运行手册是否覆盖文生图存储与来源关联迁移。
 
 本轮验证结果：
 
@@ -30,6 +31,7 @@
 - `LIBTV_REGISTER_SCRIPT` 仍是 Windows 本机路径，需要改成 Worker 内部路径、容器路径或服务调用。
 - `LIBTV_DB_PATH` 仍是 Windows 本机 SQLite 路径，需要迁移到托管数据库或 Worker 可访问的持久卷。
 - `RUN_STORAGE_DIR` 未设置，生产环境应改为挂载卷或对象存储方案。
+- 文生图当前仍写入本地 `outputs/text-to-image`，画布节点和视频任务来源关联仍在 SQLite `text_image_canvas_nodes`、`video_task_source_links`；公开多用户发布前需要迁移到对象存储 + PostgreSQL，并让证据包引用 `textImageCanvasNodeId` 和任务来源关联记录。
 - `LIBTV_DEFAULT_DRY_RUN=true`，真实出片前需要明确切换为实际执行模式。
 
 ## 2. 当前后端定位
@@ -56,7 +58,7 @@ HTTPS Domain / CDN / Reverse Proxy
 Node API Service
         |
         +--> PostgreSQL: users, projects, tasks, assets, usage, audit logs
-        +--> Object Storage: images, prompts, generated videos, evidence packs
+        +--> Object Storage: images, prompts, text-image outputs, generated videos, evidence packs
         +--> Queue: AI analysis, prompt generation, video generation, stitching
         +--> Worker Service
               |
@@ -121,6 +123,8 @@ Node API Service
 - `generation_tasks`
 - `task_events`
 - `video_outputs`
+- `text_image_canvas_nodes`
+- `text_image_outputs`
 - `compliance_checks`
 - `evidence_packs`
 - `usage_ledger`
@@ -133,6 +137,13 @@ Node API Service
 - `created_at`
 - `updated_at`
 - `deleted_at`
+
+文生图迁移要求：
+
+- 图片文件迁移到对象存储或持久化媒体卷，数据库只保存 `object_key`、`mime`、`size`、`hash`、`owner_user_id`、`tenant_id` 和保留期。
+- `text_image_canvas_nodes` 从 SQLite 迁移到 PostgreSQL，继续保留节点位置、尺寸、提示词摘要、模型、生成时间和图片引用。
+- 节点删除应先做软删除或画布解除关联，不应默认删除底层图片，避免误删素材。
+- 图片被送入视频生成时，AI 证据包必须记录 `textImageCanvasNodeId`、生成模型、提示词摘要和源文件哈希。
 
 ### 第 3 阶段：Worker 与队列
 

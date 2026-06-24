@@ -24,13 +24,25 @@
 
 2026-06-09 已新增 `scripts/check-mobile-readiness.mjs` 和 `npm run mobile:check`，把手机端底部导航、PWA 安装引导、移动端卡片视图、低频页懒加载和安全区样式纳入自动门禁。
 
+2026-06-11 已把 `TextImagePage` 抽到 `src/features/textImage/TextImagePage.jsx`，并通过 `React.lazy` 懒加载。文生图继续保持“当前账号同一无限画布，生成结果追加节点”的产品规则；构建后主入口包为 `477.43KiB / 500KiB`，文生图独立 chunk 约 `14KiB`。
+
+2026-06-12 已新增 `scripts/check-text-image-canvas-readiness.mjs` 和 `npm run text-image:check`，并纳入 `app:health`。后续拆分或移动端改版时，会自动检查文生图导航入口、懒加载、账号级画布接口、生成后追加节点、动态画布扩展、移动端样式和产品化文档。
+
+2026-06-12 已继续拆出 `WorkflowModulePage` 和 `LoginPromptSheet`，作为独立懒加载 chunk，解决主入口包重新接近警戒线的问题。构建后主入口包为 `484.06KiB / 500KiB`，低于 485KiB 预警线；新增独立 chunk：`WorkflowModulePage` 约 `1.40KiB`，`LoginPromptSheet` 约 `1.61KiB`。
+
+2026-06-12 已把低频的 `AI 证据包` 下载逻辑和 `文生图 -> 单条视频` 交接消费改为动态 import。构建后新增 `aiEvidencePack` 约 `3.98KiB`、`textImageStudioHandoff` 约 `1.16KiB` 独立 chunk，主入口包降到 `482.20KiB / 500KiB`，重新低于 485KiB 预警线。
+
+2026-06-12 已把 `AssetsPage` 抽到 `src/features/assets/AssetsPage.jsx`，并通过 `React.lazy` 懒加载。素材页现在包含文生图来源追踪面板和手机端来源卡片；构建后新增 `AssetsPage` 约 `9.69KiB / gzip 2.75KiB` 独立 chunk，主入口包降到 `479.80KiB / 500KiB`。
+2026-06-12 已把 `BatchPage` 抽到 `src/features/batch/BatchPage.jsx`，并通过 `React.lazy` 懒加载。批量页保留草稿恢复、预检、批次状态和手机端批次卡片；构建后新增 `BatchPage` 约 `42.41KiB / gzip 12.60KiB` 独立 chunk，主入口包降到 `446.22KiB / 500KiB`，不再触发入口包体预警。
+
 ## 2. 拆分原则
 
 1. 先拆低耦合页面，再拆 `App` 主壳。
 2. 先静态拆文件，构建通过后再做路由级懒加载。
 3. 每拆一组都运行 `npm run app:health`，它会串起：
-   - `npm run mobile:check`
-   - `npm run pwa:check`
+  - `npm run mobile:check`
+  - `npm run text-image:check`
+  - `npm run pwa:check`
    - `npm run analyze:app`
    - `npm run build`
    - `npm run build:report`
@@ -45,11 +57,14 @@
 | --- | ---: | ---: | --- | --- |
 | P0 | `SelectionAssetsOverviewPage` | 1291 | `src/features/selection/` | 最大页面，属于桌面选品资产域，手机首屏不应加载。 |
 | P0 | `ProductLibraryPage` | 884 | `src/features/selection/` | 商品库页体量大，和选品域共享数据，可一起拆。 |
-| P1 | `BatchPage` | 807 | `src/features/batch/` | 批量生成逻辑重，适合独立懒加载。 |
 | P1 | `ProductScoringPage` | 596 | `src/features/selection/` | 评分页主要桌面使用，可延后加载。 |
 | P2 | `AccountAssetsPage` | 349 | `src/features/accounts/` | 账号资产库和设置域可分离。 |
 | P2 | `StudioPage` | 267 | `src/features/studio/` | 创建页是移动端核心，AI 证据包继续增加后应先拆文件再拆子步骤。 |
+| Done | `WorkflowModulePage` | 44 | `src/features/workflow/` | 已拆为独立懒加载 chunk，降低主入口预警风险。 |
+| Done | `LoginPromptSheet` | 54 | `src/features/auth/` | 已拆为独立懒加载 chunk，仅游客登录弹窗按需加载。 |
+| Done | `TextImagePage` | 480 | `src/features/textImage/` | 已拆为独立懒加载 chunk；账号级无限画布逻辑保持不变。 |
 | Done | `VideoStitchPage` | 252 | `src/features/stitch/` | 已拆为独立懒加载 chunk，并增加手机端视频选择卡片。 |
+| Done | `BatchPage` | 807 | `src/features/batch/` | 已拆为独立懒加载 chunk，包含批量草稿、预检、批次列表和手机端批次卡片。 |
 | Done | `SettingsPage` | 162 | `src/features/settings/` | 已拆为独立懒加载 chunk，承载模型、合规协议、数据权利入口。 |
 
 ## 4. 推荐目录
@@ -65,6 +80,8 @@ src/
     formatting.js
     status.js
   features/
+    auth/
+      LoginPromptSheet.jsx
     studio/
       StudioPage.jsx
       mobileCreate.js
@@ -81,6 +98,10 @@ src/
       selectionDomain.js
     accounts/
       AccountAssetsPage.jsx
+    textImage/
+      TextImagePage.jsx
+    workflow/
+      WorkflowModulePage.jsx
     stitch/
       VideoStitchPage.jsx
 ```
@@ -138,6 +159,7 @@ src/
 已部分完成：
 
 - `SettingsPage` 已懒加载。
+- `TextImagePage` 已懒加载。
 - `VideoStitchPage` 已懒加载。
 
 目标：

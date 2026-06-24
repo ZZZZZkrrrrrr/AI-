@@ -5,6 +5,10 @@ const distAssetsDir = path.resolve("dist", "assets");
 const entryPattern = /^index-[\w-]+\.js$/;
 const maxEntryBytes = 500 * 1024;
 const warnEntryBytes = 485 * 1024;
+const requiredLazyChunks = [
+  { label: "Mobile inspiration", pattern: /^MobileInspirationPage-[\w-]+\.js$/ },
+  { label: "Task center", pattern: /^TaskPages-[\w-]+\.js$/ }
+];
 
 function formatKib(bytes) {
   return `${(bytes / 1024).toFixed(2)}KiB`;
@@ -32,6 +36,16 @@ for (const file of entryFiles) {
     console.warn(`Bundle budget warning: ${label}`);
   } else {
     console.log(`Bundle budget ok: ${label}`);
+  }
+}
+
+for (const chunk of requiredLazyChunks) {
+  const matched = files.find((file) => chunk.pattern.test(file));
+  if (!matched) {
+    console.error(`Bundle split missing: ${chunk.label} chunk was not emitted.`);
+    failed = true;
+  } else {
+    console.log(`Bundle split ok: ${chunk.label} chunk ${matched}`);
   }
 }
 

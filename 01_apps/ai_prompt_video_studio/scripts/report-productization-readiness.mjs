@@ -176,6 +176,21 @@ const domains = [
     scripts: ["mobile:qa", "mobile:qa:evidence", "release:check"]
   },
   {
+    id: "text-image-canvas",
+    label: "Text-image canvas productization",
+    status: "internal-ready",
+    files: [
+      "src/features/textImage/TextImagePage.jsx",
+      "scripts/check-text-image-canvas-readiness.mjs",
+      "00_docs/TEXT_IMAGE_CANVAS_PRODUCTIZATION_2026-06-11.md",
+      "00_docs/BACKEND_CLOUD_READINESS_2026-06-09.md",
+      "deploy/cloud-deployment-action-plan.json",
+      "deploy/libtv-worker-storage-plan.json",
+      "server.js"
+    ],
+    scripts: ["text-image:check", "cloud:check", "app:health"]
+  },
+  {
     id: "pwa-and-public-pages",
     label: "PWA and public pages",
     status: "internal-ready",

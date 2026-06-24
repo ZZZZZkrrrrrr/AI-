@@ -265,6 +265,7 @@ if (deploymentPlan) {
     "auth-cookie-hardening",
     "persistent-storage",
     "libtv-worker-service",
+    "text-image-canvas-storage",
     "production-execution-switches",
     "provider-secrets",
     "observability-and-rollback"
@@ -355,6 +356,28 @@ if (!(await fileExists("server.js"))) {
     addPass("Public auth session endpoint is decoupled from auth schema initialization.");
   } else {
     addWarning("Add an authSchemaRequiredFor guard so /api/auth/session remains lightweight for probes and previews.");
+  }
+  if (serverSource.includes("IMAGE_OUTPUT_DIR") && serverSource.includes("text_image_canvas_nodes")) {
+    addPass("Text-image canvas feature stores generated images and canvas nodes.");
+    if (deploymentPlan) {
+      const textImageWorkstream = (deploymentPlan.workstreams || []).find((item) => item.id === "text-image-canvas-storage");
+      if (textImageWorkstream) {
+        addPass("Cloud deployment action plan includes text-image-canvas-storage.");
+        const workstreamText = JSON.stringify(textImageWorkstream);
+        for (const marker of ["TEXT_IMAGE_STORAGE_MODE", "TEXT_IMAGE_BUCKET", "text_image_canvas_nodes", "video_task_source_links", "textImageCanvasNodeId"]) {
+          if (workstreamText.includes(marker)) addPass(`Text-image cloud workstream documents ${marker}.`);
+          else addWarning(`Text-image cloud workstream should document ${marker}.`);
+        }
+      } else {
+        addWarning("Cloud deployment action plan should include text-image-canvas-storage for generated image outputs and canvas nodes.");
+      }
+    }
+    if (runbookText) {
+      for (const marker of ["text-image", "text_image_canvas_nodes", "video_task_source_links", "TEXT_IMAGE_STORAGE_MODE"]) {
+        if (runbookText.includes(marker)) addPass(`Production runbook documents text-image marker ${marker}.`);
+        else addWarning(`Production runbook should document text-image marker ${marker}.`);
+      }
+    }
   }
 }
 

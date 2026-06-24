@@ -60,6 +60,7 @@ CONSOLE_AUTH_REQUIRED=true
 CONSOLE_AUTH_COOKIE_SECURE=true
 CONSOLE_AUTH_COOKIE_SAMESITE=Lax
 RUN_STORAGE_DIR=/var/lib/ai-video-studio/runs
+TEXT_IMAGE_STORAGE_MODE=mounted-volume
 LIBTV_BRIDGE_URL=https://libtv-worker.internal.example.com
 LIBTV_WORKER_TOKEN=<hosting-secret>
 LIBTV_DEFAULT_DRY_RUN=true
@@ -86,6 +87,7 @@ LIBTV_DEFAULT_DRY_RUN=true
 | --- | --- | --- |
 | 上传商品图、提示词包、素材 | 挂载卷或对象存储 | 账号删除时删除或匿名化 |
 | 生成结果、视频链接、证据包 | 挂载卷或对象存储 | 账号删除时删除或解除关联 |
+| text-image 文生图输出、画布节点、视频任务来源关联 | 挂载卷试点，对象存储公开发布；`text_image_canvas_nodes` 和 `video_task_source_links` 后续迁 PostgreSQL | 节点移除不等于立刻删图；账号删除或保留期到期时删除或解除关联 |
 | 任务、批量任务、账号数据 | 数据库或受保护文件存储 | 支持导出、删除请求和管理员处理 |
 | 隐私请求记录 | 独立目录或数据库表 | 保留处理证据，避免泄露 |
 | 日志和错误 | 托管日志系统 | 设置保留期限和脱敏策略 |
@@ -97,6 +99,10 @@ LIBTV_DEFAULT_DRY_RUN=true
 3. 重启 API 服务。
 4. 确认任务、素材、结果和删除请求记录仍可读取。
 5. 执行账号导出，确认不会导出密钥或内部路径。
+6. 生成或导入一张 text-image 测试图片，确认 `outputs/text-to-image` 或对象存储中的图片可访问，`text_image_canvas_nodes` 中的节点仍按账号隔离。
+7. 把这张图片送入单条视频流程，确认 `video_task_source_links` 写入 `task_code`、`source_type`、`source_id` 和 `owner_user_id`，后续能追溯是哪一个文生图节点被视频使用。
+8. 调用 `GET /api/task-source-links?taskCode=<任务编号>` 和账号导出，确认当前账号能查到 `textImageSourceLinks`，其他账号不能串看。
+9. 删除画布节点，确认只移除节点记录，不误删底层图片；真正删除应走账号删除或保留期清理流程。
 
 ### 阶段 3：迁移 libTV worker
 

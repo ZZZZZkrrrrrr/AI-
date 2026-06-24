@@ -15,7 +15,11 @@ const DIST_DIR = path.join(ROOT, "dist");
 const PUBLIC_DIR = existsSync(DIST_DIR) ? DIST_DIR : path.join(ROOT, "public");
 const OUTPUT_DIR = path.join(WORKFLOW_DIR, "outputs", "libtv");
 const STITCH_OUTPUT_DIR = path.join(WORKFLOW_DIR, "outputs", "stitched");
+const IMAGE_OUTPUT_DIR = path.join(WORKFLOW_DIR, "outputs", "text-to-image");
+const DEFAULT_IMAGE_GENERATION_SIZE = "1920x1920";
+const IMAGE_GENERATION_MIN_PIXELS = 1920 * 1920;
 const MAX_BODY_BYTES = 80 * 1024 * 1024;
+const MAX_REMOTE_VIDEO_BYTES = 250 * 1024 * 1024;
 
 loadDotEnv(path.join(ROOT, ".env"));
 
@@ -62,8 +66,11 @@ const config = {
   pythonExe: process.env.PYTHON_EXE || "py",
   ffmpegExe: process.env.FFMPEG_EXE || "ffmpeg",
   libtvDefaultDryRun: coerceBool(process.env.LIBTV_DEFAULT_DRY_RUN, true),
+  libtvEnableSound: coerceBool(process.env.LIBTV_ENABLE_SOUND, true),
   libtvAutoCompliance: coerceBool(process.env.LIBTV_AUTO_COMPLIANCE, true),
   libtvSearchEnabled: coerceBool(process.env.LIBTV_SEARCH_ENABLED, true),
+  libtvSharedProjectUuid: process.env.LIBTV_SHARED_PROJECT_UUID || "",
+  libtvSharedProjectName: process.env.LIBTV_SHARED_PROJECT_NAME || "AI视频工作台",
   batchMaxWorkers: boundedNumber(process.env.BATCH_MAX_WORKERS, 20, 1, 30),
   modelRequestTimeoutMs: boundedNumber(process.env.MODEL_REQUEST_TIMEOUT_MS, 360000, 60000, 900000),
   authRequired: coerceBool(process.env.CONSOLE_AUTH_REQUIRED, true),
@@ -88,6 +95,8 @@ let batchProcessorScheduled = false;
 let batchSchemaReadyPromise = null;
 let selectionAssetSchemaReadyPromise = null;
 let authSchemaReadyPromise = null;
+let textImageCanvasSchemaReadyPromise = null;
+let videoTaskSourceLinkSchemaReadyPromise = null;
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -996,6 +1005,63 @@ async function createDataRightsRequest(payload, session, ownerUserId = defaultOw
   return decorateDataRightsRequest(request);
 }
 
+function hydrateVideoTaskSourceLink(row = {}) {
+  const payload = parseStoredJson(row.payload_json, {});
+  const sourceType = String(row.source_type || payload.sourceType || "").trim();
+  const sourceId = String(row.source_id || payload.sourceId || payload.textImageCanvasNodeId || "").trim();
+  const textImageCanvasNodeId = String(
+    payload.textImageCanvasNodeId || (sourceType === "text-image-canvas" ? sourceId : "")
+  ).trim();
+  return {
+    id: String(row.id || "").trim(),
+    ownerUserId: String(row.owner_user_id || payload.ownerUserId || "").trim(),
+    taskCode: String(row.task_code || payload.taskCode || "").trim(),
+    sourceType,
+    sourceId,
+    createdAt: String(row.created_at || payload.createdAt || "").trim(),
+    imageIndex: Number(payload.imageIndex || 0),
+    imageName: String(payload.imageName || "").trim(),
+    imageType: String(payload.imageType || "").trim(),
+    imageSize: Number(payload.imageSize || 0),
+    sourceUrl: String(payload.sourceUrl || "").trim(),
+    textImageCanvasNodeId,
+    textImageRunId: String(payload.textImageRunId || "").trim(),
+    textImageModel: String(payload.textImageModel || "").trim(),
+    textImageSize: String(payload.textImageSize || "").trim(),
+    textImageCreatedAt: String(payload.textImageCreatedAt || "").trim(),
+    textImageLinkedAt: String(payload.textImageLinkedAt || "").trim(),
+    textImagePromptPreview: String(payload.textImagePromptPreview || payload.textImagePrompt || "").trim(),
+    textImageNegativePromptPreview: String(
+      payload.textImageNegativePromptPreview || payload.textImageNegativePrompt || ""
+    ).trim(),
+    sourcePayload: payload
+  };
+}
+
+async function listVideoTaskSourceLinks({ ownerUserId = defaultOwnerUserId(), taskCode = "", limit = 100 } = {}) {
+  await ensureVideoTaskSourceLinkSchema();
+  const normalizedTaskCode = String(taskCode || "").trim().slice(0, 160);
+  const rows = await safeQuerySqlite(
+    `
+    SELECT id, owner_user_id, task_code, source_type, source_id, payload_json, created_at
+    FROM video_task_source_links
+    WHERE COALESCE(owner_user_id, ?) = ?
+      AND (? = '' OR task_code = ?)
+    ORDER BY created_at DESC
+    LIMIT ?
+    `,
+    [
+      defaultOwnerUserId(),
+      ownerUserId || defaultOwnerUserId(),
+      normalizedTaskCode,
+      normalizedTaskCode,
+      boundedNumber(limit, 100, 1, 500)
+    ],
+    []
+  );
+  return rows.map(hydrateVideoTaskSourceLink);
+}
+
 async function buildAccountDataExport(session, ownerUserId = defaultOwnerUserId()) {
   await ensureAuthSchema();
   const [user] = await safeQuerySqlite(
@@ -1039,6 +1105,7 @@ async function buildAccountDataExport(session, ownerUserId = defaultOwnerUserId(
   const batchJobs = await listBatchJobs(100, ownerUserId).catch(() => []);
   const selectionAssets = await listSelectionAssets(ownerUserId).catch(() => ({ products: [], accounts: [], materialLinks: [] }));
   const outputFiles = await listOutputFiles(ownerUserId).catch(() => []);
+  const textImageSourceLinks = await listVideoTaskSourceLinks({ ownerUserId, limit: 100 }).catch(() => []);
   const requests = await readDataRightsRequests(ownerUserId);
 
   return {
@@ -1062,6 +1129,7 @@ async function buildAccountDataExport(session, ownerUserId = defaultOwnerUserId(
       selectionProducts: selectionAssets.products?.length || 0,
       accountAssets: selectionAssets.accounts?.length || 0,
       outputFiles: outputFiles.length,
+      textImageSourceLinks: textImageSourceLinks.length,
       dataRightsRequests: requests.length
     },
     data: {
@@ -1071,6 +1139,7 @@ async function buildAccountDataExport(session, ownerUserId = defaultOwnerUserId(
       batchJobs,
       selectionProducts: selectionAssets.products || [],
       accountAssets: selectionAssets.accounts || [],
+      textImageSourceLinks,
       outputFiles: outputFiles.map((file) => ({
         name: file.name,
         kind: file.kind,
@@ -1455,6 +1524,69 @@ async function runVideoJob(run, payload) {
   }
 }
 
+async function runTextToImageJob(run, payload) {
+  try {
+    const normalized = normalizeImageGenerationPayload(payload);
+    const runLabel = normalized.mode === "image-variation" ? "图片裂变" : "文生图";
+    emit(run, {
+      type: "status",
+      phase: `准备${runLabel}`,
+      message: `使用 ${normalized.model} 生成 ${normalized.count} 张图片。`
+    });
+    ensureRunActive(run);
+    const generated = await callImageGeneration(normalized, run.abortController.signal);
+    ensureRunActive(run);
+    emit(run, {
+      type: "status",
+      phase: "保存图片",
+      message: "图片已返回，正在写入本地输出目录。"
+    });
+    const referenceFiles = normalized.mode === "image-variation"
+      ? await saveVariationReferenceImages(normalized.referenceImages, normalized, run.id)
+      : [];
+    const files = await saveGeneratedImages(generated.images, normalized, run.id);
+    const canvasNodes = await appendTextImageCanvasNodes(files, normalized, run.id, {
+      referenceImages: referenceFiles
+    });
+    run.status = "completed";
+    run.result = {
+      mode: normalized.mode,
+      prompt: normalized.prompt,
+      userPrompt: normalized.userPrompt,
+      negativePrompt: normalized.negativePrompt,
+      variationIntent: normalized.variationIntent,
+      variationLabel: normalized.variationLabel,
+      variationStrength: normalized.variationStrength,
+      variationStrengthLabel: normalized.variationStrengthLabel,
+      model: normalized.model,
+      size: normalized.size,
+      count: files.length,
+      referenceImages: referenceFiles,
+      images: files,
+      canvasNodes,
+      raw: generated.raw
+    };
+    emit(run, {
+      type: "completed",
+      phase: `${runLabel}完成`,
+      message: `已生成 ${files.length} 张图片。`,
+      result: run.result
+    });
+  } catch (error) {
+    if (isRunCancelled(error, run)) {
+      if (run.status !== "cancelled") cancelRun(run, "用户已中断文生图。");
+      return;
+    }
+    run.status = "failed";
+    run.error = error.message;
+    emit(run, {
+      type: "failed",
+      phase: "图片生成失败",
+      message: error.message
+    });
+  }
+}
+
 function normalizePromptPayload(payload) {
   const promptPackText = String(payload.promptPackText || "").trim();
   const productBrief = String(payload.productBrief || "").trim();
@@ -1554,6 +1686,7 @@ function normalizeVideoPayload(payload) {
     count: boundedNumber(payload.count, 1, 1, 4),
     model: String(payload.model || "").trim(),
     resolution: String(payload.resolution || "").trim(),
+    enableSound: coerceBool(payload.enableSound, config.libtvEnableSound),
     autoCompliance: coerceBool(payload.autoCompliance, config.libtvAutoCompliance),
     searchEnabled: coerceBool(payload.searchEnabled, config.libtvSearchEnabled),
     ownerUserId: String(payload.ownerUserId || "").trim(),
@@ -1563,18 +1696,115 @@ function normalizeVideoPayload(payload) {
   };
 }
 
+function normalizeImageGenerationPayload(payload = {}) {
+  const mode = String(payload.mode || payload.generationMode || "").trim() === "image-variation"
+    ? "image-variation"
+    : "text-image";
+  const userPrompt = String(payload.prompt || "").trim();
+  const prompt = String(payload.finalPrompt || payload.prompt || "").trim();
+  if (!prompt) throw new Error(mode === "image-variation" ? "请先选择裂变方向或填写补充要求。" : "请先填写文生图提示词。");
+  const size = normalizeImageGenerationSize(payload.size);
+  const model = String(payload.model || config.imageGenerationModel || "").trim();
+  if (!model) throw new Error("缺少图片生成模型配置。");
+  const referenceImages = mode === "image-variation"
+    ? normalizeImages(payload.referenceImages || payload.images)
+    : [];
+  if (mode === "image-variation" && !referenceImages.length) throw new Error("请先上传一张原图，再开始图片裂变。");
+  return {
+    mode,
+    prompt,
+    userPrompt,
+    negativePrompt: String(payload.negativePrompt || "").trim(),
+    variationIntent: String(payload.variationIntent || "").trim().slice(0, 80),
+    variationLabel: String(payload.variationLabel || "图片裂变").trim().slice(0, 80),
+    variationStrength: String(payload.variationStrength || "").trim().slice(0, 80),
+    variationStrengthLabel: String(payload.variationStrengthLabel || "").trim().slice(0, 80),
+    referenceImages,
+    size,
+    model,
+    count: boundedNumber(payload.count, 1, 1, mode === "image-variation" ? 8 : 4),
+    responseFormat: ["url", "b64_json"].includes(String(payload.responseFormat || "").trim())
+      ? String(payload.responseFormat).trim()
+      : "url",
+    ownerUserId: String(payload.ownerUserId || "").trim() || defaultOwnerUserId()
+  };
+}
+
+function normalizeImageGenerationSize(value = DEFAULT_IMAGE_GENERATION_SIZE) {
+  const raw = String(value || DEFAULT_IMAGE_GENERATION_SIZE).trim().toLowerCase();
+  const match = /^(\d{3,5})x(\d{3,5})$/.exec(raw);
+  if (!match) return DEFAULT_IMAGE_GENERATION_SIZE;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return DEFAULT_IMAGE_GENERATION_SIZE;
+  }
+  if (width * height >= IMAGE_GENERATION_MIN_PIXELS) return `${width}x${height}`;
+  const scale = Math.sqrt(IMAGE_GENERATION_MIN_PIXELS / (width * height));
+  const nextWidth = Math.ceil((width * scale) / 64) * 64;
+  const nextHeight = Math.ceil((height * scale) / 64) * 64;
+  return `${nextWidth}x${nextHeight}`;
+}
+
 function normalizeImages(images) {
   return Array.isArray(images)
     ? images
         .filter((image) => image && image.dataUrl && String(image.dataUrl).startsWith("data:image/"))
         .slice(0, 6)
-        .map((image) => ({
-          name: String(image.name || "product-image"),
-          type: String(image.type || "image/png"),
-          size: Number(image.size || 0),
-          dataUrl: String(image.dataUrl)
-        }))
+        .map((image) => {
+          const source = normalizeTextImageSourceMetadata(image);
+          return {
+            name: String(image.name || "product-image"),
+            type: String(image.type || "image/png"),
+            size: Number(image.size || 0),
+            dataUrl: String(image.dataUrl),
+            ...(source || {})
+          };
+        })
     : [];
+}
+
+function compactMetadataText(value, maxLength = 600) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+function normalizeTextImageSourceMetadata(image = {}) {
+  const sourceType = String(image.sourceType || "").trim();
+  const nodeId = String(image.textImageCanvasNodeId || image.sourceNodeId || "").trim();
+  if (sourceType !== "text-image-canvas" && !nodeId) return null;
+  return {
+    sourceType: "text-image-canvas",
+    sourceUrl: String(image.sourceUrl || "").trim(),
+    textImageCanvasNodeId: nodeId,
+    textImageRunId: String(image.textImageRunId || "").trim(),
+    textImagePrompt: compactMetadataText(image.textImagePrompt, 1200),
+    textImageNegativePrompt: compactMetadataText(image.textImageNegativePrompt, 600),
+    textImageModel: String(image.textImageModel || "").trim().slice(0, 180),
+    textImageSize: String(image.textImageSize || "").trim().slice(0, 40),
+    textImageCreatedAt: String(image.textImageCreatedAt || "").trim().slice(0, 80),
+    textImageLinkedAt: String(image.textImageLinkedAt || "").trim().slice(0, 80)
+  };
+}
+
+function videoImageSourceSummary(image = {}, index = 0) {
+  const source = normalizeTextImageSourceMetadata(image);
+  if (!source) return null;
+  return {
+    imageIndex: index + 1,
+    imageName: String(image.name || "").slice(0, 240),
+    imageType: String(image.type || "").slice(0, 120),
+    imageSize: Number(image.size || 0),
+    ...source,
+    textImagePromptPreview: compactMetadataText(source.textImagePrompt, 500),
+    textImageNegativePromptPreview: compactMetadataText(source.textImageNegativePrompt, 300)
+  };
+}
+
+function buildVideoImageSourceSummaries(images = []) {
+  return (Array.isArray(images) ? images : [])
+    .map(videoImageSourceSummary)
+    .filter(Boolean);
 }
 
 function boundedNumber(value, fallback, min, max) {
@@ -2069,6 +2299,454 @@ async function callChatCompletion({ url, apiKey, model, messages, temperature, s
   }
 }
 
+async function callImageGeneration(payload, signal) {
+  if (!config.arkKey) throw new Error("缺少 ARK_API_KEY，不能调用图片生成模型。");
+  if (!config.imageGenerationUrl) throw new Error("缺少 SEEDREAM_API_URL，不能调用图片生成模型。");
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort(signal.reason || new RunCancelledError("用户已中断图片生成。"));
+  if (signal?.aborted) abortFromParent();
+  signal?.addEventListener?.("abort", abortFromParent, { once: true });
+  const timeout = setTimeout(() => controller.abort(new Error("图片生成调用超时。")), config.modelRequestTimeoutMs);
+  try {
+    const requestBody = {
+      model: payload.model,
+      prompt: imageGenerationPrompt(payload),
+      size: payload.size,
+      n: payload.count,
+      response_format: payload.responseFormat
+    };
+    if (payload.mode === "image-variation" && payload.referenceImages?.length) {
+      requestBody.image = payload.referenceImages.map((image) => image.dataUrl).filter(Boolean);
+      if (payload.count > 1) {
+        requestBody.sequential_image_generation = "auto";
+        requestBody.sequential_image_generation_options = { max_images: payload.count };
+      }
+    }
+    const response = await fetch(config.imageGenerationUrl, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${config.arkKey}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+    if (!response.ok) {
+      const message = data?.error?.message || data?.message || text || `HTTP ${response.status}`;
+      throw new Error(`图片生成模型调用失败：${message}`);
+    }
+    const images = extractGeneratedImageItems(data);
+    if (!images.length) throw new Error("图片生成模型没有返回图片。");
+    return { images, raw: data };
+  } catch (error) {
+    if (signal?.aborted) throw new RunCancelledError("用户已中断图片生成。");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener?.("abort", abortFromParent);
+  }
+}
+
+function imageGenerationPrompt(payload = {}) {
+  const prompt = String(payload.prompt || "").trim();
+  const negativePrompt = String(payload.negativePrompt || "").trim();
+  if (!negativePrompt) return prompt;
+  return `${prompt}\n\n请避免出现：${negativePrompt}`;
+}
+
+function extractGeneratedImageItems(data = {}) {
+  const source = data.data || data.images || data.output?.images || data.result?.images || (data.image ? [data.image] : []);
+  const items = Array.isArray(source) ? source : source && typeof source === "object" ? [source] : [];
+  return items
+    .map((item) => ({
+      url: item?.url || item?.image_url || item?.imageUrl || item?.content?.url || "",
+      b64: item?.b64_json || item?.b64 || item?.base64 || item?.image_base64 || "",
+      revisedPrompt: item?.revised_prompt || item?.revisedPrompt || "",
+      raw: item
+    }))
+    .filter((item) => item.url || item.b64);
+}
+
+async function readGeneratedImageBuffer(item) {
+  if (item.b64) {
+    const dataUrlMatch = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s.exec(String(item.b64));
+    if (dataUrlMatch) {
+      return { buffer: Buffer.from(dataUrlMatch[2], "base64"), mime: dataUrlMatch[1] };
+    }
+    return { buffer: Buffer.from(String(item.b64), "base64"), mime: "image/png" };
+  }
+  if (!item.url) throw new Error("文生图返回缺少图片地址。");
+  if (String(item.url).startsWith("data:image/")) {
+    const parsed = parseDataUrlImage({ dataUrl: item.url, name: "generated.png" });
+    return { buffer: parsed.buffer, mime: parsed.mime };
+  }
+  const response = await fetch(item.url);
+  if (!response.ok) throw new Error(`下载生成图片失败：HTTP ${response.status}`);
+  const mime = response.headers.get("content-type")?.split(";")[0] || "image/png";
+  return { buffer: Buffer.from(await response.arrayBuffer()), mime };
+}
+
+async function saveGeneratedImages(items, payload, runId) {
+  await mkdir(IMAGE_OUTPUT_DIR, { recursive: true });
+  const now = new Date();
+  const datePart = formatDatePart(now);
+  const timePart = formatTimePart(now);
+  const ownerPrefix = imageOutputOwnerPrefix(payload.ownerUserId);
+  const promptPart = safeFilePart(payload.prompt).slice(0, 32) || "prompt";
+  const modePart = payload.mode === "image-variation" ? "img2img" : "txt2img";
+  const images = [];
+  for (const [index, item] of items.entries()) {
+    const parsed = await readGeneratedImageBuffer(item);
+    const ext = imageExtension(parsed.mime, item.url || "generated.png");
+    const fileName = `${ownerPrefix}-${modePart}-${datePart}-${timePart}-${runId.slice(0, 8)}-${String(index + 1).padStart(2, "0")}-${promptPart}${ext}`;
+    const filePath = path.join(IMAGE_OUTPUT_DIR, fileName);
+    await writeFile(filePath, parsed.buffer);
+    const metaName = `${path.parse(fileName).name}.json`;
+    await writeFile(
+      path.join(IMAGE_OUTPUT_DIR, metaName),
+      JSON.stringify({
+        mode: payload.mode,
+        prompt: payload.prompt,
+        userPrompt: payload.userPrompt,
+        negativePrompt: payload.negativePrompt,
+        variationIntent: payload.variationIntent,
+        variationLabel: payload.variationLabel,
+        variationStrength: payload.variationStrength,
+        variationStrengthLabel: payload.variationStrengthLabel,
+        model: payload.model,
+        size: payload.size,
+        revisedPrompt: item.revisedPrompt,
+        sourceUrl: item.url,
+        createdAt: now.toISOString()
+      }, null, 2),
+      "utf8"
+    );
+    images.push({
+      name: fileName,
+      kind: "text-image",
+      role: payload.mode === "image-variation" ? "variation" : "generated",
+      mime: parsed.mime,
+      size: parsed.buffer.length,
+      revisedPrompt: item.revisedPrompt,
+      url: `/api/output-file?kind=text-image&name=${encodeURIComponent(fileName)}`
+    });
+  }
+  return images;
+}
+
+async function saveVariationReferenceImages(items = [], payload = {}, runId = "") {
+  if (!items.length) return [];
+  await mkdir(IMAGE_OUTPUT_DIR, { recursive: true });
+  const now = new Date();
+  const datePart = formatDatePart(now);
+  const timePart = formatTimePart(now);
+  const ownerPrefix = imageOutputOwnerPrefix(payload.ownerUserId);
+  const images = [];
+  for (const [index, image] of items.entries()) {
+    const parsed = parseDataUrlImage(image);
+    const ext = imageExtension(parsed.mime, image.name || "reference.png");
+    const sourcePart = safeFilePart(path.parse(image.name || "reference").name || "reference").slice(0, 32);
+    const fileName = `${ownerPrefix}-img2img-source-${datePart}-${timePart}-${runId.slice(0, 8)}-${String(index + 1).padStart(2, "0")}-${sourcePart}${ext}`;
+    const filePath = path.join(IMAGE_OUTPUT_DIR, fileName);
+    await writeFile(filePath, parsed.buffer);
+    images.push({
+      name: fileName,
+      originalName: image.name || "reference",
+      kind: "text-image",
+      role: "source",
+      mime: parsed.mime,
+      size: parsed.buffer.length,
+      url: `/api/output-file?kind=text-image&name=${encodeURIComponent(fileName)}`
+    });
+  }
+  return images;
+}
+
+async function ensureTextImageCanvasSchema() {
+  if (textImageCanvasSchemaReadyPromise) return textImageCanvasSchemaReadyPromise;
+  textImageCanvasSchemaReadyPromise = executeSqliteMany([
+    {
+      sql: `
+        CREATE TABLE IF NOT EXISTS text_image_canvas_nodes (
+          id TEXT PRIMARY KEY,
+          owner_user_id TEXT NOT NULL,
+          run_id TEXT,
+          node_type TEXT NOT NULL DEFAULT 'image',
+          x REAL NOT NULL DEFAULT 0,
+          y REAL NOT NULL DEFAULT 0,
+          width REAL NOT NULL DEFAULT 260,
+          height REAL NOT NULL DEFAULT 340,
+          payload_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      `,
+      params: []
+    },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_text_image_canvas_nodes_owner ON text_image_canvas_nodes(owner_user_id, created_at)",
+      params: []
+    },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_text_image_canvas_nodes_run ON text_image_canvas_nodes(run_id)",
+      params: []
+    }
+  ]);
+  return textImageCanvasSchemaReadyPromise;
+}
+
+function hydrateTextImageCanvasNode(row = {}) {
+  let payload = {};
+  try {
+    payload = JSON.parse(row.payload_json || "{}");
+  } catch {
+    payload = {};
+  }
+  return {
+    id: row.id,
+    runId: row.run_id || "",
+    type: row.node_type || "image",
+    x: Number(row.x || 0),
+    y: Number(row.y || 0),
+    width: Number(row.width || 260),
+    height: Number(row.height || 340),
+    payload,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function listTextImageCanvasNodes(ownerUserId = defaultOwnerUserId(), limit = 300) {
+  await ensureTextImageCanvasSchema();
+  const rows = await querySqlite(
+    `
+    SELECT *
+    FROM text_image_canvas_nodes
+    WHERE owner_user_id = ?
+    ORDER BY created_at ASC
+    LIMIT ?
+    `,
+    [ownerUserId || defaultOwnerUserId(), boundedNumber(limit, 300, 1, 1000)]
+  );
+  return rows.map(hydrateTextImageCanvasNode);
+}
+
+async function appendTextImageCanvasNodes(images = [], payload = {}, runId = "", options = {}) {
+  await ensureTextImageCanvasSchema();
+  const ownerUserId = String(payload.ownerUserId || "").trim() || defaultOwnerUserId();
+  const countRows = await querySqlite(
+    "SELECT COUNT(*) AS total FROM text_image_canvas_nodes WHERE owner_user_id = ?",
+    [ownerUserId]
+  );
+  const startIndex = Number(countRows[0]?.total || 0);
+  const now = new Date().toISOString();
+  const nodeWidth = 260;
+  const nodeHeight = 350;
+  const columns = 4;
+  const gapX = 310;
+  const gapY = 420;
+  const isVariation = payload.mode === "image-variation";
+  const referenceImages = Array.isArray(options.referenceImages) ? options.referenceImages : [];
+  const baseCol = startIndex % columns;
+  const baseRow = Math.floor(startIndex / columns);
+  const baseX = 80 + baseCol * gapX;
+  const baseY = 80 + baseRow * gapY;
+  const sourceItems = isVariation
+    ? referenceImages.map((image, index) => ({
+        image,
+        type: "source-image",
+        title: `裂变原图 ${String(index + 1).padStart(2, "0")}`,
+        role: "source",
+        index
+      }))
+    : [];
+  const sourceNodeIds = sourceItems.map(() => randomUUID());
+  const generatedItems = images.map((image, index) => ({
+    image,
+    type: isVariation ? "image-variation" : "image",
+    title: isVariation ? `裂变图 ${String(index + 1).padStart(2, "0")}` : `文生图 ${String(startIndex + sourceItems.length + index + 1).padStart(2, "0")}`,
+    role: isVariation ? "variation" : "generated",
+    sourceNodeId: sourceNodeIds[0] || "",
+    index
+  }));
+  const canvasItems = [...sourceItems.map((item, index) => ({ ...item, id: sourceNodeIds[index] })), ...generatedItems];
+  const operations = canvasItems.map((item, index) => {
+    const absoluteIndex = startIndex + index;
+    const col = absoluteIndex % columns;
+    const row = Math.floor(absoluteIndex / columns);
+    const variantIndex = Math.max(0, index - sourceItems.length);
+    const variationX = item.role === "source" ? baseX : baseX + gapX + (variantIndex % 3) * gapX;
+    const variationY = item.role === "source" ? baseY : baseY + Math.floor(variantIndex / 3) * gapY;
+    const node = {
+      id: item.id || randomUUID(),
+      runId,
+      type: item.type,
+      x: isVariation ? variationX : 80 + col * gapX,
+      y: isVariation ? variationY : 80 + row * gapY,
+      width: nodeWidth,
+      height: nodeHeight,
+      payload: {
+        mode: payload.mode || "text-image",
+        title: item.title,
+        prompt: payload.prompt,
+        userPrompt: payload.userPrompt,
+        negativePrompt: payload.negativePrompt,
+        model: payload.model,
+        size: payload.size,
+        variationIntent: payload.variationIntent,
+        variationLabel: payload.variationLabel,
+        variationStrength: payload.variationStrength,
+        variationStrengthLabel: payload.variationStrengthLabel,
+        sourceNodeId: item.sourceNodeId || "",
+        image: item.image
+      },
+      createdAt: now,
+      updatedAt: now
+    };
+    return {
+      node,
+      sql: `
+        INSERT INTO text_image_canvas_nodes (
+          id, owner_user_id, run_id, node_type, x, y, width, height, payload_json, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      params: [
+        node.id,
+        ownerUserId,
+        node.runId,
+        node.type,
+        node.x,
+        node.y,
+        node.width,
+        node.height,
+        JSON.stringify(node.payload),
+        now,
+        now
+      ]
+    };
+  });
+  await executeSqliteMany(operations.map(({ sql, params }) => ({ sql, params })));
+  return operations.map(({ node }) => node);
+}
+
+async function updateTextImageCanvasNode(nodeId, patch = {}, ownerUserId = defaultOwnerUserId()) {
+  await ensureTextImageCanvasSchema();
+  const id = String(nodeId || "").trim();
+  if (!id) throw new Error("缺少节点编号。");
+  const x = boundedNumber(patch.x, 0, -20000, 20000);
+  const y = boundedNumber(patch.y, 0, -20000, 20000);
+  const now = new Date().toISOString();
+  await executeSqlite(
+    `
+    UPDATE text_image_canvas_nodes
+    SET x = ?, y = ?, updated_at = ?
+    WHERE id = ? AND owner_user_id = ?
+    `,
+    [x, y, now, id, ownerUserId || defaultOwnerUserId()]
+  );
+  const rows = await querySqlite(
+    "SELECT * FROM text_image_canvas_nodes WHERE id = ? AND owner_user_id = ? LIMIT 1",
+    [id, ownerUserId || defaultOwnerUserId()]
+  );
+  if (!rows.length) return null;
+  return hydrateTextImageCanvasNode(rows[0]);
+}
+
+async function deleteTextImageCanvasNode(nodeId, ownerUserId = defaultOwnerUserId()) {
+  await ensureTextImageCanvasSchema();
+  const id = String(nodeId || "").trim();
+  if (!id) throw new Error("缺少节点编号。");
+  const rows = await querySqlite(
+    "SELECT id FROM text_image_canvas_nodes WHERE id = ? AND owner_user_id = ? LIMIT 1",
+    [id, ownerUserId || defaultOwnerUserId()]
+  );
+  if (!rows.length) return null;
+  await executeSqlite(
+    "DELETE FROM text_image_canvas_nodes WHERE id = ? AND owner_user_id = ?",
+    [id, ownerUserId || defaultOwnerUserId()]
+  );
+  return { id };
+}
+
+async function ensureVideoTaskSourceLinkSchema() {
+  if (videoTaskSourceLinkSchemaReadyPromise) return videoTaskSourceLinkSchemaReadyPromise;
+  videoTaskSourceLinkSchemaReadyPromise = executeSqliteMany([
+    {
+      sql: `
+        CREATE TABLE IF NOT EXISTS video_task_source_links (
+          id TEXT PRIMARY KEY,
+          owner_user_id TEXT,
+          task_code TEXT NOT NULL,
+          source_type TEXT NOT NULL,
+          source_id TEXT NOT NULL,
+          payload_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL
+        )
+      `,
+      params: []
+    },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_video_task_source_links_task ON video_task_source_links(task_code, source_type)",
+      params: []
+    },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_video_task_source_links_owner ON video_task_source_links(owner_user_id, created_at)",
+      params: []
+    },
+    {
+      sql: "CREATE INDEX IF NOT EXISTS idx_video_task_source_links_source ON video_task_source_links(source_type, source_id)",
+      params: []
+    }
+  ]);
+  return videoTaskSourceLinkSchemaReadyPromise;
+}
+
+async function recordVideoTaskSourceLinks(taskCode, images = [], ownerUserId = defaultOwnerUserId()) {
+  const sourceLinks = buildVideoImageSourceSummaries(images);
+  if (!taskCode || !sourceLinks.length) return [];
+  await ensureVideoTaskSourceLinkSchema();
+  const now = new Date().toISOString();
+  const operations = [
+    {
+      sql: "DELETE FROM video_task_source_links WHERE task_code = ? AND source_type = 'text-image-canvas'",
+      params: [taskCode]
+    },
+    ...sourceLinks.map((source, index) => {
+      const sourceId = source.textImageCanvasNodeId || source.sourceUrl || `${taskCode}-${index + 1}`;
+      return {
+        sql: `
+          INSERT INTO video_task_source_links (
+            id, owner_user_id, task_code, source_type, source_id, payload_json, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `,
+        params: [
+          `${taskCode}-text-image-${hashText(sourceId).slice(0, 12)}-${index + 1}`,
+          ownerUserId || defaultOwnerUserId(),
+          taskCode,
+          "text-image-canvas",
+          sourceId,
+          JSON.stringify(source),
+          now
+        ]
+      };
+    })
+  ];
+  await executeSqliteMany(operations);
+  return sourceLinks.map((source) => ({
+    sourceType: "text-image-canvas",
+    sourceId: source.textImageCanvasNodeId || source.sourceUrl || "",
+    textImageCanvasNodeId: source.textImageCanvasNodeId,
+    imageIndex: source.imageIndex
+  }));
+}
+
 function extractAssistantText(response) {
   const message = response?.choices?.[0]?.message;
   const content = message?.content;
@@ -2110,6 +2788,11 @@ async function submitLibTVVideo(payload, run = null) {
 
   emitVideo({ type: "status", phase: "写入数据库", message: `正在注册数据库任务 ${saved.taskCode}。` });
   const registered = await registerLibTVTask(normalized, saved);
+  const sourceLinks = await recordVideoTaskSourceLinks(
+    saved.taskCode,
+    normalized.images,
+    normalized.ownerUserId || defaultOwnerUserId()
+  );
 
   const action = normalized.dryRun ? "submit" : normalized.waitForVideo ? "run" : "submit";
   const bridgePayload = {
@@ -2121,8 +2804,11 @@ async function submitLibTVVideo(payload, run = null) {
     ratio: normalized.aspectRatio,
     duration: String(normalized.duration),
     count: String(normalized.count),
+    enable_sound: normalized.enableSound ? "on" : "off",
     auto_compliance: normalized.autoCompliance ? "1" : "0",
     search_enabled: normalized.searchEnabled ? "1" : "0",
+    project_id: config.libtvSharedProjectUuid,
+    project_name: config.libtvSharedProjectName,
     download: normalized.download,
     poll_interval: String(normalized.pollInterval),
     max_wait_seconds: String(normalized.maxWaitSeconds)
@@ -2176,6 +2862,7 @@ async function submitLibTVVideo(payload, run = null) {
       primaryImage: saved.primaryImagePath,
       images: saved.images.map((image) => image.path)
     },
+    sourceLinks,
     registered,
     bridge: bridgeResult
   };
@@ -3367,7 +4054,8 @@ async function createBatchJob(payload, ownerUserId = defaultOwnerUserId()) {
         name: image.name,
         type: parsed.mime,
         size: parsed.buffer.length,
-        path: imagePath
+        path: imagePath,
+        ...(normalizeTextImageSourceMetadata(image) || {})
       });
     }
     const itemPayload = {
@@ -3721,7 +4409,8 @@ async function loadBatchItemPayload(item) {
       name: image.name,
       type: image.type || "image/png",
       size: image.size || buffer.length,
-      dataUrl: `data:${image.type || "image/png"};base64,${buffer.toString("base64")}`
+      dataUrl: `data:${image.type || "image/png"};base64,${buffer.toString("base64")}`,
+      ...(normalizeTextImageSourceMetadata(image) || {})
     });
   }
   return {
@@ -3947,16 +4636,21 @@ async function listOutputFiles(ownerUserId = "") {
   }
   for (const [kind, dir] of [
     ["libtv", OUTPUT_DIR],
-    ["stitched", STITCH_OUTPUT_DIR]
+    ["stitched", STITCH_OUTPUT_DIR],
+    ["text-image", IMAGE_OUTPUT_DIR]
   ]) {
     if (!existsSync(dir)) continue;
     const entries = await readdir(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile()) continue;
+      if (kind === "text-image" && !isGeneratedImageFile(entry.name)) continue;
       if (ownerTaskCodes && kind === "libtv" && ![...ownerTaskCodes].some((taskCode) => entry.name.startsWith(taskCode))) {
         continue;
       }
       if (ownerTaskCodes && kind === "stitched" && ownerUserId !== defaultOwnerUserId()) continue;
+      if (ownerUserId && kind === "text-image" && ownerUserId !== defaultOwnerUserId() && !entry.name.startsWith(imageOutputOwnerPrefix(ownerUserId))) {
+        continue;
+      }
       const filePath = path.join(dir, entry.name);
       const fileStat = await stat(filePath);
       files.push({
@@ -3975,7 +4669,93 @@ async function listOutputFiles(ownerUserId = "") {
 function outputDirByKind(kind) {
   if (kind === "libtv") return OUTPUT_DIR;
   if (kind === "stitched") return STITCH_OUTPUT_DIR;
+  if (kind === "text-image") return IMAGE_OUTPUT_DIR;
   return null;
+}
+
+function isAllowedRemoteVideoUrl(value) {
+  let parsed;
+  try {
+    parsed = value instanceof URL ? value : new URL(String(value || ""));
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  const host = parsed.hostname.toLowerCase();
+  return host === "libtv-res.liblib.art" || host.endsWith(".liblib.art");
+}
+
+function remoteVideoDownloadName(rawUrl = "", name = "") {
+  let ext = ".mp4";
+  try {
+    const parsed = new URL(String(rawUrl || ""));
+    const match = parsed.pathname.match(/\.(mp4|mov|m4v|webm)$/i);
+    if (match) ext = `.${match[1].toLowerCase()}`;
+  } catch {
+    // Keep the default mp4 extension.
+  }
+  const base = safeFilePart(name || "video-result");
+  return /\.(mp4|mov|m4v|webm)$/i.test(base) ? base : `${base}${ext}`;
+}
+
+async function serveRemoteVideoSaveProxy(res, rawUrl, name = "") {
+  let remoteUrl;
+  try {
+    remoteUrl = new URL(String(rawUrl || ""));
+  } catch {
+    return textResponse(res, 400, "视频链接不正确。");
+  }
+  if (!isAllowedRemoteVideoUrl(remoteUrl)) {
+    return textResponse(res, 400, "当前视频域名不在允许保存范围内。");
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
+  try {
+    const response = await fetch(remoteUrl.href, {
+      signal: controller.signal,
+      headers: {
+        "user-agent": "AI-Prompt-Video-Studio/1.0"
+      }
+    });
+    if (!response.ok) return textResponse(res, 502, "视频读取失败，请稍后重试。");
+
+    const contentType = response.headers.get("content-type") || "";
+    const looksLikeVideo = /^video\//i.test(contentType)
+      || /octet-stream/i.test(contentType)
+      || /\.(mp4|mov|m4v|webm)$/i.test(remoteUrl.pathname);
+    if (!looksLikeVideo) return textResponse(res, 400, "这个链接不是可保存的视频文件。");
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (contentLength > MAX_REMOTE_VIDEO_BYTES) return textResponse(res, 413, "视频文件太大，暂时无法直接保存。");
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > MAX_REMOTE_VIDEO_BYTES) return textResponse(res, 413, "视频文件太大，暂时无法直接保存。");
+
+    const fileName = remoteVideoDownloadName(remoteUrl.href, name);
+    const asciiName = fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "_");
+    res.writeHead(200, {
+      ...corsHeadersFor(),
+      "content-type": contentType || mimeTypes[path.extname(fileName).toLowerCase()] || "video/mp4",
+      "content-length": buffer.length,
+      "content-disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff"
+    });
+    res.end(buffer);
+  } catch (error) {
+    return textResponse(res, error.name === "AbortError" ? 504 : 502, "视频保存准备失败，请稍后重试。");
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function imageOutputOwnerPrefix(ownerUserId = defaultOwnerUserId()) {
+  return `u${hashText(ownerUserId || defaultOwnerUserId()).slice(0, 12)}`;
+}
+
+function isGeneratedImageFile(name = "") {
+  return /\.(png|jpe?g|webp)$/i.test(String(name));
 }
 
 async function serveOutputFile(res, kind, name, ownerUserId = "") {
@@ -3989,6 +4769,9 @@ async function serveOutputFile(res, kind, name, ownerUserId = "") {
     if (!rows.length) return textResponse(res, 404, "Not found");
   }
   if (ownerUserId && kind === "stitched" && ownerUserId !== defaultOwnerUserId()) return textResponse(res, 404, "Not found");
+  if (ownerUserId && kind === "text-image" && ownerUserId !== defaultOwnerUserId() && !path.basename(name).startsWith(imageOutputOwnerPrefix(ownerUserId))) {
+    return textResponse(res, 404, "Not found");
+  }
   const filePath = path.normalize(path.join(dir, path.basename(name)));
   const relative = path.relative(dir, filePath);
   if (relative.startsWith("..") || path.isAbsolute(relative)) return textResponse(res, 403, "Forbidden");
@@ -4008,6 +4791,93 @@ async function serveOutputFile(res, kind, name, ownerUserId = "") {
   }
 }
 
+function publicAssetFileName(row = {}) {
+  const fromPath = String(row.file_path || "").trim();
+  if (fromPath) return path.basename(fromPath);
+  const fromUrl = String(row.file_url || "").trim();
+  if (fromUrl) {
+    try {
+      return path.basename(new URL(fromUrl, "http://local.invalid").pathname) || "asset";
+    } catch {
+      return path.basename(fromUrl) || "asset";
+    }
+  }
+  const type = safeFilePart(row.asset_type || "asset");
+  const ext = safeFilePart(row.format || "bin").replace(/^\.+/, "") || "bin";
+  return `${type}.${ext}`;
+}
+
+function publicAssetRow(row = {}) {
+  const fileName = publicAssetFileName(row);
+  const hasLocalFile = Boolean(String(row.file_path || "").trim());
+  const fileUrl = String(row.file_url || "").trim();
+  const isPublicUrl = /^(https?:\/\/|\/|data:|blob:)/i.test(fileUrl);
+  return {
+    task_code: row.task_code || "",
+    category: row.category || "",
+    product_name: row.product_name || "",
+    asset_type: row.asset_type || "",
+    sort_order: row.sort_order ?? null,
+    file_name: fileName,
+    file_url: isPublicUrl ? fileUrl : "",
+    download_url: hasLocalFile
+      ? `/api/asset-file?id=${encodeURIComponent(row.asset_id)}`
+      : (isPublicUrl ? fileUrl : ""),
+    format: row.format || path.extname(fileName).replace(/^\./, "") || "",
+    size_bytes: row.size_bytes || 0,
+    created_at: row.created_at || ""
+  };
+}
+
+async function serveAssetFile(res, assetId, ownerUserId = "") {
+  const id = Number.parseInt(String(assetId || ""), 10);
+  if (!Number.isFinite(id) || id <= 0) return textResponse(res, 404, "Asset not found");
+  const rows = await querySqlite(
+    `
+    SELECT
+      pa.rowid AS asset_id,
+      pa.file_path,
+      pa.file_url,
+      pa.asset_type,
+      pa.format
+    FROM product_assets pa
+    LEFT JOIN video_tasks vt ON vt.id = pa.task_id
+    WHERE pa.rowid = ?
+      AND COALESCE(vt.owner_user_id, pa.owner_user_id, ?) = ?
+    LIMIT 1
+    `,
+    [id, defaultOwnerUserId(), ownerUserId]
+  );
+  const row = rows[0];
+  if (!row) return textResponse(res, 404, "Asset not found");
+  const sourcePath = String(row.file_path || "").trim();
+  if (!sourcePath) {
+    const publicUrl = String(row.file_url || "").trim();
+    if (/^https?:\/\//i.test(publicUrl)) {
+      res.writeHead(302, { location: publicUrl, "cache-control": "no-store" });
+      return res.end();
+    }
+    return textResponse(res, 404, "Asset file not found");
+  }
+  const filePath = path.normalize(sourcePath);
+  const relative = path.relative(WORKFLOW_DIR, filePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return textResponse(res, 403, "Forbidden");
+  try {
+    const fileStat = await stat(filePath);
+    if (!fileStat.isFile()) return textResponse(res, 404, "Asset file not found");
+    const ext = path.extname(filePath).toLowerCase();
+    const content = await readFile(filePath);
+    res.writeHead(200, {
+      "content-type": mimeTypes[ext] || "application/octet-stream",
+      "content-length": content.length,
+      "cache-control": "no-store"
+    });
+    res.end(content);
+  } catch {
+    textResponse(res, 404, "Asset file not found");
+  }
+}
+
 async function saveVideoInputFiles(payload) {
   const identity = payload.taskCode
     ? taskIdentityFromExisting(payload.taskCode, payload.productCategory)
@@ -4018,6 +4888,21 @@ async function saveVideoInputFiles(payload) {
 
   const promptDocPath = path.join(runDir, "final_prompt.txt");
   const packageJsonPath = path.join(runDir, "prompt_package.json");
+  const imageSources = buildVideoImageSourceSummaries(payload.images);
+  const inputImages = payload.images.map((image, index) => ({
+    index: index + 1,
+    name: image.name,
+    type: image.type,
+    size: image.size,
+    sourceType: image.sourceType || "",
+    sourceUrl: image.sourceUrl || "",
+    textImageCanvasNodeId: image.textImageCanvasNodeId || "",
+    textImageRunId: image.textImageRunId || "",
+    textImageModel: image.textImageModel || "",
+    textImageSize: image.textImageSize || "",
+    textImageCreatedAt: image.textImageCreatedAt || "",
+    textImageLinkedAt: image.textImageLinkedAt || ""
+  }));
   await writeFile(promptDocPath, payload.finalPrompt, "utf8");
   await writeFile(
     packageJsonPath,
@@ -4033,24 +4918,11 @@ async function saveVideoInputFiles(payload) {
         productBrief: payload.productBrief,
         duration: payload.duration,
         aspectRatio: payload.aspectRatio,
-        promptPackage: payload.promptPackage
-    },
-    {
-      sql: "CREATE INDEX IF NOT EXISTS idx_selection_products_owner_user_id ON selection_products(owner_user_id)",
-      params: []
-    },
-    {
-      sql: "CREATE INDEX IF NOT EXISTS idx_account_assets_owner_user_id ON account_assets(owner_user_id)",
-      params: []
-    },
-    {
-      sql: "UPDATE selection_products SET owner_user_id = ? WHERE owner_user_id IS NULL OR owner_user_id = ''",
-      params: [defaultOwnerUserId()]
-    },
-    {
-      sql: "UPDATE account_assets SET owner_user_id = ? WHERE owner_user_id IS NULL OR owner_user_id = ''",
-      params: [defaultOwnerUserId()]
-    },
+        promptPackage: payload.promptPackage,
+        inputImages,
+        imageSources,
+        textImageCanvasNodeIds: imageSources.map((source) => source.textImageCanvasNodeId).filter(Boolean)
+      },
       null,
       2
     ),
@@ -4066,7 +4938,13 @@ async function saveVideoInputFiles(payload) {
     const filename = `${String(index + 1).padStart(2, "0")}-${safeFilePart(path.parse(image.name).name || "product")}${ext}`;
     const imagePath = path.join(imagesDir, filename);
     await writeFile(imagePath, parsed.buffer);
-    savedImages.push({ name: image.name, type: parsed.mime, path: imagePath, size: parsed.buffer.length });
+    savedImages.push({
+      name: image.name,
+      type: parsed.mime,
+      path: imagePath,
+      size: parsed.buffer.length,
+      ...(normalizeTextImageSourceMetadata(image) || {})
+    });
   }
 
   return {
@@ -4718,6 +5596,7 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
 
     if (req.method === "GET" && url.pathname === "/api/config") {
       const libtvHealth = await getLibTVHealth();
+      const canViewRuntimeInternals = String(session?.user || config.authUser || "").toLowerCase() === "zkr";
       return jsonResponse(res, 200, {
         currentUser: session
           ? publicUser({ id: session.userId, username: session.user, displayName: session.displayName, role: session.role })
@@ -4733,8 +5612,8 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
         authRequired: config.authRequired,
         libtvBridgeConfigured: Boolean(config.libtvBridgeUrl),
         libtvBridgeReachable: Boolean(libtvHealth.ok),
-        libtvBridgeUrl: config.libtvBridgeUrl,
-        libtvDatabase: config.libtvDbPath,
+        libtvBridgeUrl: canViewRuntimeInternals ? config.libtvBridgeUrl : config.libtvBridgeUrl ? "configured" : "",
+        libtvDatabase: canViewRuntimeInternals ? config.libtvDbPath : config.libtvDbPath ? "configured" : "",
         batchMaxWorkers: config.batchMaxWorkers,
         modelRequestTimeoutMs: config.modelRequestTimeoutMs,
         activeBatchWorkers: activeBatchItemRuns.size,
@@ -4759,6 +5638,17 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
 
     if (req.method === "GET" && url.pathname === "/api/account/export") {
       return jsonResponse(res, 200, await buildAccountDataExport(session, ownerUserId));
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/task-source-links") {
+      const taskCode = String(url.searchParams.get("taskCode") || "").trim();
+      const limit = Number(url.searchParams.get("limit") || 100);
+      const sourceLinks = await listVideoTaskSourceLinks({ ownerUserId, taskCode, limit });
+      return jsonResponse(res, 200, {
+        ok: true,
+        taskCode,
+        sourceLinks
+      });
     }
 
     if (req.method === "GET" && url.pathname === "/api/account/data-rights-requests") {
@@ -4847,6 +5737,14 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
 
     if (req.method === "GET" && url.pathname === "/api/output-file") {
       return serveOutputFile(res, url.searchParams.get("kind"), url.searchParams.get("name"), ownerUserId);
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/video-save-proxy") {
+      return serveRemoteVideoSaveProxy(res, url.searchParams.get("url"), url.searchParams.get("name"));
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/asset-file") {
+      return serveAssetFile(res, url.searchParams.get("id"), ownerUserId);
     }
 
     if (req.method === "GET" && url.pathname === "/api/libtv/health") {
@@ -5013,6 +5911,7 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
       const rows = await querySqlite(
         `
         SELECT
+          pa.rowid AS asset_id,
           vt.task_code,
           vt.category,
           p.product_name,
@@ -5034,7 +5933,11 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
         [defaultOwnerUserId(), ownerUserId, taskCode, taskCode]
       );
       const outputFiles = await listOutputFiles(ownerUserId);
-      return jsonResponse(res, 200, { ok: true, rows, outputFiles });
+      return jsonResponse(res, 200, {
+        ok: true,
+        rows: rows.map(publicAssetRow),
+        outputFiles: outputFiles.map(({ path: _path, ...file }) => file)
+      });
     }
 
     if (req.method === "POST" && url.pathname === "/api/extract-docx") {
@@ -5058,6 +5961,31 @@ const server = createServer((req, res) => requestContext.run({ req }, async () =
       const payload = await readJsonBody(req);
       const run = createRun("video", { ...payload, ownerUserId }, runVideoJob, { ownerUserId });
       return jsonResponse(res, 202, { runId: run.id });
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/image-runs") {
+      const payload = await readJsonBody(req);
+      const run = createRun("text-image", { ...payload, ownerUserId }, runTextToImageJob, { ownerUserId });
+      return jsonResponse(res, 202, { runId: run.id });
+    }
+
+    if (req.method === "GET" && url.pathname === "/api/text-image-canvas") {
+      const limit = boundedNumber(url.searchParams.get("limit"), 300, 1, 1000);
+      const nodes = await listTextImageCanvasNodes(ownerUserId, limit);
+      return jsonResponse(res, 200, { canvasId: `text-image:${ownerUserId}`, nodes });
+    }
+
+    const textImageNodeMatch = /^\/api\/text-image-canvas\/nodes\/([^/]+)$/.exec(url.pathname);
+    if (textImageNodeMatch && req.method === "POST") {
+      const payload = await readJsonBody(req);
+      const node = await updateTextImageCanvasNode(decodeURIComponent(textImageNodeMatch[1]), payload, ownerUserId);
+      if (!node) return textResponse(res, 404, "Canvas node not found");
+      return jsonResponse(res, 200, { node });
+    }
+    if (textImageNodeMatch && req.method === "DELETE") {
+      const deleted = await deleteTextImageCanvasNode(decodeURIComponent(textImageNodeMatch[1]), ownerUserId);
+      if (!deleted) return textResponse(res, 404, "Canvas node not found");
+      return jsonResponse(res, 200, { deleted });
     }
 
     if (req.method === "POST" && url.pathname === "/api/stitch-runs") {
@@ -5128,6 +6056,8 @@ server.listen(config.port, () => {
   console.log(`AI Prompt Video Studio listening on http://localhost:${config.port}`);
   ensureAuthSchema()
     .then(() => ensureBatchSchema())
+    .then(() => ensureTextImageCanvasSchema())
+    .then(() => ensureVideoTaskSourceLinkSchema())
     .then(() => scheduleBatchProcessor())
     .catch((error) => console.error("Batch schema init failed:", error));
 });

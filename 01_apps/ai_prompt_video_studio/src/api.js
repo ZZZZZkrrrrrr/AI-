@@ -49,7 +49,8 @@ export async function readImageFile(file) {
 export async function readRemoteImageFile(asset) {
   const url = asset?.url || asset?.openUrl || "";
   if (!url) throw new Error("素材附件缺少访问地址。");
-  const response = await fetch(`${API_BASE}${url}`);
+  const requestUrl = /^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`;
+  const response = await fetch(requestUrl, { credentials: "include" });
   if (!response.ok) throw new Error(`素材附件读取失败：${asset.name || url}`);
   const blob = await response.blob();
   return {

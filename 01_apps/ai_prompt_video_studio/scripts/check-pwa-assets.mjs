@@ -177,6 +177,17 @@ if (!/离线|offline/i.test(offlineText)) {
   fail('Offline page should clearly communicate the "offline" state.');
 }
 
+for (const marker of [
+  "网络暂时断开",
+  "先别退出",
+  "offline-checklist",
+  "任务中心",
+  "重新连接",
+  "/support.html"
+]) {
+  requireIncludes(offlineText, marker, `Offline page includes ${marker}`);
+}
+
 const installText = await readRequiredText("install.html", "Mobile install guide page");
 for (const marker of [
   "https://www.zkraiflow.top/",
@@ -192,6 +203,31 @@ for (const marker of [
   requireIncludes(installText, marker, `Mobile install guide includes ${marker}`);
 }
 
+for (const marker of [
+  "像 App 一样打开",
+  "只需要做一次",
+  "install-hero-actions",
+  "打开工作台",
+  "安装失败怎么办",
+  "install-quick-card",
+  "一分钟判断",
+  "install-check-grid",
+  "install-step-list"
+]) {
+  requireIncludes(installText, marker, `Mobile install guide keeps beginner-friendly ${marker}`);
+}
+
+const legalCssText = await readRequiredText("legal/legal.css", "Legal page stylesheet");
+for (const marker of [
+  ".install-hero-actions",
+  ".install-primary-link",
+  ".install-quick-card",
+  ".install-check-grid",
+  ".install-step-list"
+]) {
+  requireIncludes(legalCssText, marker, `Legal stylesheet includes ${marker}`);
+}
+
 const supportText = await readRequiredText("support.html", "Support page");
 for (const marker of [
   "/install.html",
@@ -201,6 +237,32 @@ for (const marker of [
   "/legal/ai-disclosure.html"
 ]) {
   requireIncludes(supportText, marker, `Support page includes ${marker}`);
+}
+
+for (const marker of [
+  "遇到问题先点这里",
+  "不用理解技术原因",
+  "support-quick-panel",
+  "常见问题快捷排查",
+  "support-action-grid",
+  "support-action-card",
+  "生成卡住",
+  "素材找不到",
+  "结果不满意",
+  "账号 / 数据",
+  "联系与处理说明",
+  "任务中心"
+]) {
+  requireIncludes(supportText, marker, `Support page keeps beginner-friendly ${marker}`);
+}
+
+for (const marker of [
+  ".support-quick-panel",
+  ".support-action-grid",
+  ".support-action-card",
+  ".support-status-card"
+]) {
+  requireIncludes(legalCssText, marker, `Legal stylesheet includes ${marker}`);
 }
 
 if (failures.length) {

@@ -27,6 +27,11 @@
       "example": "/var/lib/ai-video-studio/runs"
     },
     {
+      "name": "TEXT_IMAGE_STORAGE_MODE",
+      "purpose": "Storage mode for text-to-image outputs and canvas media. Use mounted-volume for private pilot and object-storage before public multi-user release.",
+      "example": "mounted-volume"
+    },
+    {
       "name": "LIBTV_BRIDGE_URL",
       "purpose": "Private worker endpoint used by the API service. Must not point to localhost in production.",
       "example": "https://libtv-worker.internal.example.com"
@@ -159,6 +164,42 @@
         "scripts/check-persistent-storage-evidence-template.mjs",
         "deploy/production.env.example",
         "deploy/production-release-runbook.md"
+      ]
+    },
+    {
+      "id": "text-image-canvas-storage",
+      "owner": "platform",
+      "status": "design-ready-waiting-storage-adapter",
+      "objective": "Make text-to-image outputs and canvas node metadata durable, account-scoped, and ready for later object storage/PostgreSQL migration.",
+      "ownerInputs": [
+        "Choose mounted volume or object storage bucket for generated images",
+        "Confirm retention policy for generated images and removed canvas nodes",
+        "Confirm PostgreSQL migration timing for text_image_canvas_nodes"
+      ],
+      "implementationSteps": [
+        "Keep local outputs/text-to-image only for desktop/private pilot.",
+        "Store generated images under persistent media storage before production pilot.",
+        "Move text_image_canvas_nodes to PostgreSQL before public multi-user release.",
+        "Store object_key, owner_user_id, tenant_id, file hash, MIME, size, prompt summary, model, and deleted_at.",
+        "Record textImageCanvasNodeId in AI evidence packs when images are reused in video workflows."
+      ],
+      "acceptanceCriteria": [
+        "Generated text-image files remain readable after API restart.",
+        "Canvas nodes remain scoped by owner_user_id.",
+        "Removing a canvas node does not delete underlying image media unless retention cleanup explicitly runs.",
+        "npm run text-image:check continues to pass after storage changes."
+      ],
+      "verificationCommands": [
+        "npm run text-image:check",
+        "npm run cloud:check",
+        "npm run storage:restart-template",
+        "npm run release:check"
+      ],
+      "evidenceFiles": [
+        "00_docs/TEXT_IMAGE_CANVAS_PRODUCTIZATION_2026-06-11.md",
+        "00_docs/BACKEND_CLOUD_READINESS_2026-06-09.md",
+        "deploy/cloud-deployment-action-plan.json",
+        "scripts/check-text-image-canvas-readiness.mjs"
       ]
     },
     {

@@ -10,6 +10,8 @@
 
 首个生产版本建议采用单租户模式：用户只访问 `https://www.zkraiflow.top/`，Node API 负责登录、任务创建、状态查询、数据导出和删除申请；私有 libTV worker 负责长耗时的视频执行、结果导入和证据写入。
 
+2026-06-12 补充：文生图功能已经新增 `outputs/text-to-image` 和 `text_image_canvas_nodes`。这部分虽然不由 libTV worker 执行，但属于同一套持久化存储和 AI 证据链，公开发布前需要纳入对象存储和数据库迁移。
+
 ## 2. 推荐架构
 
 ```text
@@ -48,6 +50,7 @@ Node API Service
 | 变量 | 用途 | 示例 |
 |---|---|---|
 | `RUN_STORAGE_DIR` | 保存 uploads、runs、exports、删除申请证据和生成结果 | `/var/lib/ai-video-studio/runs` |
+| `TEXT_IMAGE_STORAGE_MODE` | 文生图图片存储模式，内测可用 mounted-volume，公开发布应迁移 object-storage | `mounted-volume` |
 | `LIBTV_BRIDGE_URL` | API 调用的私有 worker 地址 | `https://libtv-worker.internal.example.com` |
 | `LIBTV_REGISTER_SCRIPT` | worker 内部脚本路径或等价服务命令 | `/app/services/libtv_runner/register_task_input.py` |
 | `LIBTV_DB_PATH` | worker 可访问的数据库路径或托管数据库引用 | `/data/ai_product.sqlite` |
@@ -70,12 +73,13 @@ Node API Service
 
 1. 设置 `RUN_STORAGE_DIR` 到生产挂载卷，确认 API 重启后文件仍可读。
 2. 把上传、运行结果、账号导出和删除申请证据统一落到 `RUN_STORAGE_DIR`。
-3. 搭建私有 worker 环境，安装 Python、ffmpeg、libTV runner 和运行凭据。
-4. 给 worker 增加 `/healthz`、`/tasks`、`/tasks/:id`。
-5. 将 `LIBTV_BRIDGE_URL` 从 localhost 改为私有 worker 地址。
-6. 将 `LIBTV_REGISTER_SCRIPT` 与 `LIBTV_DB_PATH` 从 Windows 路径改为 worker/container 路径。
-7. 先跑 dry-run，再跑一条受控真实出片。
-8. 记录回滚方式：上一版构建产物、环境变量快照、worker 镜像或部署版本。
+3. 将文生图 `outputs/text-to-image` 纳入持久化媒体目录或对象存储，并让 `text_image_canvas_nodes` 保留对象 key、owner、tenant、提示词摘要和删除状态。
+4. 搭建私有 worker 环境，安装 Python、ffmpeg、libTV runner 和运行凭据。
+5. 给 worker 增加 `/healthz`、`/tasks`、`/tasks/:id`。
+6. 将 `LIBTV_BRIDGE_URL` 从 localhost 改为私有 worker 地址。
+7. 将 `LIBTV_REGISTER_SCRIPT` 与 `LIBTV_DB_PATH` 从 Windows 路径改为 worker/container 路径。
+8. 先跑 dry-run，再跑一条受控真实出片。
+9. 记录回滚方式：上一版构建产物、环境变量快照、worker 镜像或部署版本。
 
 ## 7. 验收标准
 
@@ -84,6 +88,7 @@ Node API Service
 - worker `/healthz` 返回 storage、libTV 和 ffmpeg 都可用。
 - 生成任务在 API 创建后能进入 worker，状态能回写到移动端任务提醒和任务卡片。
 - API 或 worker 重启后，已生成的结果、导出文件和删除申请证据仍可访问。
+- API 重启后，text-image 图片和 `text_image_canvas_nodes` 画布节点仍可访问，且删除画布节点不会误删底层图片。
 - 真实出片开关只在完成 smoke、费用上限和回滚确认后开启。
 
 ## 8. 当前仍需 owner 决策

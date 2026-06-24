@@ -9,7 +9,9 @@
       :root {
         font-family: "Microsoft YaHei", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         color: #17202a;
-        background: #eef1ef;
+        background:
+          radial-gradient(circle at 12% 8%, rgba(42, 183, 151, 0.18), transparent 34%),
+          linear-gradient(180deg, #f4fbf7 0%, #eef1ef 100%);
       }
 
       body {
@@ -22,16 +24,29 @@
 
       main {
         width: min(440px, 100%);
-        padding: 28px;
+        padding: 26px;
         border: 1px solid #d9dfdc;
-        border-radius: 8px;
-        background: #ffffff;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.94);
         box-shadow: 0 8px 28px rgba(29, 43, 37, 0.08);
+      }
+
+      .offline-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        margin-bottom: 14px;
+        padding: 0 10px;
+        border-radius: 999px;
+        color: #126a63;
+        background: rgba(18, 106, 99, 0.1);
+        font-size: 13px;
+        font-weight: 800;
       }
 
       h1 {
         margin: 0 0 10px;
-        font-size: 24px;
+        font-size: 26px;
         line-height: 1.25;
       }
 
@@ -42,23 +57,96 @@
         line-height: 1.7;
       }
 
+      .offline-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      button,
+      a {
+        display: inline-grid;
+        min-height: 46px;
+        place-items: center;
+        padding: 0 16px;
+        border-radius: 12px;
+        font: inherit;
+        font-weight: 800;
+        text-decoration: none;
+      }
+
       button {
         min-height: 44px;
-        padding: 0 16px;
         border: 0;
-        border-radius: 8px;
         background: #126a63;
         color: #ffffff;
-        font: inherit;
-        font-weight: 700;
+      }
+
+      a {
+        border: 1px solid #d9dfdc;
+        color: #17202a;
+        background: #ffffff;
+      }
+
+      .offline-checklist {
+        display: grid;
+        gap: 8px;
+        margin: 18px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .offline-checklist li {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        gap: 9px;
+        align-items: start;
+        padding: 10px;
+        border: 1px solid #e1e7e3;
+        border-radius: 12px;
+        color: #435048;
+        background: #f8faf8;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .offline-checklist strong {
+        display: grid;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        border-radius: 999px;
+        color: #126a63;
+        background: rgba(18, 106, 99, 0.1);
+        font-size: 12px;
+      }
+
+      @media (max-width: 420px) {
+        main {
+          padding: 22px;
+        }
+
+        .offline-actions {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <h1>当前网络不可用</h1>
-      <p>已进入离线模式。你可以稍后刷新页面继续查看任务状态，创建和生成视频需要恢复网络后再操作。</p>
-      <button type="button" onclick="window.location.reload()">重新连接</button>
+      <span class="offline-badge">网络暂时断开</span>
+      <h1>先别退出，等网络回来</h1>
+      <p>当前是离线模式。已经打开过的页面可以继续看，创建、生成视频和刷新任务需要恢复网络后再操作。</p>
+      <ul class="offline-checklist" aria-label="离线处理步骤">
+        <li><strong>1</strong><span>先检查 Wi-Fi 或 5G 是否可用。</span></li>
+        <li><strong>2</strong><span>网络恢复后点“重新连接”。</span></li>
+        <li><strong>3</strong><span>生成中的任务可以回到任务中心继续查看。</span></li>
+      </ul>
+      <div class="offline-actions">
+        <button type="button" onclick="window.location.reload()">重新连接</button>
+        <a href="/support.html">查看帮助</a>
+      </div>
     </main>
   </body>
 </html>

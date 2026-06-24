@@ -128,7 +128,7 @@ function MobileStitchVideoCards({ videos, selected, onToggle }) {
           </article>
         );
       }) : (
-        <div className="empty-state">暂时没有可拼接的视频。先生成并提交 libTV，完成后会出现在这里。</div>
+        <div className="empty-state">暂时没有可拼接的视频。先生成视频，完成后会出现在这里。</div>
       )}
     </div>
   );
@@ -354,7 +354,7 @@ export default function VideoStitchPage({ jobs, assets, addNotification, onRefre
               </tr>
             )) : (
               <tr>
-                <td colSpan="7">暂时没有可拼接的视频。先在提示词工作台生成并提交 libTV，视频完成后会出现在这里。</td>
+                <td colSpan="7">暂时没有可拼接的视频。先在提示词工作台生成视频，完成后会出现在这里。</td>
               </tr>
             )}
           </tbody>

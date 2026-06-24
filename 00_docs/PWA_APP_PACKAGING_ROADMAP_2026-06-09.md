@@ -40,6 +40,9 @@
 - 已新增 `capacitor.config.json`、`scripts/check-capacitor-readiness.mjs` 和 `npm run capacitor:check`，用于固定 App ID、App 名称、`dist` 打包目录和原生封装安全配置。
 - 已新增 `scripts/report-app-structure.mjs` 和 `npm run analyze:app`，用于输出 `App.jsx` 最大函数和拆分候选；当前 `App.jsx` 约 17023 行，优先拆分候选为 `SelectionAssetsOverviewPage`、`ProductLibraryPage`、`BatchPage`、`ProductScoringPage`。
 - 已新增 `npm run app:health`，一键串起移动端就绪检查、PWA 资产检查、结构分析、构建、体积守卫、体积报告和 Capacitor 配置检查，作为后续模块拆分的默认验收命令。
+- 2026-06-12 已将 `npm run text-image:check` 纳入 `app:health`，覆盖文生图同账号画布、懒加载、移动端样式和产品化文档。
+- 2026-06-12 核对官方资料后，继续按 PWA 基础能力优先：Chrome/Chromium 侧保持 manifest、图标、安装元数据和 Service Worker 门禁；iOS/iPadOS 侧通知能力只作为后续增强，因为 Web Push 要求用户先把 Web App 添加到主屏幕，再由 Web App 请求通知权限。
+- 官方资料入口：Chrome 安装性文档 `https://developer.chrome.com/docs/lighthouse/pwa/installable-manifest`；WebKit iOS/iPadOS Web Push 说明 `https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/`；Apple HIG Buttons `https://developer.apple.com/design/human-interface-guidelines/buttons`。
 - 已新增 `APP_MODULE_SPLIT_PLAN_2026-06-09.md`，明确下一阶段模块拆分顺序、懒加载目标、验收命令和停止条件。
 - 已新增后端公开探活接口 `GET /api/healthz`，用于云平台、反向代理和负载均衡健康检查。
 - 已新增 `scripts/check-cloud-readiness.mjs`、`npm run cloud:check` 和 `npm run cloud:check:strict`，用于审计后端公开部署前的密钥、鉴权、本机路径、存储和 libTV 桥接风险。

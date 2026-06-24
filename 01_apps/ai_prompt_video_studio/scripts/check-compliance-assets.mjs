@@ -127,6 +127,12 @@ if (!appSource) {
       fail(`Studio page is missing AI disclosure evidence marker: ${marker}`);
     }
   }
+  if (!appSource.includes('await import("./shared/compliance/aiEvidencePack.js")')) {
+    fail("AI evidence pack module should be lazy loaded from the studio page.");
+  }
+  if (/from\s+["']\.\/shared\/compliance\/aiEvidencePack\.js["']/.test(appSource)) {
+    fail("AI evidence pack module should not be statically imported into App.jsx.");
+  }
 }
 
 if (!settingsPageSource) {
@@ -147,9 +153,14 @@ const serverSource = await readFile(path.join(rootDir, "server.js"), "utf8").cat
 if (!serverSource) {
   warn("server.js could not be read, so account data rights APIs were not verified.");
 } else {
-  for (const marker of ["/api/account/export", "/api/account/data-rights-request", "/api/account/data-rights-requests", "/api/admin/data-rights-requests", "readDataRightsRequests", "updateDataRightsRequestStatus", "requireDataRightsAdmin", "DELETE_ACCOUNT", "verifyDataRightsIdentity", "currentPassword", "dataRightsStatusLabel"]) {
+  for (const marker of ["/api/account/export", "/api/task-source-links", "/api/account/data-rights-request", "/api/account/data-rights-requests", "/api/admin/data-rights-requests", "readDataRightsRequests", "updateDataRightsRequestStatus", "requireDataRightsAdmin", "DELETE_ACCOUNT", "verifyDataRightsIdentity", "currentPassword", "dataRightsStatusLabel"]) {
     if (!serverSource.includes(marker)) {
       fail(`Server is missing account data rights support: ${marker}`);
+    }
+  }
+  for (const marker of ["video_task_source_links", "recordVideoTaskSourceLinks", "listVideoTaskSourceLinks", "textImageSourceLinks", "textImageCanvasNodeIds", "imageSources"]) {
+    if (!serverSource.includes(marker)) {
+      fail(`Server is missing AI source traceability support: ${marker}`);
     }
   }
 }
